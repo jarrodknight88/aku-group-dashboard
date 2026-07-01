@@ -1,0 +1,30 @@
+/* Aku Group Operations Dashboard — global styles.
+   Component-level layout stays in JSX (ported pixel-for-pixel from the
+   Claude Design handoff). This file only carries global resets + a couple
+   of shared helpers. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #eef0f3;
+  font-family: 'Hanken Grotesk', sans-serif;
+  color: #1a2230;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.serif {
+  font-family: 'Newsreader', serif;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
