@@ -28,3 +28,14 @@ a {
 .tnum {
   font-variant-numeric: tabular-nums;
 }
+
+/* By Location hub cards — hover lift from the handoff design */
+.loc-card {
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+
+.loc-card:hover {
+  box-shadow: 0 8px 24px rgba(20, 32, 48, 0.12);
+  transform: translateY(-2px);
+  border-color: #c9d3e2 !important;
+}
