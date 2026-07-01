@@ -14,24 +14,37 @@ from the source design and are data-driven, not hardcoded once the backend is wi
 - Brand: **Aku Blue `#184080`** only — tints/shades + neutral grays, no other accents.
 - Backend (planned): **Supabase** (Postgres + Auth + RLS + pg_cron). See `supabase/`.
 
-## What's built in this slice
+## What's built
 
-The **Location Report** (Level 2, Teranga ATL) is implemented pixel-for-pixel
-from the handoff design at `src/pages/LocationReport.jsx`:
+All six screens from the handoff design, implemented pixel-for-pixel with
+realistic demo data pending the Supabase wiring:
 
-- Headline strip (Net Sales · Covers · Avg Check · Valet) with deltas.
-- **Money In** — Daily Sales, Payment Mix, Revenue Streams.
-- **Money Saved** — Food % · Labor % (vs target) · Liquor % · Total Expenses.
-- **Money Protected** — Void % / Discount % vs target, Voids/Discounts by day,
-  Chargebacks by Stage (Won / In Progress / Lost), Exception Flags tile
-  (deep-links to `?loc=atl` for the per-manager scoped view).
-- **Top Sellers** — Top Food / Liquor / Hookah + Category Performance.
-- **Top Employees** — Servers / Bartenders / Hookah / Overall, with a working
+- **Company Glance** (Level 1) — headline strip with deltas, Money In (Daily
+  Sales by Location, Revenue Mix, Revenue Streams), Money Saved, Money
+  Protected (incl. Won/In-Progress/Lost chargebacks + Exception Flags tile),
+  Top Sellers, and the color-coded Location Comparison table.
+- **By Location** hub — a card per venue with status pill, Net Sales + delta,
+  Covers + avg check, and target-health chips (Food · Liquor · Labor · Void ·
+  Disc); R Thomas opening-soon card and + Add Location affordance.
+- **Location Report** (Level 2, Teranga ATL) — full parity with Company,
+  scoped to one venue: Money In / Saved / Protected, Top Sellers, and Top
+  Employees (Servers / Bartenders / Hookah / Overall) with a working
   **Top by $ / Top by Qty** toggle driving all four cards.
+- **Detail Drill** (Level 3) — top sellers with a working $/Qty toggle,
+  Payment Methods detail table, exception preview, Monthly P&L Summary.
+- **Exception Flags** — summary strip, Flags-by-Audit-Rule bars, filter bar,
+  and the flagged-transaction table. Everything recomputes from `?loc=`;
+  location chips hide in scoped views, so each manager's deep link (e.g.
+  `/exceptions?loc=clt`) shows only their venue.
+- **Settings** — three working tabs: KPI Targets (editable + Reset to
+  Defaults, incl. Liquor < 24%), Period History (keeps 24, Clear All), and
+  Expense Category Mapping (keyword rules with add/remove, live vendor-name
+  tester with longest-keyword-wins, JSON export with copy).
 
-The other levels (Company Glance, By Location hub, Detail Drill, Exception
-Detail, Settings) are **routed stubs** so the whole flow is navigable. Data is
-realistic demo data pending the Supabase wiring.
+Interactions that work: all navigation/back-paths, the $/Qty toggles, KPI
+target editing + reset, mapping add/remove + tester, and location-scoped
+exception deep links. Date picker, status filters, and export buttons are
+visual pending data wiring.
 
 ## Run locally
 
@@ -48,12 +61,12 @@ Deep-linking works on Netlify via `public/_redirects` (SPA fallback).
 
 | Path | Screen |
 |---|---|
-| `/` | Company Glance (stub) |
-| `/locations` | By Location hub (stub, cards link to reports) |
-| `/locations/:loc` | **Location Report** (built; Teranga ATL) |
-| `/detail-drill` | Detail Drill (stub) |
-| `/exceptions?loc=atl` | Exception Flags, location-scoped (stub) |
-| `/settings` | Settings (stub) |
+| `/` | Company Glance (Level 1) |
+| `/locations` | By Location hub |
+| `/locations/:loc` | Location Report (Level 2; Teranga ATL) |
+| `/detail-drill` | Detail Drill (Level 3) |
+| `/exceptions` · `/exceptions?loc=atl` | Exception Flags (org-wide / location-scoped) |
+| `/settings` | Settings (KPI Targets · Period History · Expense Mapping) |
 
 ## Backend reference — `supabase/`
 

@@ -6,7 +6,12 @@ import { colors, fonts, layout } from '../theme.js'
  * `active` highlights the current nav tab: 'company' | 'locations' | 'settings'.
  * `comparedTo` sets the comparison-window label under the date picker.
  */
-export default function AppHeader({ active = 'company', comparedTo = 'Sep 8–14' }) {
+export default function AppHeader({
+  active = 'company',
+  comparedTo = 'Sep 8–14',
+  maxWidth = layout.maxWidth,
+  showDatePicker = true,
+}) {
   const tabBase = {
     padding: '8px 18px',
     borderRadius: 6,
@@ -31,7 +36,7 @@ export default function AppHeader({ active = 'company', comparedTo = 'Sep 8–14
     >
       <div
         style={{
-          maxWidth: layout.maxWidth,
+          maxWidth,
           margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
@@ -101,6 +106,7 @@ export default function AppHeader({ active = 'company', comparedTo = 'Sep 8–14
             </Link>
           </div>
         </div>
+        {showDatePicker && (
         <div style={{ textAlign: 'right' }}>
           <div
             style={{
@@ -123,6 +129,7 @@ export default function AppHeader({ active = 'company', comparedTo = 'Sep 8–14
             <span style={{ color: colors.muted1, fontWeight: 600 }}>{comparedTo}</span>
           </div>
         </div>
+        )}
       </div>
     </div>
   )
