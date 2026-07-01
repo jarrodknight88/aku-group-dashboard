@@ -10,10 +10,15 @@
  *   DRY_RUN=1 node scripts/toast-pull/pull.mjs ...       # aggregate + print, write nothing
  *
  * Env (GitHub Actions secrets):
- *   TOAST_API_HOST            e.g. https://ws-api.toasttab.com
- *   TOAST_CLIENT_ID
- *   TOAST_CLIENT_SECRET
- *   TOAST_LOCATION_MAP        JSON: { "<toast-restaurant-guid>": "<location code e.g. ATL>", ... }
+ *   TOAST_ACCOUNTS            JSON array — one entry per Toast credential set:
+ *                             [{ "name": "teranga", "host": "https://ws-api.toasttab.com",
+ *                                "clientId": "…", "clientSecret": "…",
+ *                                "locations": { "<toast-restaurant-guid>": "<location code>" } }, …]
+ *                             Locations on separate Toast accounts (different client id/secret)
+ *                             are just separate entries. `host` is optional (defaults to prod).
+ *   — or, for a single credential set, the legacy flat form —
+ *   TOAST_API_HOST, TOAST_CLIENT_ID, TOAST_CLIENT_SECRET, TOAST_LOCATION_MAP
+ *
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY (bypasses RLS; sales columns only — invoice writer owns cost columns)
  */
@@ -21,6 +26,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const {
+  TOAST_ACCOUNTS,
   TOAST_API_HOST = 'https://ws-api.toasttab.com',
   TOAST_CLIENT_ID,
   TOAST_CLIENT_SECRET,
@@ -37,22 +43,52 @@ function fail(msg) {
   process.exit(1)
 }
 
-for (const [k, v] of Object.entries({ TOAST_CLIENT_ID, TOAST_CLIENT_SECRET, TOAST_LOCATION_MAP })) {
-  if (!v) fail(`missing env ${k}`)
-}
 if (!dryRun) {
   for (const [k, v] of Object.entries({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY })) {
     if (!v) fail(`missing env ${k}`)
   }
 }
 
-/** Toast GUID → our location code (ATL/CLT/AFRO/...). Codes resolve to uuids at runtime. */
-let locationMap
-try {
-  locationMap = JSON.parse(TOAST_LOCATION_MAP)
-} catch {
-  fail('TOAST_LOCATION_MAP is not valid JSON')
+/**
+ * Normalize config to a list of accounts:
+ *   { name, host, clientId, clientSecret, locations: { guid → code } }
+ * Codes resolve to location uuids at runtime.
+ */
+function loadAccounts() {
+  if (TOAST_ACCOUNTS) {
+    let accounts
+    try {
+      accounts = JSON.parse(TOAST_ACCOUNTS)
+    } catch {
+      fail('TOAST_ACCOUNTS is not valid JSON')
+    }
+    if (!Array.isArray(accounts) || accounts.length === 0) fail('TOAST_ACCOUNTS must be a non-empty array')
+    return accounts.map((a, i) => {
+      if (!a.clientId || !a.clientSecret) fail(`TOAST_ACCOUNTS[${i}]: missing clientId/clientSecret`)
+      if (!a.locations || !Object.keys(a.locations).length) fail(`TOAST_ACCOUNTS[${i}]: missing locations map`)
+      return {
+        name: a.name || `account-${i + 1}`,
+        host: a.host || 'https://ws-api.toasttab.com',
+        clientId: a.clientId,
+        clientSecret: a.clientSecret,
+        locations: a.locations,
+      }
+    })
+  }
+  // Legacy single-account form.
+  for (const [k, v] of Object.entries({ TOAST_CLIENT_ID, TOAST_CLIENT_SECRET, TOAST_LOCATION_MAP })) {
+    if (!v) fail(`missing env ${k} (or provide TOAST_ACCOUNTS)`)
+  }
+  let locations
+  try {
+    locations = JSON.parse(TOAST_LOCATION_MAP)
+  } catch {
+    fail('TOAST_LOCATION_MAP is not valid JSON')
+  }
+  return [{ name: 'default', host: TOAST_API_HOST, clientId: TOAST_CLIENT_ID, clientSecret: TOAST_CLIENT_SECRET, locations }]
 }
+
+const accounts = loadAccounts()
 
 /* ---------- dates ---------- */
 
@@ -83,50 +119,49 @@ if (argStart) {
   dates = [iso(y)] // yesterday's business date (job runs 11:00 UTC, after the 5am roll)
 }
 
-/* ---------- toast api ---------- */
+/* ---------- toast api (per account) ---------- */
 
-let toastToken = null
-
-async function toastAuth() {
-  const res = await fetch(`${TOAST_API_HOST}/authentication/v1/authentication/login`, {
+async function toastAuth(account) {
+  const res = await fetch(`${account.host}/authentication/v1/authentication/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      clientId: TOAST_CLIENT_ID,
-      clientSecret: TOAST_CLIENT_SECRET,
+      clientId: account.clientId,
+      clientSecret: account.clientSecret,
       userAccessType: 'TOAST_MACHINE_CLIENT',
     }),
   })
-  if (!res.ok) fail(`Toast auth failed: ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new Error(`Toast auth failed (${account.name}): ${res.status} ${await res.text()}`)
   const body = await res.json()
-  toastToken = body?.token?.accessToken
-  if (!toastToken) fail('Toast auth: no accessToken in response')
+  const token = body?.token?.accessToken
+  if (!token) throw new Error(`Toast auth (${account.name}): no accessToken in response`)
+  return token
 }
 
-async function toastGet(path, restaurantGuid, params = {}) {
-  const url = new URL(TOAST_API_HOST + path)
+async function toastGet(account, token, path, restaurantGuid, params = {}) {
+  const url = new URL(account.host + path)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
   const res = await fetch(url, {
     headers: {
-      authorization: `Bearer ${toastToken}`,
+      authorization: `Bearer ${token}`,
       'Toast-Restaurant-External-ID': restaurantGuid,
     },
   })
   if (res.status === 429) {
     // basic rate-limit backoff, then retry once
     await new Promise((r) => setTimeout(r, 5000))
-    return toastGet(path, restaurantGuid, params)
+    return toastGet(account, token, path, restaurantGuid, params)
   }
   if (!res.ok) throw new Error(`${path} → ${res.status} ${await res.text()}`)
   return res.json()
 }
 
 /** Paginated orders for one business date. */
-async function fetchOrders(restaurantGuid, businessDate) {
+async function fetchOrders(account, token, restaurantGuid, businessDate) {
   const orders = []
   let page = 1
   for (;;) {
-    const batch = await toastGet('/orders/v2/ordersBulk', restaurantGuid, {
+    const batch = await toastGet(account, token, '/orders/v2/ordersBulk', restaurantGuid, {
       businessDate: toToastDate(businessDate),
       page: String(page),
       pageSize: '100',
@@ -139,8 +174,8 @@ async function fetchOrders(restaurantGuid, businessDate) {
   return orders
 }
 
-async function fetchTimeEntries(restaurantGuid, businessDate) {
-  const entries = await toastGet('/labor/v1/timeEntries', restaurantGuid, {
+async function fetchTimeEntries(account, token, restaurantGuid, businessDate) {
+  const entries = await toastGet(account, token, '/labor/v1/timeEntries', restaurantGuid, {
     businessDate: toToastDate(businessDate),
   })
   return Array.isArray(entries) ? entries : []
@@ -258,42 +293,53 @@ async function upsertDay(locationId, businessDate, sales, labor) {
 
 /* ---------- main ---------- */
 
+const allCodes = accounts.flatMap((a) => Object.values(a.locations))
 console.log(`Toast pull — dates: ${dates[0]}${dates.length > 1 ? '..' + dates.at(-1) : ''}` +
-  ` · locations: ${Object.values(locationMap).join(', ')}${dryRun ? ' · DRY RUN' : ''}`)
+  ` · accounts: ${accounts.map((a) => a.name).join(', ')}` +
+  ` · locations: ${allCodes.join(', ')}${dryRun ? ' · DRY RUN' : ''}`)
 
-await toastAuth()
 const codeToUuid = await resolveLocations()
 
 const failures = []
 
-for (const [guid, code] of Object.entries(locationMap)) {
-  const locationId = dryRun ? null : codeToUuid[code]
-  if (!dryRun && !locationId) {
-    // Spec §3: unmapped = hard failure, never a silent skip.
-    failures.push(`${code}: no locations row with this code — add it before importing`)
+for (const account of accounts) {
+  let token
+  try {
+    token = await toastAuth(account) // one token per account, reused for the whole run
+  } catch (err) {
+    failures.push(err.message)
     continue
   }
 
-  for (const businessDate of dates) {
-    try {
-      const [orders, entries] = await Promise.all([
-        fetchOrders(guid, businessDate),
-        fetchTimeEntries(guid, businessDate),
-      ])
-      const sales = aggregateOrders(orders)
-      const labor = aggregateLabor(entries)
+  for (const [guid, code] of Object.entries(account.locations)) {
+    const locationId = dryRun ? null : codeToUuid[code]
+    if (!dryRun && !locationId) {
+      // Spec §3: unmapped = hard failure, never a silent skip.
+      failures.push(`${code}: no locations row with this code — add it before importing`)
+      continue
+    }
 
-      console.log(
-        `${code} ${businessDate}: net $${sales.net_sales.toFixed(2)} · gross $${sales.gross_sales.toFixed(2)}` +
-        ` · covers ${sales.covers} · voids $${sales.voids_amount.toFixed(2)}` +
-        ` · disc $${sales.discounts_amount.toFixed(2)} · labor $${labor.labor_cost.toFixed(2)}` +
-        ` (${sales.order_count} orders, ${labor.entry_count} time entries)`
-      )
+    for (const businessDate of dates) {
+      try {
+        const [orders, entries] = await Promise.all([
+          fetchOrders(account, token, guid, businessDate),
+          fetchTimeEntries(account, token, guid, businessDate),
+        ])
+        const sales = aggregateOrders(orders)
+        const labor = aggregateLabor(entries)
 
-      if (!dryRun) await upsertDay(locationId, businessDate, sales, labor)
-    } catch (err) {
-      // Spec §6: no partial-day silent writes — log loud, fail the run.
-      failures.push(`${code} ${businessDate}: ${err.message}`)
+        console.log(
+          `${code} ${businessDate}: net $${sales.net_sales.toFixed(2)} · gross $${sales.gross_sales.toFixed(2)}` +
+          ` · covers ${sales.covers} · voids $${sales.voids_amount.toFixed(2)}` +
+          ` · disc $${sales.discounts_amount.toFixed(2)} · labor $${labor.labor_cost.toFixed(2)}` +
+          ` (${sales.order_count} orders, ${labor.entry_count} time entries)`
+        )
+
+        if (!dryRun) await upsertDay(locationId, businessDate, sales, labor)
+      } catch (err) {
+        // Spec §6: no partial-day silent writes — log loud, fail the run.
+        failures.push(`${code} ${businessDate}: ${err.message}`)
+      }
     }
   }
 }

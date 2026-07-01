@@ -11,19 +11,43 @@ are owned by the invoice writer and never touched here.
 Repo → Settings → Secrets and variables → Actions → **New repository secret**.
 Never put these in the repo, the dashboard, or chat.
 
+**Preferred: one `TOAST_ACCOUNTS` secret** — works for any number of Toast
+credential sets. Locations that live under different Toast accounts (separate
+client id/secret pairs) are just separate entries:
+
+```json
+[
+  {
+    "name": "main",
+    "clientId": "…",
+    "clientSecret": "…",
+    "locations": { "<toast-guid>": "ATL", "<toast-guid>": "CLT" }
+  },
+  {
+    "name": "afro-district",
+    "clientId": "…",
+    "clientSecret": "…",
+    "locations": { "<toast-guid>": "AFRO" }
+  }
+]
+```
+
+`host` is optional per entry (defaults to `https://ws-api.toasttab.com`).
+If everything is under a single credential set, the flat form also works:
+`TOAST_API_HOST`, `TOAST_CLIENT_ID`, `TOAST_CLIENT_SECRET`,
+`TOAST_LOCATION_MAP` (`{"<guid>":"ATL", …}`).
+
+Always required:
+
 | Secret | Value |
 |---|---|
-| `TOAST_API_HOST` | `https://ws-api.toasttab.com` (production) |
-| `TOAST_CLIENT_ID` | From Toast Web → Integrations → API access |
-| `TOAST_CLIENT_SECRET` | Shown once at credential creation |
-| `TOAST_LOCATION_MAP` | JSON mapping Toast restaurant GUID → our location code, e.g. `{"a1b2…":"ATL","c3d4…":"CLT","e5f6…":"AFRO"}` |
 | `SUPABASE_URL` | `https://bvqubtromgldqnnhfeuz.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → Project Settings → API keys (service_role — secret) |
 
-The location **codes** must match `public.locations.code` (`ATL`, `CLT`,
-`AFRO`, `RTHOMAS`). GUIDs live only in the secret; adding R Thomas at reopen =
-one JSON entry, no code change. A GUID mapping to a code with no `locations`
-row fails loudly — by design.
+The location **codes** must match `public.locations.code`. Locations are rows,
+not code: to add or rename a venue, update the `locations` table and use its
+code in the map. A GUID mapping to a code with no `locations` row fails
+loudly — by design.
 
 ## First-pull verification (spec §7)
 

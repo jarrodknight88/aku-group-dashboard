@@ -29,6 +29,9 @@ jobs:
       - run: npm ci
       - name: Pull Toast → daily_metrics
         env:
+          # Preferred: TOAST_ACCOUNTS (one entry per credential set).
+          # The flat TOAST_* secrets remain supported for a single account.
+          TOAST_ACCOUNTS: ${{ secrets.TOAST_ACCOUNTS }}
           TOAST_API_HOST: ${{ secrets.TOAST_API_HOST }}
           TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
           TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
