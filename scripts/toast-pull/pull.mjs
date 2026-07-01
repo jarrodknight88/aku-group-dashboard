@@ -43,7 +43,8 @@ function fail(msg) {
   process.exit(1)
 }
 
-if (!dryRun) {
+// Supabase is only needed when actually writing (not for dry runs or --discover).
+if (!dryRun && !process.argv.includes('--discover')) {
   for (const [k, v] of Object.entries({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY })) {
     if (!v) fail(`missing env ${k}`)
   }
@@ -65,13 +66,16 @@ function loadAccounts() {
     if (!Array.isArray(accounts) || accounts.length === 0) fail('TOAST_ACCOUNTS must be a non-empty array')
     return accounts.map((a, i) => {
       if (!a.clientId || !a.clientSecret) fail(`TOAST_ACCOUNTS[${i}]: missing clientId/clientSecret`)
-      if (!a.locations || !Object.keys(a.locations).length) fail(`TOAST_ACCOUNTS[${i}]: missing locations map`)
+      // --discover works before GUIDs are known; a real pull requires the map.
+      if (!process.argv.includes('--discover') && (!a.locations || !Object.keys(a.locations).length)) {
+        fail(`TOAST_ACCOUNTS[${i}]: missing locations map`)
+      }
       return {
         name: a.name || `account-${i + 1}`,
         host: a.host || 'https://ws-api.toasttab.com',
         clientId: a.clientId,
         clientSecret: a.clientSecret,
-        locations: a.locations,
+        locations: a.locations || {},
       }
     })
   }
@@ -109,7 +113,14 @@ function datesInRange(startIso, endIso) {
   return out
 }
 
-const [argStart, argEnd] = process.argv.slice(2)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const rawArgs = process.argv.slice(2)
+const discoverMode = rawArgs.includes('--discover')
+const candidateGuidArgs = rawArgs.filter((a) => UUID_RE.test(a))
+const dateArgs = rawArgs.filter((a) => a !== '--discover' && !UUID_RE.test(a))
+
+const [argStart, argEnd] = dateArgs
 let dates
 if (argStart) {
   dates = datesInRange(argStart, argEnd || argStart)
@@ -253,6 +264,109 @@ function aggregateLabor(entries) {
     laborC += Math.round(hours * (Number(e.hourlyWage) || 0) * 100)
   }
   return { labor_cost: laborC / 100, entry_count: entries.length }
+}
+
+/* ---------- discover mode ---------- */
+
+/** Pull every uuid-shaped string out of a decoded JWT payload. */
+function uuidsInToken(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+    const found = new Set()
+    const walk = (v) => {
+      if (typeof v === 'string' && UUID_RE.test(v)) found.add(v.toLowerCase())
+      else if (Array.isArray(v)) v.forEach(walk)
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk)
+    }
+    walk(payload)
+    return [...found]
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Validate a candidate restaurant GUID against a credential.
+ * Primary: Restaurants API (returns the venue name + business-day closeout hour —
+ * the spec §4 check for free). Fallback if that scope wasn't granted: probe the
+ * Orders API, which proves access without naming the venue.
+ */
+async function probeGuid(account, token, guid) {
+  try {
+    const r = await toastGet(account, token, `/restaurants/v1/restaurants/${guid}`, guid)
+    const g = r?.general ?? r ?? {}
+    return {
+      ok: true,
+      name: g.name || r?.name || '(name not in response)',
+      locationName: g.locationName || '',
+      closeoutHour: g.closeoutHour ?? r?.closeoutHour ?? 'n/a',
+      timeZone: g.timeZone || r?.timeZone || '',
+    }
+  } catch (err) {
+    if (!/→ 40[134]/.test(err.message)) return { ok: false, why: err.message }
+    // Restaurants scope may not be granted — prove access via a 1-order probe.
+    try {
+      await toastGet(account, token, '/orders/v2/ordersBulk', guid, {
+        businessDate: toToastDate(dates[0]),
+        page: '1',
+        pageSize: '1',
+      })
+      return { ok: true, name: '(accessible — restaurants scope not granted, no name available)' }
+    } catch (err2) {
+      return { ok: false, why: err2.message }
+    }
+  }
+}
+
+if (discoverMode) {
+  console.log('DISCOVER — validating restaurant GUIDs per credential; nothing is written.\n')
+  let anyFailure = false
+
+  for (const account of accounts) {
+    console.log(`── account: ${account.name}`)
+    let token
+    try {
+      token = await toastAuth(account)
+    } catch (err) {
+      console.log(`   AUTH FAILED: ${err.message}`)
+      anyFailure = true
+      continue
+    }
+    console.log('   auth OK')
+
+    const tokenGuids = uuidsInToken(token)
+    if (tokenGuids.length) {
+      console.log(`   GUIDs referenced inside the credential's token: ${tokenGuids.join(', ')}`)
+    }
+
+    const candidates = [
+      ...new Set([
+        ...Object.keys(account.locations).filter((g) => UUID_RE.test(g)),
+        ...candidateGuidArgs,
+        ...tokenGuids,
+      ]),
+    ]
+    if (!candidates.length) {
+      console.log('   no candidate GUIDs to test — pass GUIDs as arguments or put them in the locations map')
+      continue
+    }
+
+    for (const guid of candidates) {
+      const res = await probeGuid(account, token, guid)
+      if (res.ok) {
+        console.log(
+          `   ✓ ${guid} → ${res.name}${res.locationName ? ' · ' + res.locationName : ''}` +
+          (res.closeoutHour !== undefined && res.closeoutHour !== 'n/a'
+            ? ` · business-day closeout hour: ${res.closeoutHour} · ${res.timeZone}`
+            : ''),
+        )
+      } else {
+        console.log(`   ✗ ${guid} → not accessible with this credential (${res.why})`)
+      }
+    }
+  }
+
+  process.exit(anyFailure ? 1 : 0)
 }
 
 /* ---------- supabase ---------- */

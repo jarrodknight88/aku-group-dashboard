@@ -16,6 +16,13 @@ on:
         description: 'Dry run (aggregate + print, write nothing)'
         type: boolean
         default: false
+      discover:
+        description: 'Discover mode: validate restaurant GUIDs per credential, print venue names'
+        type: boolean
+        default: false
+      guids:
+        description: 'Discover only: candidate GUIDs to test (space-separated)'
+        required: false
 
 jobs:
   pull:
@@ -39,4 +46,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
-        run: node scripts/toast-pull/pull.mjs ${{ inputs.start_date }} ${{ inputs.end_date }}
+        run: node scripts/toast-pull/pull.mjs ${{ inputs.discover && '--discover' || '' }} ${{ inputs.guids }} ${{ inputs.start_date }} ${{ inputs.end_date }}

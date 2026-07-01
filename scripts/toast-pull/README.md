@@ -49,6 +49,18 @@ not code: to add or rename a venue, update the `locations` table and use its
 code in the map. A GUID mapping to a code with no `locations` row fails
 loudly — by design.
 
+## Finding restaurant GUIDs — discover mode
+
+If you're not sure which GUID belongs to which venue, run the workflow with
+**discover** checked (optionally passing candidate GUIDs in the `guids`
+input, space-separated). For each credential it authenticates, extracts any
+GUIDs referenced inside the token itself, probes every candidate against the
+Restaurants API, and prints the venue name each accessible GUID resolves
+to — plus the business-day closeout hour (the spec §4 check). Nothing is
+written; Supabase secrets aren't needed for this mode.
+
+Locally: `node scripts/toast-pull/pull.mjs --discover <guid> <guid>`
+
 ## First-pull verification (spec §7)
 
 Before trusting the numbers, run the manual workflow with **dry run** checked:
