@@ -31,8 +31,11 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- Prevent privilege escalation: only owner/admin may change a role.
--- (is_org_admin() is defined in 04; this function is only *invoked* at
---  UPDATE time, so creating it before 04 is fine.)
+-- Non-JWT contexts (service role / SQL editor / scheduled jobs) have
+-- auth.uid() = null and are allowed through — required to bootstrap the
+-- first owner. Client sessions always carry auth.uid(), so app-side
+-- escalation stays blocked. (is_org_admin() is defined in 04; this function
+-- is only *invoked* at UPDATE time, so creating it before 04 is fine.)
 create or replace function public.protect_profile_role()
 returns trigger
 language plpgsql
@@ -40,7 +43,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.role is distinct from old.role and not public.is_org_admin() then
+  if new.role is distinct from old.role
+     and auth.uid() is not null
+     and not public.is_org_admin() then
     raise exception 'only owner/admin may change a role';
   end if;
   return new;

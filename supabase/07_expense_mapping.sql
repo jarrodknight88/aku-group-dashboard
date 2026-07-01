@@ -58,15 +58,35 @@ as $$
   ) p;
 $$;
 
--- Starter categories — REPLACE with your actual 11 from the prototype.
-insert into public.expense_categories (name, color, sort_order) values
-  ('Food',      '#184080', 1),
-  ('Liquor',    '#2E5A9E', 2),
-  ('Labor',     '#4A74B8', 3),
-  ('Valet',     '#6A8FCB', 4),
-  ('Supplies',  '#88A8D9', 5),
-  ('Utilities', '#A6C0E6', 6)
+-- Categories + keyword rules from the dashboard prototype's Settings page.
+insert into public.expense_categories (name, sort_order) values
+  ('COGS – Food', 1),
+  ('COGS – Liquor', 2),
+  ('Utilities', 3),
+  ('Rent', 4),
+  ('Repairs & Maintenance', 5),
+  ('Marketing', 6),
+  ('Payroll Services', 7),
+  ('Supplies', 8),
+  ('Other', 9)
 on conflict (name) do nothing;
+
+insert into public.expense_category_keywords (category_id, keyword)
+select c.id, k.kw
+from (values
+  ('sysco', 'COGS – Food'),
+  ('us foods', 'COGS – Food'),
+  ('restaurant depot', 'COGS – Food'),
+  ('southern glazer', 'COGS – Liquor'),
+  ('republic national', 'COGS – Liquor'),
+  ('georgia power', 'Utilities'),
+  ('comcast', 'Utilities'),
+  ('realty', 'Rent'),
+  ('google ads', 'Marketing'),
+  ('ecolab', 'Repairs & Maintenance')
+) as k(kw, cat)
+join public.expense_categories c on c.name = k.cat
+on conflict (keyword) do nothing;
 
 alter table public.expense_categories        enable row level security;
 alter table public.expense_category_keywords enable row level security;
