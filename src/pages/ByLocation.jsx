@@ -1,16 +1,19 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import { supabase } from '../lib/supabase.js'
 import { colors, fonts, layout } from '../theme.js'
 
-/* ---------- demo data ---------- */
-// Chips ordered Food · Liquor · Labor · Void · Disc (per the design brief).
-// Chip status: 'good' | 'bad' | 'none' (liquor has no fixed target → neutral).
+/* ----------
+   The location list is live from Supabase (RLS-scoped: a manager sees only
+   their venue). The per-card metrics below stay demo data until the Toast
+   import pipeline lands — keyed by location code.
+   Chips ordered Food · Liquor · Labor · Void · Disc (per the design brief);
+   status: 'good' | 'bad' | 'none' (liquor has no fixed target → neutral).
+---------- */
 
-const LOCATIONS = [
-  {
-    code: 'atl',
-    name: 'Teranga ATL',
-    city: 'Atlanta, GA',
+const DEMO_METRICS = {
+  ATL: {
     onTrack: true,
     net: '$142,300',
     delta: '▲ 6.8%',
@@ -24,10 +27,7 @@ const LOCATIONS = [
       { label: 'Disc 2.8%', status: 'good' },
     ],
   },
-  {
-    code: 'clt',
-    name: 'Teranga CLT',
-    city: 'Charlotte, NC',
+  CLT: {
     onTrack: false,
     net: '$98,600',
     delta: '▲ 4.1%',
@@ -41,10 +41,7 @@ const LOCATIONS = [
       { label: 'Disc 3.9%', status: 'bad' },
     ],
   },
-  {
-    code: 'afro',
-    name: 'Afro District',
-    city: 'Atlanta, GA',
+  AFRO: {
     onTrack: true,
     net: '$76,400',
     delta: '▲ 9.2%',
@@ -58,7 +55,9 @@ const LOCATIONS = [
       { label: 'Disc 2.6%', status: 'good' },
     ],
   },
-]
+}
+
+const CITY_LABELS = { Atlanta: 'Atlanta, GA', Charlotte: 'Charlotte, NC' }
 
 /* ---------- pieces ---------- */
 
@@ -116,7 +115,7 @@ function StatusPill({ onTrack }) {
 function LocationCard({ loc }) {
   return (
     <Link
-      to={`/locations/${loc.code}`}
+      to={`/locations/${loc.code.toLowerCase()}`}
       className="loc-card"
       style={{
         display: 'block',
@@ -167,7 +166,33 @@ function LocationCard({ loc }) {
 
 /* ---------- page ---------- */
 
+const NO_DATA_METRICS = {
+  onTrack: true,
+  net: '—',
+  delta: 'no data yet',
+  covers: '—',
+  avg: '',
+  chips: [],
+}
+
 export default function ByLocation() {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('locations')
+      .select('id, name, code, city, status')
+      .order('created_at')
+      .then(({ data }) => {
+        setRows(data ?? [])
+        setLoading(false)
+      })
+  }, [])
+
+  const active = rows.filter((r) => r.status === 'active')
+  const comingSoon = rows.filter((r) => r.status === 'coming_soon')
+
   return (
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
       <AppHeader active="locations" />
@@ -189,7 +214,7 @@ export default function ByLocation() {
               Locations
             </div>
             <div style={{ fontSize: 13, color: colors.muted3, marginTop: 5 }}>
-              3 active · $317,300 net this week ·{' '}
+              {loading ? 'Loading…' : `${active.length} active`} · $317,300 net this week ·{' '}
               <span style={{ color: colors.greenDark, fontWeight: 600 }}>▲ 6.2%</span> vs last week
             </div>
           </div>
@@ -211,38 +236,51 @@ export default function ByLocation() {
           </div>
         </div>
 
-        {/* Location cards */}
+        {/* Location cards — live list, RLS-scoped to what this user can see */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
-          {LOCATIONS.map((loc) => (
-            <LocationCard key={loc.code} loc={loc} />
+          {active.map((row) => (
+            <LocationCard
+              key={row.id}
+              loc={{
+                code: row.code,
+                name: row.name,
+                city: CITY_LABELS[row.city] || row.city || '',
+                ...(DEMO_METRICS[row.code] || NO_DATA_METRICS),
+              }}
+            />
           ))}
 
-          {/* R Thomas — opening soon */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              background: '#F7F8FA',
-              border: '1px dashed #CDD4DE',
-              borderRadius: 15,
-              padding: 22,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
-              <div>
-                <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.muted2 }}>R Thomas</div>
-                <div style={{ fontSize: 12, color: '#A6ADB8', marginTop: 2 }}>4th location</div>
+          {/* Opening-soon venues */}
+          {comingSoon.map((row) => (
+            <div
+              key={row.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                background: '#F7F8FA',
+                border: '1px dashed #CDD4DE',
+                borderRadius: 15,
+                padding: 22,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
+                <div>
+                  <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.muted2 }}>{row.name}</div>
+                  <div style={{ fontSize: 12, color: '#A6ADB8', marginTop: 2 }}>
+                    {CITY_LABELS[row.city] || row.city || ''}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, background: '#E7EAEF', padding: '5px 10px', borderRadius: 20 }}>
+                  Opening soon
+                </span>
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, background: '#E7EAEF', padding: '5px 10px', borderRadius: 20 }}>
-                Opening soon
-              </span>
+              <div style={{ fontSize: 12, color: colors.muted3, marginTop: 18, lineHeight: 1.5 }}>
+                Reporting will activate automatically once Toast exports begin flowing on reopening.
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: colors.muted3, marginTop: 18, lineHeight: 1.5 }}>
-              Reporting will activate automatically once Toast exports begin flowing on reopening.
-            </div>
-          </div>
+          ))}
 
           {/* Add location card */}
           <div

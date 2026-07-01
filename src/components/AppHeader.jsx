@@ -1,5 +1,13 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext.jsx'
 import { colors, fonts, layout } from '../theme.js'
+
+const ROLE_LABELS = {
+  owner: 'Owner',
+  admin: 'Admin',
+  general_manager: 'General Manager',
+  manager: 'Manager',
+}
 
 /**
  * Global top bar — persists across every level of the dashboard.
@@ -12,6 +20,8 @@ export default function AppHeader({
   maxWidth = layout.maxWidth,
   showDatePicker = true,
 }) {
+  const { profile, signOut } = useAuth()
+
   const tabBase = {
     padding: '8px 18px',
     borderRadius: 6,
@@ -106,30 +116,48 @@ export default function AppHeader({
             </Link>
           </div>
         </div>
-        {showDatePicker && (
-        <div style={{ textAlign: 'right' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              padding: '9px 15px',
-              border: `1px solid ${colors.borderStrong}`,
-              borderRadius: 9,
-              background: '#fff',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ color: colors.muted2 }}>📅</span> This Week{' '}
-            <span style={{ color: colors.muted3 }}>▾</span>
-          </div>
-          <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6 }}>
-            Compared to:{' '}
-            <span style={{ color: colors.muted1, fontWeight: 600 }}>{comparedTo}</span>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {showDatePicker && (
+            <div style={{ textAlign: 'right' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  padding: '9px 15px',
+                  border: `1px solid ${colors.borderStrong}`,
+                  borderRadius: 9,
+                  background: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <span style={{ color: colors.muted2 }}>📅</span> This Week{' '}
+                <span style={{ color: colors.muted3 }}>▾</span>
+              </div>
+              <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6 }}>
+                Compared to:{' '}
+                <span style={{ color: colors.muted1, fontWeight: 600 }}>{comparedTo}</span>
+              </div>
+            </div>
+          )}
+          {profile && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
+                {profile.full_name || profile.email}
+              </div>
+              <div style={{ fontSize: 11, color: colors.muted3 }}>
+                {ROLE_LABELS[profile.role] || profile.role} ·{' '}
+                <span
+                  onClick={signOut}
+                  style={{ color: colors.brand, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Sign out
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-        )}
       </div>
     </div>
   )
