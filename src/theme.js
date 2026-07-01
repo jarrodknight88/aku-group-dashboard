@@ -35,7 +35,9 @@ export const colors = {
 
   // status — red (out of target)
   red: '#C0392B',
+  redBright: '#E04A38',
   redBg: '#FBEAE8',
+  redBorder: '#F0C4BE',
 }
 
 export const fonts = {

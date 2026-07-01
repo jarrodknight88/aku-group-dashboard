@@ -2,6 +2,19 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
+import {
+  card,
+  StatTile,
+  KpiTile,
+  Within,
+  RankRow,
+  RankedCard,
+  BarList,
+  DayBarsCard,
+  ChargebacksCard,
+  ExceptionTile,
+  ModeToggle,
+} from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { buildRankedList, overallLeaders } from '../data/topEmployees.js'
 
@@ -71,60 +84,6 @@ const TOP_HOOKAH = [
   ['Lemon Mint', '$580'],
 ]
 
-/* ---------- small building blocks ---------- */
-
-const card = {
-  background: colors.white,
-  border: `1px solid ${colors.border}`,
-  borderRadius: 13,
-  padding: 20,
-}
-
-function RankRow({ n, name, val }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontFamily: fonts.serif, fontSize: 14, color: colors.brand, width: 16 }}>
-        {n}
-      </span>
-      <span style={{ flex: 1, fontSize: 12 }}>{name}</span>
-      <span className="tnum" style={{ fontSize: 12, fontWeight: 700 }}>
-        {val}
-      </span>
-    </div>
-  )
-}
-
-function RankedCard({ title, rows }) {
-  return (
-    <div style={card}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        {rows.map((r, i) => (
-          <RankRow key={i} n={i + 1} name={r[0]} val={r[1]} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function BarList({ items }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {items.map((it) => (
-        <div key={it.label}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-            <span>{it.label}</span>
-            <span style={{ fontWeight: 700 }}>{it.val}</span>
-          </div>
-          <div style={{ height: 8, background: colors.pageBg, borderRadius: 4 }}>
-            <div style={{ width: `${it.w}%`, height: '100%', background: it.color, borderRadius: 4 }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /* ---------- page ---------- */
 
 export default function LocationReport() {
@@ -134,32 +93,6 @@ export default function LocationReport() {
   const empBartenders = buildRankedList('bartenders', empMode)
   const empHookah = buildRankedList('hookah', empMode)
   const overallRows = overallLeaders[empMode]
-
-  const empTabActive = {
-    padding: '5px 12px',
-    borderRadius: 5,
-    background: colors.brand,
-    fontSize: 11,
-    fontWeight: 700,
-    color: '#fff',
-    cursor: 'pointer',
-  }
-  const empTabIdle = {
-    padding: '5px 12px',
-    borderRadius: 5,
-    fontSize: 11,
-    fontWeight: 600,
-    color: colors.muted3,
-    cursor: 'pointer',
-  }
-
-  const uppercaseLabel = {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    color: colors.muted2,
-    fontWeight: 600,
-  }
 
   const donut = `conic-gradient(${colors.brand} 0 71%, ${colors.brandTint1} 71% 83%, ${colors.brandTint2} 83% 94%, ${colors.brandTint3} 94% 98%, ${colors.brandTint5} 98% 100%)`
 
@@ -256,36 +189,7 @@ export default function LocationReport() {
         {/* ===== HEADLINE STRIP ===== */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
           {HEADLINE.map((t) => (
-            <div key={t.label} style={{ ...card, borderRadius: 13 }}>
-              <div style={uppercaseLabel}>{t.label}</div>
-              <div
-                className="tnum"
-                style={{
-                  fontFamily: fonts.serif,
-                  fontSize: 36,
-                  fontWeight: 500,
-                  letterSpacing: '-0.01em',
-                  marginTop: 6,
-                }}
-              >
-                {t.value}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: colors.greenDark,
-                    background: colors.greenBg,
-                    padding: '2px 8px',
-                    borderRadius: 5,
-                  }}
-                >
-                  {t.delta}
-                </span>
-                <span style={{ fontSize: 12, color: colors.muted3 }}>vs last week</span>
-              </div>
-            </div>
+            <StatTile key={t.label} {...t} />
           ))}
         </div>
 
@@ -354,174 +258,55 @@ export default function LocationReport() {
           <div style={card}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Revenue Streams</div>
             <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>Food · Drink · Hookah · Valet</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {REVENUE_STREAMS.map((it) => (
-                <div key={it.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-                    <span>{it.label}</span>
-                    <span style={{ fontWeight: 700 }}>{it.val}</span>
-                  </div>
-                  <div style={{ height: 8, background: colors.pageBg, borderRadius: 4 }}>
-                    <div style={{ width: `${it.w}%`, height: '100%', background: it.color, borderRadius: 4 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <BarList items={REVENUE_STREAMS} gap={13} />
           </div>
         </div>
 
         {/* ===== MONEY SAVED ===== */}
         <SectionHeader title="Money Saved" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
-          {/* Food Cost % — on target */}
-          <div style={{ ...card, border: `1px solid ${colors.greenBorder}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={uppercaseLabel}>Food Cost %</div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.green }} />
-            </div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 32, fontWeight: 500, marginTop: 6, color: colors.greenDark }}>
-              29.4%
-            </div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 5 }}>$41,840 cost · Target &lt; 30%</div>
-          </div>
-          {/* Labor % — on target */}
-          <div style={{ ...card, border: `1px solid ${colors.greenBorder}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={uppercaseLabel}>Labor %</div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.green }} />
-            </div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 32, fontWeight: 500, marginTop: 6, color: colors.greenDark }}>
-              26.5%
-            </div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 5 }}>$37,710 cost · Target &lt; 28%</div>
-          </div>
-          {/* Liquor Cost % — no target */}
-          <div style={card}>
-            <div style={uppercaseLabel}>Liquor Cost %</div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 32, fontWeight: 500, marginTop: 6 }}>
-              22.0%
-            </div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 5 }}>No fixed target</div>
-          </div>
-          {/* Total Expenses */}
-          <div style={card}>
-            <div style={uppercaseLabel}>Total Expenses</div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 32, fontWeight: 500, marginTop: 6 }}>
-              $24,800
-            </div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 5 }}>This location · invoice sheet</div>
-          </div>
+          <KpiTile label="Food Cost %" value="29.4%" status="good" subTop={5} sub="$41,840 cost · Target < 30%" />
+          <KpiTile label="Labor %" value="26.5%" status="good" subTop={5} sub="$37,710 cost · Target < 28%" />
+          <KpiTile label="Liquor Cost %" value="22.0%" sub="No fixed target" />
+          <KpiTile label="Total Expenses" value="$24,800" sub="This location · invoice sheet" />
         </div>
 
         {/* ===== MONEY PROTECTED ===== */}
         <SectionHeader title="Money Protected" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16 }}>
-          {/* Row 1 — Void % */}
-          <div style={{ ...card, border: `1px solid ${colors.greenBorder}`, padding: 18, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={uppercaseLabel}>Void % of Sales</div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.green }} />
-            </div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 500, marginTop: 6, color: colors.greenDark }}>0.7%</div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 4 }}>
-              $996 · Target &lt; 1% · <span style={{ color: colors.greenDark, fontWeight: 600 }}>within</span>
-            </div>
-          </div>
-          {/* Voids by Day */}
-          <div style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Voids by Day</div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 6, minHeight: 54 }}>
-              {VOID_BARS.map((h, i) => (
-                <div key={i} style={{ flex: 1, height: `${h}%`, background: colors.muted3, borderRadius: 2 }} />
-              ))}
-            </div>
-          </div>
-          {/* Chargebacks by Stage */}
-          <div style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Chargebacks by Stage</div>
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-              <div style={{ background: colors.greenBg, borderRadius: 10, padding: 13, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.greenDark, fontWeight: 700 }}>Won</div>
-                <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.greenDark, marginTop: 4 }}>$1,120</div>
-                <div style={{ fontSize: 11, color: colors.greenDark }}>2 recovered</div>
-              </div>
-              <div style={{ background: colors.panelGray, borderRadius: 10, padding: 13, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted1, fontWeight: 700 }}>In Progress</div>
-                <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.inkSoft, marginTop: 4 }}>$640</div>
-                <div style={{ fontSize: 11, color: colors.muted2 }}>1 at stake</div>
-              </div>
-              <div style={{ background: colors.redBg, borderRadius: 10, padding: 13, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.red, fontWeight: 700 }}>Lost</div>
-                <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.red, marginTop: 4 }}>$480</div>
-                <div style={{ fontSize: 11, color: colors.red }}>1 forfeited</div>
-              </div>
-            </div>
-          </div>
-          {/* Row 2 — Discount % */}
-          <div style={{ ...card, border: `1px solid ${colors.greenBorder}`, padding: 18, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={uppercaseLabel}>Discount % of Sales</div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.green }} />
-            </div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 500, marginTop: 6, color: colors.greenDark }}>2.8%</div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 4 }}>
-              $3,984 · Target &lt; 3% · <span style={{ color: colors.greenDark, fontWeight: 600 }}>within</span>
-            </div>
-          </div>
-          {/* Discounts by Day */}
-          <div style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Discounts by Day</div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 6, minHeight: 54 }}>
-              {DISCOUNT_BARS.map((h, i) => (
-                <div key={i} style={{ flex: 1, height: `${h}%`, background: colors.brandTint1, borderRadius: 2 }} />
-              ))}
-            </div>
-          </div>
-          {/* Exception Flags — links out, scoped to this location */}
-          <Link
-            to="/exceptions?loc=atl"
-            style={{
-              background: colors.brand,
-              borderRadius: 13,
-              padding: 18,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.brandTint3, fontWeight: 600 }}>
-                Exception Flags
-              </div>
-              <div style={{ fontSize: 11, color: colors.brandTint4, marginTop: 3 }}>Transactions tripping audit rules</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ fontFamily: fonts.serif, fontSize: 38, fontWeight: 600, color: '#fff', lineHeight: 1 }}>6</div>
-              <div style={{ background: '#fff', color: colors.brand, fontSize: 12, fontWeight: 700, padding: '7px 13px', borderRadius: 8 }}>
-                Review →
-              </div>
-            </div>
-          </Link>
+          <KpiTile
+            label="Void % of Sales"
+            value="0.7%"
+            status="good"
+            size={30}
+            padding={18}
+            sub={<>$996 · Target &lt; 1% · <Within /></>}
+          />
+          <DayBarsCard title="Voids by Day" bars={VOID_BARS} color={colors.muted3} />
+          <ChargebacksCard
+            won={{ amt: '$1,120', note: '2 recovered' }}
+            inProgress={{ amt: '$640', note: '1 at stake' }}
+            lost={{ amt: '$480', note: '1 forfeited' }}
+          />
+          <KpiTile
+            label="Discount % of Sales"
+            value="2.8%"
+            status="good"
+            size={30}
+            padding={18}
+            sub={<>$3,984 · Target &lt; 3% · <Within /></>}
+          />
+          <DayBarsCard title="Discounts by Day" bars={DISCOUNT_BARS} color={colors.brandTint1} />
+          <ExceptionTile count={6} to="/exceptions?loc=atl" />
         </div>
 
         {/* ===== TOP SELLERS ===== */}
-        <SectionHeader
-          title="Top Sellers"
-          sub="Teranga ATL"
-          style={{ margin: '30px 0 14px' }}
-          right={
-            <div style={{ display: 'flex', gap: 3, background: '#fff', border: `1px solid ${colors.border}`, padding: 3, borderRadius: 7 }}>
-              <div style={{ padding: '5px 12px', borderRadius: 5, background: colors.brand, fontSize: 11, fontWeight: 700, color: '#fff' }}>Top by $</div>
-              <div style={{ padding: '5px 12px', borderRadius: 5, fontSize: 11, fontWeight: 600, color: colors.muted3 }}>Top by Qty</div>
-            </div>
-          }
-        />
+        <SectionHeader title="Top Sellers" sub="Teranga ATL" style={{ margin: '30px 0 14px' }} right={<ModeToggle />} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
           <RankedCard title="Top Food" rows={TOP_FOOD} />
           <RankedCard title="Top Liquor" rows={TOP_LIQUOR} />
           <RankedCard title="Top Hookah Flavor" rows={TOP_HOOKAH} />
-          <div style={card}>
+          <div style={{ ...card, padding: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Category Performance</div>
             <BarList items={CATEGORY_PERF} />
           </div>
@@ -532,45 +317,23 @@ export default function LocationReport() {
           title="Top Employees"
           sub="Teranga ATL"
           style={{ margin: '30px 0 14px' }}
-          right={
-            <div style={{ display: 'flex', gap: 3, background: '#fff', border: `1px solid ${colors.border}`, padding: 3, borderRadius: 7 }}>
-              <div onClick={() => setEmpMode('dollar')} style={empMode === 'dollar' ? empTabActive : empTabIdle}>
-                Top by $
-              </div>
-              <div onClick={() => setEmpMode('qty')} style={empMode === 'qty' ? empTabActive : empTabIdle}>
-                Top by Qty
-              </div>
-            </div>
-          }
+          right={<ModeToggle mode={empMode} onChange={setEmpMode} />}
         />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-          {/* Servers */}
-          <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Servers</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {empServers.map((e) => (
-                <RankRow key={e.rank} n={e.rank} name={e.name} val={e.val} />
-              ))}
+          {[
+            ['Servers', empServers],
+            ['Bartenders', empBartenders],
+            ['Hookah', empHookah],
+          ].map(([title, rows]) => (
+            <div key={title} style={{ ...card, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {rows.map((e) => (
+                  <RankRow key={e.rank} n={e.rank} name={e.name} val={e.val} />
+                ))}
+              </div>
             </div>
-          </div>
-          {/* Bartenders */}
-          <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Bartenders</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {empBartenders.map((e) => (
-                <RankRow key={e.rank} n={e.rank} name={e.name} val={e.val} />
-              ))}
-            </div>
-          </div>
-          {/* Hookah */}
-          <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Hookah</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {empHookah.map((e) => (
-                <RankRow key={e.rank} n={e.rank} name={e.name} val={e.val} />
-              ))}
-            </div>
-          </div>
+          ))}
           {/* Overall — category leaders, highlighted */}
           <div style={{ background: colors.brand, borderRadius: 13, padding: 18 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 13 }}>Overall</div>
