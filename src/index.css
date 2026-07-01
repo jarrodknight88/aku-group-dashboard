@@ -1,0 +1,41 @@
+/* Aku Group Operations Dashboard — global styles.
+   Component-level layout stays in JSX (ported pixel-for-pixel from the
+   Claude Design handoff). This file only carries global resets + a couple
+   of shared helpers. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #eef0f3;
+  font-family: 'Hanken Grotesk', sans-serif;
+  color: #1a2230;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.serif {
+  font-family: 'Newsreader', serif;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* By Location hub cards — hover lift from the handoff design */
+.loc-card {
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+
+.loc-card:hover {
+  box-shadow: 0 8px 24px rgba(20, 32, 48, 0.12);
+  transform: translateY(-2px);
+  border-color: #c9d3e2 !important;
+}

@@ -1,0 +1,51 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
+import Login from './pages/Login.jsx'
+import CompanyGlance from './pages/CompanyGlance.jsx'
+import ByLocation from './pages/ByLocation.jsx'
+import LocationReport from './pages/LocationReport.jsx'
+import DetailDrill from './pages/DetailDrill.jsx'
+import ExceptionDetail from './pages/ExceptionDetail.jsx'
+import Settings from './pages/Settings.jsx'
+import { colors } from './theme.js'
+
+function RequireAuth({ children }) {
+  const { session, loading } = useAuth()
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: colors.pageBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: colors.muted3,
+          fontSize: 13,
+        }}
+      >
+        Loading…
+      </div>
+    )
+  }
+  if (!session) return <Navigate to="/login" replace />
+  return children
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<RequireAuth><CompanyGlance /></RequireAuth>} />
+        <Route path="/locations" element={<RequireAuth><ByLocation /></RequireAuth>} />
+        {/* Location Report — the fully-built Level 2 screen. Scoped by code. */}
+        <Route path="/locations/:loc" element={<RequireAuth><LocationReport /></RequireAuth>} />
+        <Route path="/detail-drill" element={<RequireAuth><DetailDrill /></RequireAuth>} />
+        <Route path="/exceptions" element={<RequireAuth><ExceptionDetail /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
+  )
+}
