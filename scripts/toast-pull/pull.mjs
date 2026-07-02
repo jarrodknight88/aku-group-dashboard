@@ -152,12 +152,9 @@ async function toastAuth(account) {
 async function toastGet(account, token, path, restaurantGuid, params = {}) {
   const url = new URL(account.host + path)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  const res = await fetch(url, {
-    headers: {
-      authorization: `Bearer ${token}`,
-      'Toast-Restaurant-External-ID': restaurantGuid,
-    },
-  })
+  const headers = { authorization: `Bearer ${token}` }
+  if (restaurantGuid) headers['Toast-Restaurant-External-ID'] = restaurantGuid
+  const res = await fetch(url, { headers })
   if (res.status === 429) {
     // basic rate-limit backoff, then retry once
     await new Promise((r) => setTimeout(r, 5000))
@@ -317,11 +314,25 @@ function uuidsInToken(token) {
  * restaurants under a group — the definitive way to find restaurant GUIDs.
  */
 async function probeAsGroup(account, token, guid) {
+  // With and without the restaurant header — group endpoints vary on this.
+  for (const header of [guid, null]) {
+    try {
+      const r = await toastGet(account, token, `/restaurants/v1/groups/${guid}/restaurants`, header)
+      if (Array.isArray(r) && r.length) return { members: r }
+    } catch (err) {
+      if (header === null) return { why: err.message }
+    }
+  }
+  return { why: 'empty response' }
+}
+
+/** Partner-style enumeration — some credentials can list their restaurants directly. */
+async function probePartnerList(account, token) {
   try {
-    const r = await toastGet(account, token, `/restaurants/v1/groups/${guid}/restaurants`, guid)
-    return Array.isArray(r) && r.length ? r : null
-  } catch {
-    return null
+    const r = await toastGet(account, token, '/partners/v1/restaurants', null)
+    return Array.isArray(r) && r.length ? { members: r } : { why: 'empty response' }
+  } catch (err) {
+    return { why: err.message }
   }
 }
 
@@ -388,11 +399,23 @@ if (discoverMode) {
       console.log(`   GUIDs referenced inside the credential's token: ${tokenGuids.join(', ')}`)
     }
 
+    // Some credentials can enumerate their restaurants directly.
+    const partner = await probePartnerList(account, token)
+    if (partner.members) {
+      console.log(`   ◈ partner listing found ${partner.members.length} restaurant(s):`)
+      for (const m of partner.members) console.log(`     · ${JSON.stringify(m)}`)
+    } else {
+      console.log(`   partner listing: not available (${partner.why})`)
+    }
+
     const candidates = [
       ...new Set([
         ...Object.keys(account.locations).filter((g) => UUID_RE.test(g)),
         ...candidateGuidArgs,
         ...tokenGuids,
+        ...(partner.members ?? [])
+          .map((m) => m.restaurantGuid || m.guid || m.id)
+          .filter((g) => g && UUID_RE.test(g)),
       ]),
     ]
     if (!candidates.length) {
@@ -402,10 +425,10 @@ if (discoverMode) {
 
     for (const guid of candidates) {
       // A candidate might be the management group — enumerate its restaurants.
-      const members = await probeAsGroup(account, token, guid)
-      if (members) {
-        console.log(`   ◈ ${guid} is a MANAGEMENT GROUP with ${members.length} restaurant(s):`)
-        for (const m of members) {
+      const group = await probeAsGroup(account, token, guid)
+      if (group.members) {
+        console.log(`   ◈ ${guid} is a MANAGEMENT GROUP with ${group.members.length} restaurant(s):`)
+        for (const m of group.members) {
           const rGuid = m.guid || m.restaurantGuid || m.id
           if (!rGuid) {
             console.log(`     · (unrecognized member shape) ${JSON.stringify(m)}`)
@@ -423,6 +446,7 @@ if (discoverMode) {
         }
         continue
       }
+      console.log(`   group probe on ${guid}: ${group.why}`)
 
       const res = await probeGuid(account, token, guid)
       if (res.ok) {
