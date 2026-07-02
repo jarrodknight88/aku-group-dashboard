@@ -334,7 +334,12 @@ function aggregateOrders(orders, lookups = {}) {
         addDebug('check', disc, c)
       }
       for (const p of check.payments ?? []) {
-        if ((p.paymentStatus || '').toUpperCase() === 'VOIDED') continue
+        // Calibration: cash/Discover/OpenTable matched the Payments summary
+        // exactly while Visa/MC/Amex counts ran high — the extras are failed
+        // card attempts Toast keeps in the list. Count only settled payments.
+        // (API amount = Toast's "Total" − tips, i.e. tax+gratuity inclusive.)
+        const status = (p.paymentStatus || '').toUpperCase()
+        if (['VOIDED', 'VOIDED_AT_RISK', 'PROCESSING_VOID', 'DENIED', 'ERROR', 'CANCELLED'].includes(status)) continue
         const pay = bump(pays, paymentLabel(p, lookups.altPayments), { count: 0, amountC: 0, tipsC: 0 })
         pay.count += 1
         pay.amountC += cents(p.amount)
