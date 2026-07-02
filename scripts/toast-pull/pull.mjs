@@ -189,6 +189,43 @@ async function fetchTimeEntries(account, token, restaurantGuid, businessDate) {
   return Array.isArray(entries) ? entries : []
 }
 
+/**
+ * Wages don't ride on time entries at this venue (calibration: 47/47 entries
+ * wage-less) — they live on the employee's job assignment. Build a lookup:
+ * employee+job → wage, with job default wage as fallback. Fetched once per
+ * location per run.
+ */
+async function fetchWageIndex(account, token, restaurantGuid) {
+  const idx = { empJob: new Map(), job: new Map(), notes: [] }
+  try {
+    const jobs = await toastGet(account, token, '/labor/v1/jobs', restaurantGuid)
+    for (const j of jobs ?? []) {
+      const w = Number(j.defaultWage ?? j.wage) || 0
+      if (j.guid && w > 0) idx.job.set(j.guid, w)
+    }
+  } catch (err) {
+    idx.notes.push(`jobs lookup unavailable: ${err.message.slice(0, 140)}`)
+  }
+  try {
+    const employees = await toastGet(account, token, '/labor/v1/employees', restaurantGuid)
+    for (const emp of employees ?? []) {
+      const refs = emp.jobReferences ?? emp.jobs ?? []
+      for (const jr of refs) {
+        const w = Number(jr.wage ?? jr.hourlyWage ?? jr.defaultWage) || 0
+        if (emp.guid && jr.guid && w > 0) idx.empJob.set(`${emp.guid}:${jr.guid}`, w)
+      }
+      // Some tenants carry wage overrides in a separate array.
+      for (const wo of emp.wageOverrides ?? []) {
+        const w = Number(wo.wage) || 0
+        if (emp.guid && wo.jobReference?.guid && w > 0) idx.empJob.set(`${emp.guid}:${wo.jobReference.guid}`, w)
+      }
+    }
+  } catch (err) {
+    idx.notes.push(`employees lookup unavailable: ${err.message.slice(0, 140)}`)
+  }
+  return idx
+}
+
 /* ---------- aggregation (⚠ VERIFY block — confirm against Toast Web on sample pulls) ---------- */
 
 const cents = (n) => Math.round((Number(n) || 0) * 100)
@@ -217,6 +254,10 @@ function aggregateOrders(orders) {
     const name = d.name || d.discount?.name || 'unnamed'
     discountDebug[level][name] = (discountDebug[level][name] || 0) + c
   }
+  // Toast keeps removed discounts in the response with processingState VOID/
+  // PENDING; the Sales Summary counts only applied ones. (Calibration: the
+  // item-level overcount of exactly $303.28 disappeared with this filter.)
+  const isApplied = (d) => !d.processingState || d.processingState === 'APPLIED'
 
   for (const order of orders) {
     if (order.voided) {
@@ -228,8 +269,8 @@ function aggregateOrders(orders) {
     }
 
     const checks = order.checks ?? []
-    const hasLiveCheck = checks.some((c) => !c.voided)
-    if (hasLiveCheck) covers += Number(order.numberOfGuests) || 0
+    const hasLiveCheck = checks.some((c) => !c.voided && !c.deleted)
+    if (hasLiveCheck && !order.deleted) covers += Number(order.numberOfGuests) || 0
 
     for (const check of checks) {
       if (check.voided) {
@@ -237,6 +278,7 @@ function aggregateOrders(orders) {
         continue
       }
       for (const disc of check.appliedDiscounts ?? []) {
+        if (!isApplied(disc)) continue
         const c = cents(disc.discountAmount)
         discountsC += c
         addDebug('check', disc, c)
@@ -248,6 +290,7 @@ function aggregateOrders(orders) {
         }
         netC += cents(sel.price)
         for (const d of sel.appliedDiscounts ?? []) {
+          if (!isApplied(d)) continue
           const c = cents(d.discountAmount)
           discountsC += c
           addDebug('item', d, c)
@@ -274,20 +317,37 @@ function aggregateOrders(orders) {
  * Entries with no wage (e.g. salaried) contribute $0 — verify the total
  * against Toast Web's Labor summary; salaried cost may need the invoice side.
  */
-function aggregateLabor(entries) {
+function aggregateLabor(entries, wageIdx) {
   let laborC = 0
-  let noWage = 0
+  const src = { entry: 0, employeeJob: 0, jobDefault: 0, none: 0 }
+  let sampleKeys = null
   for (const e of entries) {
     let hours = (Number(e.regularHours) || 0) + (Number(e.overtimeHours) || 0)
     if (!hours && e.inDate && e.outDate) {
       const ms = new Date(e.outDate) - new Date(e.inDate)
       if (ms > 0) hours = ms / 3_600_000
     }
-    const wage = Number(e.hourlyWage) || 0
-    if (hours && !wage) noWage += 1
+    if (!hours) continue
+
+    let wage = Number(e.hourlyWage) || 0
+    if (wage > 0) src.entry += 1
+    if (!wage && wageIdx) {
+      const empGuid = e.employeeReference?.guid ?? e.employee?.guid
+      const jobGuid = e.jobReference?.guid ?? e.job?.guid
+      wage = (empGuid && jobGuid && wageIdx.empJob.get(`${empGuid}:${jobGuid}`)) || 0
+      if (wage > 0) src.employeeJob += 1
+      if (!wage && jobGuid) {
+        wage = wageIdx.job.get(jobGuid) || 0
+        if (wage > 0) src.jobDefault += 1
+      }
+    }
+    if (!wage) {
+      src.none += 1
+      if (!sampleKeys) sampleKeys = Object.keys(e).join(', ')
+    }
     laborC += Math.round(hours * wage * 100)
   }
-  return { labor_cost: laborC / 100, entry_count: entries.length, no_wage_entries: noWage }
+  return { labor_cost: laborC / 100, entry_count: entries.length, wage_sources: src, sample_entry_keys: sampleKeys }
 }
 
 /* ---------- discover mode ---------- */
@@ -556,6 +616,14 @@ for (const account of accounts) {
       continue
     }
 
+    const wageIdx = await fetchWageIndex(account, token, guid)
+    if (dryRun) {
+      console.log(
+        `${code}: wage index — ${wageIdx.empJob.size} employee-job wages, ${wageIdx.job.size} job defaults` +
+        (wageIdx.notes.length ? ` · ${wageIdx.notes.join(' · ')}` : ''),
+      )
+    }
+
     for (const businessDate of dates) {
       try {
         const [orders, entries] = await Promise.all([
@@ -563,17 +631,23 @@ for (const account of accounts) {
           fetchTimeEntries(account, token, guid, businessDate),
         ])
         const sales = aggregateOrders(orders)
-        const labor = aggregateLabor(entries)
+        const labor = aggregateLabor(entries, wageIdx)
 
         console.log(
           `${code} ${businessDate}: net $${sales.net_sales.toFixed(2)} · gross $${sales.gross_sales.toFixed(2)}` +
           ` · covers ${sales.covers} · voids $${sales.voids_amount.toFixed(2)}` +
           ` · disc $${sales.discounts_amount.toFixed(2)} · labor $${labor.labor_cost.toFixed(2)}` +
-          ` (${sales.order_count} orders, ${labor.entry_count} time entries` +
-          (labor.no_wage_entries ? `, ${labor.no_wage_entries} with hours but no wage` : '') + ')'
+          ` (${sales.order_count} orders, ${labor.entry_count} time entries)`
         )
 
         if (dryRun) {
+          const s = labor.wage_sources
+          console.log(
+            `    · wage sources: ${s.entry} on entry · ${s.employeeJob} employee-job · ${s.jobDefault} job default · ${s.none} unresolved`,
+          )
+          if (labor.sample_entry_keys) {
+            console.log(`    · sample wage-less entry fields: ${labor.sample_entry_keys}`)
+          }
           // Calibration aid: compare these per-name totals against Toast Web's
           // Check Discounts / Menu Item Discounts reports to spot double-counts.
           const fmtDbg = (o) =>
