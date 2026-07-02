@@ -195,16 +195,28 @@ const cents = (n) => Math.round((Number(n) || 0) * 100)
 
 /**
  * Aggregate one business day's orders.
- * Field mapping is the part the spec marks ⚠ VERIFY — confirm each against
- * Toast Web's Sales Summary / Void / Discount reports for the sample dates,
- * then adjust here in ONE place.
+ * CALIBRATED against Toast Web's Sales Summary export for 2026-06-26/27:
+ *  - net_sales   = Σ non-void selection.price → matched Toast Net Sales to
+ *                  the penny both days. (check.amount overshoots ~$356/day —
+ *                  do not use it.)
+ *  - voids       = Σ voided selection prices → matched Void summary exactly.
+ *  - gross_sales = net + discounts (Toast's own definition: Net sales summary
+ *                  shows Gross − Discounts = Net).
+ *  - covers      = guests on orders that still have a live check (raw
+ *                  numberOfGuests overcounted ~1.5% vs Toast Total Guests).
+ * Discounts still run ~15% high vs the Sales discounts line — the dry-run
+ * prints a per-discount-name breakdown by level to pin the double-count.
  */
 function aggregateOrders(orders) {
   let netC = 0
-  let grossC = 0
   let covers = 0
   let voidsC = 0
   let discountsC = 0
+  const discountDebug = { check: {}, item: {} }
+  const addDebug = (level, d, c) => {
+    const name = d.name || d.discount?.name || 'unnamed'
+    discountDebug[level][name] = (discountDebug[level][name] || 0) + c
+  }
 
   for (const order of orders) {
     if (order.voided) {
@@ -214,53 +226,68 @@ function aggregateOrders(orders) {
       }
       continue
     }
-    // ⚠ VERIFY covers: numberOfGuests per order (host-stand dependent).
-    covers += Number(order.numberOfGuests) || 0
 
-    for (const check of order.checks ?? []) {
+    const checks = order.checks ?? []
+    const hasLiveCheck = checks.some((c) => !c.voided)
+    if (hasLiveCheck) covers += Number(order.numberOfGuests) || 0
+
+    for (const check of checks) {
       if (check.voided) {
         for (const sel of check.selections ?? []) voidsC += cents(sel.price)
         continue
       }
-      // ⚠ VERIFY net_sales: check.amount = post-discount, pre-tax.
-      netC += cents(check.amount)
-
       for (const disc of check.appliedDiscounts ?? []) {
-        discountsC += cents(disc.discountAmount)
+        const c = cents(disc.discountAmount)
+        discountsC += c
+        addDebug('check', disc, c)
       }
       for (const sel of check.selections ?? []) {
         if (sel.voided) {
           voidsC += cents(sel.price)
           continue
         }
-        // ⚠ VERIFY gross_sales: pre-discount pre-tax = sum of non-void selection prices.
-        grossC += cents(sel.price)
-        for (const d of sel.appliedDiscounts ?? []) discountsC += cents(d.discountAmount)
+        netC += cents(sel.price)
+        for (const d of sel.appliedDiscounts ?? []) {
+          const c = cents(d.discountAmount)
+          discountsC += c
+          addDebug('item', d, c)
+        }
       }
     }
   }
 
   return {
     net_sales: netC / 100,
-    gross_sales: grossC / 100,
+    gross_sales: (netC + discountsC) / 100,
     covers,
     voids_amount: voidsC / 100,
     discounts_amount: discountsC / 100,
     order_count: orders.length,
+    discountDebug,
   }
 }
 
 /**
  * Straight-time labor: hours × wage, no OT premium (per spec §1).
- * ⚠ VERIFY field names (regularHours/overtimeHours/hourlyWage) on first pull.
+ * First pull showed regularHours/overtimeHours mostly unpopulated ($0 days
+ * with 47 clocked entries), so hours fall back to clock-out − clock-in.
+ * Entries with no wage (e.g. salaried) contribute $0 — verify the total
+ * against Toast Web's Labor summary; salaried cost may need the invoice side.
  */
 function aggregateLabor(entries) {
   let laborC = 0
+  let noWage = 0
   for (const e of entries) {
-    const hours = (Number(e.regularHours) || 0) + (Number(e.overtimeHours) || 0)
-    laborC += Math.round(hours * (Number(e.hourlyWage) || 0) * 100)
+    let hours = (Number(e.regularHours) || 0) + (Number(e.overtimeHours) || 0)
+    if (!hours && e.inDate && e.outDate) {
+      const ms = new Date(e.outDate) - new Date(e.inDate)
+      if (ms > 0) hours = ms / 3_600_000
+    }
+    const wage = Number(e.hourlyWage) || 0
+    if (hours && !wage) noWage += 1
+    laborC += Math.round(hours * wage * 100)
   }
-  return { labor_cost: laborC / 100, entry_count: entries.length }
+  return { labor_cost: laborC / 100, entry_count: entries.length, no_wage_entries: noWage }
 }
 
 /* ---------- discover mode ---------- */
@@ -542,8 +569,21 @@ for (const account of accounts) {
           `${code} ${businessDate}: net $${sales.net_sales.toFixed(2)} · gross $${sales.gross_sales.toFixed(2)}` +
           ` · covers ${sales.covers} · voids $${sales.voids_amount.toFixed(2)}` +
           ` · disc $${sales.discounts_amount.toFixed(2)} · labor $${labor.labor_cost.toFixed(2)}` +
-          ` (${sales.order_count} orders, ${labor.entry_count} time entries)`
+          ` (${sales.order_count} orders, ${labor.entry_count} time entries` +
+          (labor.no_wage_entries ? `, ${labor.no_wage_entries} with hours but no wage` : '') + ')'
         )
+
+        if (dryRun) {
+          // Calibration aid: compare these per-name totals against Toast Web's
+          // Check Discounts / Menu Item Discounts reports to spot double-counts.
+          const fmtDbg = (o) =>
+            Object.entries(o)
+              .sort((a, b) => b[1] - a[1])
+              .map(([k, v]) => `${k} $${(v / 100).toFixed(2)}`)
+              .join(' · ') || 'none'
+          console.log(`    · check-level discounts: ${fmtDbg(sales.discountDebug.check)}`)
+          console.log(`    · item-level discounts:  ${fmtDbg(sales.discountDebug.item)}`)
+        }
 
         if (!dryRun) await upsertDay(locationId, businessDate, sales, labor)
       } catch (err) {
