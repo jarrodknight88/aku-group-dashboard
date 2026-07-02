@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
+import { RangeProvider } from './state/RangeContext.jsx'
 import Login from './pages/Login.jsx'
 import CompanyGlance from './pages/CompanyGlance.jsx'
 import ByLocation from './pages/ByLocation.jsx'
@@ -35,6 +36,7 @@ function RequireAuth({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <RangeProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<RequireAuth><CompanyGlance /></RequireAuth>} />
@@ -46,6 +48,7 @@ export default function App() {
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </RangeProvider>
     </AuthProvider>
   )
 }

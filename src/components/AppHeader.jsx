@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import RangePicker from './RangePicker.jsx'
 import { colors, fonts, layout } from '../theme.js'
 
 const ROLE_LABELS = {
@@ -16,7 +17,6 @@ const ROLE_LABELS = {
  */
 export default function AppHeader({
   active = 'company',
-  comparedTo = 'Sep 8–14',
   maxWidth = layout.maxWidth,
   showDatePicker = true,
 }) {
@@ -117,30 +117,7 @@ export default function AppHeader({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {showDatePicker && (
-            <div style={{ textAlign: 'right' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 9,
-                  padding: '9px 15px',
-                  border: `1px solid ${colors.borderStrong}`,
-                  borderRadius: 9,
-                  background: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                <span style={{ color: colors.muted2 }}>📅</span> This Week{' '}
-                <span style={{ color: colors.muted3 }}>▾</span>
-              </div>
-              <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6 }}>
-                Compared to:{' '}
-                <span style={{ color: colors.muted1, fontWeight: 600 }}>{comparedTo}</span>
-              </div>
-            </div>
-          )}
+          {showDatePicker && <RangePicker />}
           {profile && (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
