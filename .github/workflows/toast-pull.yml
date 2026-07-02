@@ -1,0 +1,49 @@
+name: Toast daily pull
+
+on:
+  schedule:
+    # 11:00 UTC ≈ 7am ET — after the 5am business-day roll has settled (spec §6).
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start business date (YYYY-MM-DD). Empty = yesterday.'
+        required: false
+      end_date:
+        description: 'End business date (YYYY-MM-DD). Empty = start date only.'
+        required: false
+      dry_run:
+        description: 'Dry run (aggregate + print, write nothing)'
+        type: boolean
+        default: false
+      discover:
+        description: 'Discover mode: validate restaurant GUIDs per credential, print venue names'
+        type: boolean
+        default: false
+      guids:
+        description: 'Discover only: candidate GUIDs to test (space-separated)'
+        required: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Pull Toast → daily_metrics
+        env:
+          # Preferred: TOAST_ACCOUNTS (one entry per credential set).
+          # The flat TOAST_* secrets remain supported for a single account.
+          TOAST_ACCOUNTS: ${{ secrets.TOAST_ACCOUNTS }}
+          TOAST_API_HOST: ${{ secrets.TOAST_API_HOST }}
+          TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
+          TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
+          TOAST_LOCATION_MAP: ${{ secrets.TOAST_LOCATION_MAP }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: node scripts/toast-pull/pull.mjs ${{ inputs.discover && '--discover' || '' }} ${{ inputs.guids }} ${{ inputs.start_date }} ${{ inputs.end_date }}
