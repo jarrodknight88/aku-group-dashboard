@@ -195,8 +195,22 @@ async function fetchTimeEntries(account, token, restaurantGuid, businessDate) {
  * employee+job → wage, with job default wage as fallback. Fetched once per
  * location per run.
  */
+/** guid → name map from a config-style list endpoint. */
+async function fetchGuidNames(account, token, restaurantGuid, path, label) {
+  try {
+    const list = await toastGet(account, token, path, restaurantGuid)
+    const map = new Map()
+    for (const it of Array.isArray(list) ? list : []) {
+      if (it.guid) map.set(it.guid, it.name || it.label || '')
+    }
+    return { map, note: null }
+  } catch (err) {
+    return { map: new Map(), note: `${label} lookup unavailable: ${err.message.slice(0, 120)}` }
+  }
+}
+
 async function fetchWageIndex(account, token, restaurantGuid) {
-  const idx = { empJob: new Map(), job: new Map(), notes: [] }
+  const idx = { empJob: new Map(), job: new Map(), names: new Map(), notes: [] }
   try {
     const jobs = await toastGet(account, token, '/labor/v1/jobs', restaurantGuid)
     for (const j of jobs ?? []) {
@@ -209,6 +223,11 @@ async function fetchWageIndex(account, token, restaurantGuid) {
   try {
     const employees = await toastGet(account, token, '/labor/v1/employees', restaurantGuid)
     for (const emp of employees ?? []) {
+      if (emp.guid) {
+        const name =
+          [emp.firstName, emp.lastName].filter(Boolean).join(' ') || emp.chosenName || emp.externalEmployeeId || ''
+        if (name) idx.names.set(emp.guid, name)
+      }
       const refs = emp.jobReferences ?? emp.jobs ?? []
       for (const jr of refs) {
         const w = Number(jr.wage ?? jr.hourlyWage ?? jr.defaultWage) || 0
@@ -244,7 +263,24 @@ const cents = (n) => Math.round((Number(n) || 0) * 100)
  * Discounts still run ~15% high vs the Sales discounts line — the dry-run
  * prints a per-discount-name breakdown by level to pin the double-count.
  */
-function aggregateOrders(orders) {
+function paymentLabel(p, altPayments) {
+  const t = (p.type || '').toUpperCase()
+  if (t === 'CASH') return 'Cash'
+  if (t === 'CREDIT') {
+    const c = (p.cardType || '').toUpperCase()
+    if (c === 'VISA') return 'Visa'
+    if (c === 'MASTERCARD') return 'Mastercard'
+    if (c === 'AMEX') return 'Amex'
+    if (c === 'DISCOVER') return 'Discover'
+    return 'Credit (other)'
+  }
+  if (t === 'GIFTCARD') return 'Gift Card'
+  if (t === 'HOUSE_ACCOUNT') return 'House Account'
+  if (t === 'OTHER') return altPayments?.get(p.otherPayment?.guid) || 'Other'
+  return t || 'Unknown'
+}
+
+function aggregateOrders(orders, lookups = {}) {
   let netC = 0
   let covers = 0
   let voidsC = 0
@@ -259,6 +295,17 @@ function aggregateOrders(orders) {
   // item-level overcount of exactly $303.28 disappeared with this filter.)
   const isApplied = (d) => !d.processingState || d.processingState === 'APPLIED'
 
+  // Breakdown dimensions (⚠ VERIFY against Sales category / Payments summary
+  // exports before the historical backfill).
+  const cats = new Map() // category name -> { netC, qty }
+  const items = new Map() // item key -> { name, category, qty, netC }
+  const pays = new Map() // label -> { count, amountC, tipsC }
+  const servers = new Map() // employee guid -> { netC, orders }
+  const bump = (map, key, init) => {
+    if (!map.has(key)) map.set(key, { ...init })
+    return map.get(key)
+  }
+
   for (const order of orders) {
     if (order.voided) {
       // Fully voided order: contributes to voids, not to sales.
@@ -272,6 +319,9 @@ function aggregateOrders(orders) {
     const hasLiveCheck = checks.some((c) => !c.voided && !c.deleted)
     if (hasLiveCheck && !order.deleted) covers += Number(order.numberOfGuests) || 0
 
+    const serverGuid = order.server?.guid
+    let orderNetC = 0
+
     for (const check of checks) {
       if (check.voided) {
         for (const sel of check.selections ?? []) voidsC += cents(sel.price)
@@ -283,12 +333,33 @@ function aggregateOrders(orders) {
         discountsC += c
         addDebug('check', disc, c)
       }
+      for (const p of check.payments ?? []) {
+        if ((p.paymentStatus || '').toUpperCase() === 'VOIDED') continue
+        const pay = bump(pays, paymentLabel(p, lookups.altPayments), { count: 0, amountC: 0, tipsC: 0 })
+        pay.count += 1
+        pay.amountC += cents(p.amount)
+        pay.tipsC += cents(p.tipAmount)
+      }
       for (const sel of check.selections ?? []) {
         if (sel.voided) {
           voidsC += cents(sel.price)
           continue
         }
-        netC += cents(sel.price)
+        const priceC = cents(sel.price)
+        netC += priceC
+        orderNetC += priceC
+
+        const catName = lookups.categoryNames?.get(sel.salesCategory?.guid) || 'Uncategorized'
+        const qty = Number(sel.quantity) || 0
+        const cat = bump(cats, catName, { netC: 0, qty: 0 })
+        cat.netC += priceC
+        cat.qty += qty
+
+        const itemKey = sel.item?.guid || `name:${sel.displayName || 'unknown'}`
+        const item = bump(items, itemKey, { name: sel.displayName || 'Unknown item', category: catName, qty: 0, netC: 0 })
+        item.qty += qty
+        item.netC += priceC
+
         for (const d of sel.appliedDiscounts ?? []) {
           if (!isApplied(d)) continue
           const c = cents(d.discountAmount)
@@ -296,6 +367,12 @@ function aggregateOrders(orders) {
           addDebug('item', d, c)
         }
       }
+    }
+
+    if (serverGuid && orderNetC > 0) {
+      const s = bump(servers, serverGuid, { netC: 0, orders: 0 })
+      s.netC += orderNetC
+      s.orders += 1
     }
   }
 
@@ -307,6 +384,10 @@ function aggregateOrders(orders) {
     discounts_amount: discountsC / 100,
     order_count: orders.length,
     discountDebug,
+    cats,
+    items,
+    pays,
+    servers,
   }
 }
 
@@ -588,6 +669,38 @@ async function upsertDay(locationId, businessDate, sales, labor) {
   if (error) throw new Error(`upsert failed: ${error.message}`)
 }
 
+/**
+ * Breakdown tables get full-day replacement (delete + insert) so a re-pull
+ * never leaves stale dimension members behind.
+ */
+async function replaceDayRows(table, locationId, businessDate, rows) {
+  const del = await supabase.from(table).delete().eq('location_id', locationId).eq('business_date', businessDate)
+  if (del.error) throw new Error(`${table} delete failed: ${del.error.message}`)
+  for (let i = 0; i < rows.length; i += 400) {
+    const { error } = await supabase.from(table).insert(rows.slice(i, i + 400))
+    if (error) throw new Error(`${table} insert failed: ${error.message}`)
+  }
+}
+
+function breakdownRows(sales, locationId, businessDate, employeeNames) {
+  const base = { location_id: locationId, business_date: businessDate }
+  return {
+    daily_sales_categories: [...sales.cats].map(([category, v]) => ({
+      ...base, category, net_sales: v.netC / 100, item_count: v.qty,
+    })),
+    daily_menu_items: [...sales.items].map(([item_key, v]) => ({
+      ...base, item_key, item_name: v.name, category: v.category, quantity: v.qty, net_sales: v.netC / 100,
+    })),
+    daily_payments: [...sales.pays].map(([payment_type, v]) => ({
+      ...base, payment_type, pay_count: v.count, amount: v.amountC / 100, tips: v.tipsC / 100,
+    })),
+    daily_server_sales: [...sales.servers].map(([employee_guid, v]) => ({
+      ...base, employee_guid, employee_name: employeeNames?.get(employee_guid) || null,
+      net_sales: v.netC / 100, order_count: v.orders,
+    })),
+  }
+}
+
 /* ---------- main ---------- */
 
 const allCodes = accounts.flatMap((a) => Object.values(a.locations))
@@ -617,10 +730,14 @@ for (const account of accounts) {
     }
 
     const wageIdx = await fetchWageIndex(account, token, guid)
+    const catNames = await fetchGuidNames(account, token, guid, '/config/v2/salesCategories', 'sales categories')
+    const altPays = await fetchGuidNames(account, token, guid, '/config/v2/alternatePaymentTypes', 'alternate payments')
+    const lookups = { categoryNames: catNames.map, altPayments: altPays.map, employeeNames: wageIdx.names }
     if (dryRun) {
       console.log(
-        `${code}: wage index — ${wageIdx.empJob.size} employee-job wages, ${wageIdx.job.size} job defaults` +
-        (wageIdx.notes.length ? ` · ${wageIdx.notes.join(' · ')}` : ''),
+        `${code}: lookups — ${wageIdx.empJob.size} employee-job wages · ${wageIdx.names.size} employee names` +
+        ` · ${catNames.map.size} sales categories · ${altPays.map.size} alternate payment types` +
+        [...wageIdx.notes, catNames.note, altPays.note].filter(Boolean).map((n) => ` · ${n}`).join(''),
       )
     }
 
@@ -630,7 +747,7 @@ for (const account of accounts) {
           fetchOrders(account, token, guid, businessDate),
           fetchTimeEntries(account, token, guid, businessDate),
         ])
-        const sales = aggregateOrders(orders)
+        const sales = aggregateOrders(orders, lookups)
         const labor = aggregateLabor(entries, wageIdx)
 
         console.log(
@@ -657,6 +774,30 @@ for (const account of accounts) {
               .join(' · ') || 'none'
           console.log(`    · check-level discounts: ${fmtDbg(sales.discountDebug.check)}`)
           console.log(`    · item-level discounts:  ${fmtDbg(sales.discountDebug.item)}`)
+          // Breakdown calibration — compare against Sales category summary /
+          // Payments summary exports.
+          const money = (c) => '$' + (c / 100).toFixed(2)
+          console.log(
+            `    · categories: ` +
+            [...sales.cats].sort((a, b) => b[1].netC - a[1].netC)
+              .map(([k, v]) => `${k} ${money(v.netC)} (${v.qty} items)`).join(' · '),
+          )
+          console.log(
+            `    · payments: ` +
+            [...sales.pays].sort((a, b) => b[1].amountC - a[1].amountC)
+              .map(([k, v]) => `${k} ×${v.count} ${money(v.amountC)} tips ${money(v.tipsC)}`).join(' · '),
+          )
+          console.log(
+            `    · top items: ` +
+            [...sales.items].sort((a, b) => b[1].netC - a[1].netC).slice(0, 5)
+              .map(([, v]) => `${v.name} ${money(v.netC)} (${v.qty})`).join(' · '),
+          )
+          console.log(
+            `    · top servers: ` +
+            [...sales.servers].sort((a, b) => b[1].netC - a[1].netC).slice(0, 3)
+              .map(([g, v]) => `${lookups.employeeNames.get(g) || g.slice(0, 8)} ${money(v.netC)} (${v.orders} orders)`)
+              .join(' · '),
+          )
         }
 
         if (!dryRun) {
@@ -666,6 +807,10 @@ for (const account of accounts) {
             console.log('    · no activity — row not written')
           } else {
             await upsertDay(locationId, businessDate, sales, labor)
+            const rows = breakdownRows(sales, locationId, businessDate, lookups.employeeNames)
+            for (const [table, tableRows] of Object.entries(rows)) {
+              await replaceDayRows(table, locationId, businessDate, tableRows)
+            }
           }
         }
       } catch (err) {
