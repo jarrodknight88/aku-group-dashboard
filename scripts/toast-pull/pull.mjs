@@ -268,6 +268,32 @@ function aggregateLabor(entries) {
 
 /* ---------- discover mode ---------- */
 
+function decodeJwtPayload(token) {
+  try {
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The token declares what the credential can do. Surface anything that looks
+ * like scope/permission claims so a 403 can be diagnosed as "scope missing"
+ * vs "restaurant not attached" without guessing.
+ */
+function describeTokenClaims(payload) {
+  if (!payload) return []
+  const lines = []
+  for (const [k, v] of Object.entries(payload)) {
+    const key = k.toLowerCase()
+    if (key.includes('scope') || key.includes('permission') || key.includes('access') || key === 'aud') {
+      const val = Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? JSON.stringify(v) : String(v)
+      lines.push(`${k}: ${val}`)
+    }
+  }
+  return lines
+}
+
 /** Pull every uuid-shaped string out of a decoded JWT payload. */
 function uuidsInToken(token) {
   try {
@@ -313,7 +339,8 @@ async function probeGuid(account, token, guid) {
       })
       return { ok: true, name: '(accessible — restaurants scope not granted, no name available)' }
     } catch (err2) {
-      return { ok: false, why: err2.message }
+      // Report both probes so scope-vs-attachment is diagnosable from the log.
+      return { ok: false, why: `restaurants probe: ${err.message} · orders probe: ${err2.message}` }
     }
   }
 }
@@ -333,6 +360,14 @@ if (discoverMode) {
       continue
     }
     console.log('   auth OK')
+
+    const claimLines = describeTokenClaims(decodeJwtPayload(token))
+    if (claimLines.length) {
+      console.log('   token claims (what this credential was granted):')
+      for (const l of claimLines) console.log(`     · ${l}`)
+    } else {
+      console.log('   token claims: none visible — scopes not embedded in this token format')
+    }
 
     const tokenGuids = uuidsInToken(token)
     if (tokenGuids.length) {
