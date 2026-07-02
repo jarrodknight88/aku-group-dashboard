@@ -1,197 +1,97 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
-import { supabase } from '../lib/supabase.js'
 import { colors, fonts, layout } from '../theme.js'
+import { useRange } from '../state/RangeContext.jsx'
+import { fetchLocations, fetchDaily, fetchOrgTargets, sumDaily } from '../data/live.js'
+import { fmtMoney, fmtMoneyC, fmtInt, fmtPct, deltaPct, fmtDelta } from '../lib/format.js'
 
-/* ----------
-   The location list is live from Supabase (RLS-scoped: a manager sees only
-   their venue). The per-card metrics below stay demo data until the Toast
-   import pipeline lands — keyed by location code.
-   Chips ordered Food · Liquor · Labor · Void · Disc (per the design brief);
-   status: 'good' | 'bad' | 'none' (liquor has no fixed target → neutral).
----------- */
-
-const DEMO_METRICS = {
-  ATL: {
-    onTrack: true,
-    net: '$142,300',
-    delta: '▲ 6.8%',
-    covers: '3,180',
-    avg: '$44.75 avg',
-    chips: [
-      { label: 'Food 29.4%', status: 'good' },
-      { label: 'Liquor 22.0%', status: 'none' },
-      { label: 'Labor 26.5%', status: 'good' },
-      { label: 'Void 0.7%', status: 'good' },
-      { label: 'Disc 2.8%', status: 'good' },
-    ],
-  },
-  CLT: {
-    onTrack: false,
-    net: '$98,600',
-    delta: '▲ 4.1%',
-    covers: '2,420',
-    avg: '$40.74 avg',
-    chips: [
-      { label: 'Food 31.2%', status: 'bad' },
-      { label: 'Liquor 23.6%', status: 'none' },
-      { label: 'Labor 29.4%', status: 'bad' },
-      { label: 'Void 0.9%', status: 'good' },
-      { label: 'Disc 3.9%', status: 'bad' },
-    ],
-  },
-  AFRO: {
-    onTrack: true,
-    net: '$76,400',
-    delta: '▲ 9.2%',
-    covers: '2,050',
-    avg: '$37.27 avg',
-    chips: [
-      { label: 'Food 28.1%', status: 'good' },
-      { label: 'Liquor 21.8%', status: 'none' },
-      { label: 'Labor 27.8%', status: 'good' },
-      { label: 'Void 0.8%', status: 'good' },
-      { label: 'Disc 2.6%', status: 'good' },
-    ],
-  },
-}
+/* Live location hub: real totals per venue for the selected range. Venues
+   with no data yet (credentials pending) show an awaiting state instead of
+   numbers. Chips ordered Food · Liquor · Labor · Void · Disc per the brief —
+   cost chips stay neutral until invoice/labor sources exist. */
 
 const CITY_LABELS = { Atlanta: 'Atlanta, GA', Charlotte: 'Charlotte, NC' }
-
-/* ---------- pieces ---------- */
 
 function TargetChip({ label, status }) {
   const dot = status === 'good' ? colors.green : status === 'bad' ? colors.redBright : colors.muted4
   const text = status === 'bad' ? colors.red : status === 'none' ? colors.muted2 : '#3A4150'
   const bg = status === 'bad' ? colors.redBg : colors.panelGray
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        fontSize: 11,
-        color: text,
-        background: bg,
-        padding: '4px 9px',
-        borderRadius: 6,
-      }}
-    >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: text, background: bg, padding: '4px 9px', borderRadius: 6 }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot }} />
       {label}
     </span>
   )
 }
 
-function StatusPill({ onTrack }) {
+function StatusPill({ status }) {
+  // status: 'good' | 'bad' | 'pending'
+  const cfg =
+    status === 'bad'
+      ? { fg: colors.red, bg: colors.redBg, dot: colors.redBright, label: 'Needs attention' }
+      : status === 'pending'
+        ? { fg: colors.muted2, bg: '#E7EAEF', dot: colors.muted4, label: 'Awaiting data' }
+        : { fg: colors.greenDark, bg: colors.greenBg, dot: colors.green, label: 'On track' }
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 11,
-        fontWeight: 700,
-        color: onTrack ? colors.greenDark : colors.red,
-        background: onTrack ? colors.greenBg : colors.redBg,
-        padding: '5px 10px',
-        borderRadius: 20,
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: onTrack ? colors.green : colors.redBright,
-        }}
-      />
-      {onTrack ? 'On track' : 'Needs attention'}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: cfg.fg, background: cfg.bg, padding: '5px 10px', borderRadius: 20 }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: cfg.dot }} />
+      {cfg.label}
     </span>
   )
 }
 
-function LocationCard({ loc }) {
-  return (
-    <Link
-      to={`/locations/${loc.code.toLowerCase()}`}
-      className="loc-card"
-      style={{
-        display: 'block',
-        background: '#fff',
-        border: `1px solid ${colors.border}`,
-        borderRadius: 15,
-        padding: 22,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600 }}>{loc.name}</div>
-          <div style={{ fontSize: 12, color: colors.muted3, marginTop: 2 }}>{loc.city}</div>
-        </div>
-        <StatusPill onTrack={loc.onTrack} />
-      </div>
-      <div style={{ display: 'flex', gap: 18, margin: '20px 0 18px' }}>
-        <div>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted3, fontWeight: 600 }}>
-            Net Sales
-          </div>
-          <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 23, fontWeight: 600, marginTop: 3 }}>
-            {loc.net}
-          </div>
-          <div style={{ fontSize: 11, color: colors.greenDark, fontWeight: 600, marginTop: 2 }}>{loc.delta}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted3, fontWeight: 600 }}>
-            Covers
-          </div>
-          <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 23, fontWeight: 600, marginTop: 3 }}>
-            {loc.covers}
-          </div>
-          <div style={{ fontSize: 11, color: colors.muted3, marginTop: 2 }}>{loc.avg}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, paddingTop: 16, borderTop: `1px solid ${colors.pageBg}` }}>
-        {loc.chips.map((c) => (
-          <TargetChip key={c.label} {...c} />
-        ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: colors.brand }}>View report →</span>
-      </div>
-    </Link>
-  )
-}
-
-/* ---------- page ---------- */
-
-const NO_DATA_METRICS = {
-  onTrack: true,
-  net: '—',
-  delta: 'no data yet',
-  covers: '—',
-  avg: '',
-  chips: [],
-}
-
 export default function ByLocation() {
+  const { range, compare } = useRange()
+  const [locations, setLocations] = useState([])
   const [rows, setRows] = useState([])
+  const [prevRows, setPrevRows] = useState([])
+  const [targets, setTargets] = useState({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    supabase
-      .from('locations')
-      .select('id, name, code, city, status')
-      .order('created_at')
-      .then(({ data }) => {
-        setRows(data ?? [])
+    let live = true
+    setLoading(true)
+    Promise.all([
+      fetchLocations(),
+      fetchDaily(null, range.start, range.end),
+      fetchDaily(null, compare.start, compare.end),
+      fetchOrgTargets(),
+    ])
+      .then(([locs, cur, prev, tg]) => {
+        if (!live) return
+        setLocations(locs)
+        setRows(cur)
+        setPrevRows(prev)
+        setTargets(tg)
         setLoading(false)
       })
-  }, [])
+      .catch((e) => {
+        if (!live) return
+        setError(e.message)
+        setLoading(false)
+      })
+    return () => {
+      live = false
+    }
+  }, [range.start, range.end, compare.start, compare.end])
 
-  const active = rows.filter((r) => r.status === 'active')
-  const comingSoon = rows.filter((r) => r.status === 'coming_soon')
+  const perLocation = useMemo(() => {
+    const m = new Map()
+    for (const l of locations) {
+      const cur = sumDaily(rows.filter((r) => r.location_id === l.id))
+      const prev = sumDaily(prevRows.filter((r) => r.location_id === l.id))
+      m.set(l.id, { cur, prev })
+    }
+    return m
+  }, [locations, rows, prevRows])
+
+  const active = locations.filter((l) => l.status === 'active')
+  const comingSoon = locations.filter((l) => l.status === 'coming_soon')
+  const orgTotals = useMemo(() => sumDaily(rows), [rows])
+  const orgPrev = useMemo(() => sumDaily(prevRows), [prevRows])
+  const orgDelta = deltaPct(orgTotals.net, orgPrev.net)
 
   return (
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
@@ -199,78 +99,104 @@ export default function ByLocation() {
 
       <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '30px 26px 48px' }}>
         {/* Title row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            gap: 20,
-            marginBottom: 24,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
               Locations
             </div>
             <div style={{ fontSize: 13, color: colors.muted3, marginTop: 5 }}>
-              {loading ? 'Loading…' : `${active.length} active`} · $317,300 net this week ·{' '}
-              <span style={{ color: colors.greenDark, fontWeight: 600 }}>▲ 6.2%</span> vs last week
+              {loading ? 'Loading…' : (
+                <>
+                  {active.length} active · {fmtMoney(orgTotals.net)} net this period
+                  {orgDelta != null && (
+                    <>
+                      {' · '}
+                      <span style={{ color: orgDelta >= 0 ? colors.greenDark : colors.red, fontWeight: 600 }}>{fmtDelta(orgDelta)}</span>{' '}
+                      vs prior period
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 16px',
-              border: `1px solid ${colors.borderStrong}`,
-              borderRadius: 9,
-              background: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              color: colors.brand,
-            }}
-          >
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 700, color: colors.brand }}>
             + Add Location
           </div>
         </div>
 
-        {/* Location cards — live list, RLS-scoped to what this user can see */}
+        {error && (
+          <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 18 }}>
+            Couldn't load data: {error}
+          </div>
+        )}
+
+        {/* Location cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
-          {active.map((row) => (
-            <LocationCard
-              key={row.id}
-              loc={{
-                code: row.code,
-                name: row.name,
-                city: CITY_LABELS[row.city] || row.city || '',
-                ...(DEMO_METRICS[row.code] || NO_DATA_METRICS),
-              }}
-            />
-          ))}
+          {active.map((l) => {
+            const d = perLocation.get(l.id)
+            const t = d?.cur
+            const hasData = (t?.days ?? 0) > 0
+            const delta = hasData ? deltaPct(t.net, d.prev.net) : null
+            const voidBad = t?.voidPct != null && t.voidPct >= (targets.void_pct ?? 1)
+            const discBad = t?.discountPct != null && t.discountPct >= (targets.discount_pct ?? 3)
+            const status = !hasData ? 'pending' : voidBad || discBad ? 'bad' : 'good'
+
+            return (
+              <Link
+                key={l.id}
+                to={`/locations/${l.code.toLowerCase()}`}
+                className="loc-card"
+                style={{ display: 'block', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 15, padding: 22 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600 }}>{l.name}</div>
+                    <div style={{ fontSize: 12, color: colors.muted3, marginTop: 2 }}>{CITY_LABELS[l.city] || l.city || ''}</div>
+                  </div>
+                  <StatusPill status={status} />
+                </div>
+
+                <div style={{ display: 'flex', gap: 18, margin: '20px 0 18px' }}>
+                  <div>
+                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted3, fontWeight: 600 }}>Net Sales</div>
+                    <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 23, fontWeight: 600, marginTop: 3 }}>
+                      {hasData ? fmtMoney(t.net) : '—'}
+                    </div>
+                    <div style={{ fontSize: 11, color: delta == null ? colors.muted3 : delta >= 0 ? colors.greenDark : colors.red, fontWeight: 600, marginTop: 2 }}>
+                      {delta == null ? (hasData ? 'no comparison' : 'connect Toast to activate') : fmtDelta(delta)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted3, fontWeight: 600 }}>Covers</div>
+                    <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 23, fontWeight: 600, marginTop: 3 }}>
+                      {hasData ? fmtInt(t.covers) : '—'}
+                    </div>
+                    <div style={{ fontSize: 11, color: colors.muted3, marginTop: 2 }}>{hasData && t.avgCheck != null ? `${fmtMoneyC(t.avgCheck)} avg` : ''}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, paddingTop: 16, borderTop: `1px solid ${colors.pageBg}` }}>
+                  <TargetChip label={`Food ${fmtPct(t?.foodPct)}`} status="none" />
+                  <TargetChip label={`Liquor ${fmtPct(t?.liquorPct)}`} status="none" />
+                  <TargetChip label={`Labor ${fmtPct(t?.laborPct)}`} status="none" />
+                  <TargetChip label={`Void ${fmtPct(t?.voidPct)}`} status={!hasData ? 'none' : voidBad ? 'bad' : 'good'} />
+                  <TargetChip label={`Disc ${fmtPct(t?.discountPct)}`} status={!hasData ? 'none' : discBad ? 'bad' : 'good'} />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: colors.brand }}>View report →</span>
+                </div>
+              </Link>
+            )
+          })}
 
           {/* Opening-soon venues */}
-          {comingSoon.map((row) => (
-            <div
-              key={row.id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'flex-start',
-                background: '#F7F8FA',
-                border: '1px dashed #CDD4DE',
-                borderRadius: 15,
-                padding: 22,
-              }}
-            >
+          {comingSoon.map((l) => (
+            <div key={l.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', background: '#F7F8FA', border: '1px dashed #CDD4DE', borderRadius: 15, padding: 22 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
                 <div>
-                  <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.muted2 }}>{row.name}</div>
-                  <div style={{ fontSize: 12, color: '#A6ADB8', marginTop: 2 }}>
-                    {CITY_LABELS[row.city] || row.city || ''}
-                  </div>
+                  <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, color: colors.muted2 }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: '#A6ADB8', marginTop: 2 }}>{CITY_LABELS[l.city] || l.city || ''}</div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, background: '#E7EAEF', padding: '5px 10px', borderRadius: 20 }}>
                   Opening soon
@@ -283,41 +209,12 @@ export default function ByLocation() {
           ))}
 
           {/* Add location card */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 8,
-              background: 'transparent',
-              border: '1px dashed #CDD4DE',
-              borderRadius: 15,
-              padding: 22,
-              minHeight: 150,
-              color: colors.muted2,
-              cursor: 'pointer',
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: '#fff',
-                border: `1px solid ${colors.borderStrong}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                color: colors.brand,
-                fontWeight: 400,
-              }}
-            >
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8, background: 'transparent', border: '1px dashed #CDD4DE', borderRadius: 15, padding: 22, minHeight: 150, color: colors.muted2, cursor: 'pointer' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fff', border: `1px solid ${colors.borderStrong}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: colors.brand, fontWeight: 400 }}>
               +
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: colors.brand }}>Add Location</div>
-            <div style={{ fontSize: 11, color: colors.muted3 }}>Connect a venue's Toast exports</div>
+            <div style={{ fontSize: 11, color: colors.muted3 }}>Connect a venue's Toast credentials</div>
           </div>
         </div>
       </div>

@@ -37,19 +37,25 @@ export function StatTile({ label, value, delta, up = true, note = 'vs last week'
         {value}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: up ? colors.greenDark : colors.red,
-            background: up ? colors.greenBg : colors.redBg,
-            padding: '2px 8px',
-            borderRadius: 5,
-          }}
-        >
-          {delta}
-        </span>
-        <span style={{ fontSize: 12, color: colors.muted3 }}>{note}</span>
+        {delta == null ? (
+          <span style={{ fontSize: 12, color: colors.muted3 }}>no comparison data</span>
+        ) : (
+          <>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: up ? colors.greenDark : colors.red,
+                background: up ? colors.greenBg : colors.redBg,
+                padding: '2px 8px',
+                borderRadius: 5,
+              }}
+            >
+              {delta}
+            </span>
+            <span style={{ fontSize: 12, color: colors.muted3 }}>{note}</span>
+          </>
+        )}
       </div>
     </div>
   )

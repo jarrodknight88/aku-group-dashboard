@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import {
@@ -8,93 +8,244 @@ import {
   KpiTile,
   Within,
   RankRow,
-  RankedCard,
-  BarList,
   DayBarsCard,
   ChargebacksCard,
   ExceptionTile,
   ModeToggle,
 } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
-import { buildRankedList, overallLeaders } from '../data/topEmployees.js'
+import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
+import { useDashboardData } from '../data/useDashboardData.js'
+import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
+import { fromStr } from '../lib/dates.js'
 
-/* ---------- static demo data (Teranga ATL) ---------- */
+/* Live Level 2 — everything on this page derives from the Toast import
+   tables for the globally selected date range. Cost tiles show awaiting
+   states until the invoice intake and labor sources exist. */
 
-const HEADLINE = [
-  { label: 'Net Sales', value: '$142,300', delta: '▲ 6.8%' },
-  { label: 'Covers', value: '3,180', delta: '▲ 3.4%' },
-  { label: 'Avg Check', value: '$44.75', delta: '▲ 3.0%' },
-  { label: 'Valet Revenue', value: '$8,400', delta: '▲ 2.1%' },
-]
+const CITY_LABELS = { Atlanta: 'Atlanta, GA', Charlotte: 'Charlotte, NC' }
+const STREAM_COLORS = [colors.brand, colors.brandTint1, colors.brandTint2, colors.brandTint3, colors.brandTint4, colors.brandTint5]
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-const DAILY_SALES = [
-  { day: 'Mon', label: '$18.2K', h: 80 },
-  { day: 'Tue', label: '$16.4K', h: 72 },
-  { day: 'Wed', label: '$20.1K', h: 89 },
-  { day: 'Thu', label: '$23.8K', h: 105 },
-  { day: 'Fri', label: '$28.6K', h: 126 },
-  { day: 'Sat', label: '$29.4K', h: 130 },
-  { day: 'Sun', label: '$18.8K', h: 83 },
-]
+function HeadTile({ label, cur, prev, fmt }) {
+  const d = deltaPct(cur, prev)
+  return (
+    <StatTile label={label} value={fmt(cur)} delta={fmtDelta(d)} up={d == null ? true : d >= 0} note="vs prior period" />
+  )
+}
 
-const PAYMENT_MIX = [
-  { label: 'Card (Visa/MC)', pct: '71%', color: colors.brand },
-  { label: 'Amex', pct: '12%', color: colors.brandTint1 },
-  { label: 'Cash', pct: '11%', color: colors.brandTint2 },
-  { label: 'Gift Card', pct: '4%', color: colors.brandTint3 },
-  { label: 'Comp / Other', pct: '2%', color: colors.brandTint5 },
-]
+/** Daily net-sales bar chart; buckets into weeks when the range is long. */
+function DailySalesCard({ rows }) {
+  const buckets = useMemo(() => {
+    const byDate = new Map()
+    for (const r of rows) byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + Number(r.net_sales))
+    const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    if (days.length <= 31) {
+      return days.map(([d, v]) => {
+        const dt = fromStr(d)
+        return { label: days.length <= 14 ? DAY_LABELS[(dt.getDay() + 6) % 7] : String(dt.getDate()), v, title: d }
+      })
+    }
+    const weeks = new Map()
+    for (const [d, v] of days) {
+      const dt = fromStr(d)
+      const monday = new Date(dt)
+      monday.setDate(dt.getDate() - ((dt.getDay() + 6) % 7))
+      const k = monday.toISOString().slice(5, 10)
+      weeks.set(k, (weeks.get(k) || 0) + v)
+    }
+    return [...weeks.entries()].map(([k, v]) => ({ label: k.replace('-', '/'), v, title: `wk ${k}` }))
+  }, [rows])
 
-const REVENUE_STREAMS = [
-  { label: 'Food', val: '$82.5K · 58%', w: 100, color: colors.brand },
-  { label: 'Drink', val: '$34.2K · 24%', w: 41, color: colors.brandTint1 },
-  { label: 'Hookah', val: '$17.1K · 12%', w: 21, color: colors.brandTint2 },
-  { label: 'Valet', val: '$8.4K · 6%', w: 10, color: colors.brandTint4 },
-]
+  const max = Math.max(1, ...buckets.map((b) => b.v))
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Daily Sales</div>
+        <div style={{ fontSize: 11, color: colors.muted3 }}>
+          Net sales by {buckets.length > 0 && rows.length > 31 ? 'week' : 'day'}
+        </div>
+      </div>
+      {buckets.length === 0 ? (
+        <div style={{ height: 172, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted3, fontSize: 12 }}>
+          No data in this range
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, height: 172, marginTop: 18 }}>
+          {buckets.map((b) => (
+            <div key={b.title} title={`${b.title}: ${fmtMoney(b.v)}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 }}>
+              {buckets.length <= 14 && <div style={{ fontSize: 10, color: colors.muted2, fontWeight: 600 }}>{fmtK(b.v)}</div>}
+              <div style={{ width: '100%', maxWidth: 46, height: Math.max(3, (b.v / max) * 118), background: colors.brand, borderRadius: '4px 4px 0 0' }} />
+              <div style={{ fontSize: 9, color: colors.muted3, whiteSpace: 'nowrap' }}>{b.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-const CATEGORY_PERF = [
-  { label: 'Food', val: '$82.5K', w: 100, color: colors.brand },
-  { label: 'Drink', val: '$34.2K', w: 41, color: colors.brandTint1 },
-  { label: 'Hookah', val: '$17.1K', w: 21, color: colors.brandTint2 },
-  { label: 'Valet', val: '$8.4K', w: 10, color: colors.brandTint4 },
-]
+function PaymentMixCard({ pays }) {
+  const groups = useMemo(
+    () => groupSum(pays, (r) => r.payment_type, ['amount', 'pay_count', 'tips']).sort((a, b) => b.amount - a.amount),
+    [pays],
+  )
+  const total = groups.reduce((s, g) => s + g.amount, 0)
+  let acc = 0
+  const segs = groups.map((g, i) => {
+    const from = (acc / Math.max(1, total)) * 100
+    acc += g.amount
+    const to = (acc / Math.max(1, total)) * 100
+    return `${STREAM_COLORS[i % STREAM_COLORS.length]} ${from}% ${to}%`
+  })
+  return (
+    <div style={card}>
+      <div style={{ fontSize: 14, fontWeight: 700 }}>Payment Mix</div>
+      <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>Tender share of collected</div>
+      {groups.length === 0 ? (
+        <div style={{ color: colors.muted3, fontSize: 12 }}>No payments in range</div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div style={{ width: 108, height: 108, borderRadius: '50%', background: `conic-gradient(${segs.join(', ')})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff' }} />
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {groups.slice(0, 6).map((g, i) => (
+              <div key={g.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 2, background: STREAM_COLORS[i % STREAM_COLORS.length] }} />
+                  {g.key}
+                </span>
+                <span style={{ fontWeight: 700 }}>{total ? Math.round((g.amount / total) * 100) : 0}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
-const VOID_BARS = [45, 60, 35, 72, 100, 88, 50]
-const DISCOUNT_BARS = [55, 68, 48, 82, 100, 92, 62]
+function RevenueStreamsCard({ cats, title = 'Revenue Streams' }) {
+  const groups = useMemo(
+    () => groupSum(cats, (r) => r.category, ['net_sales', 'item_count']).sort((a, b) => b.net_sales - a.net_sales),
+    [cats],
+  )
+  const max = Math.max(1, ...groups.map((g) => g.net_sales))
+  const total = groups.reduce((s, g) => s + g.net_sales, 0)
+  return (
+    <div style={card}>
+      <div style={{ fontSize: 14, fontWeight: 700 }}>{title}</div>
+      <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>Net sales by category</div>
+      {groups.length === 0 ? (
+        <div style={{ color: colors.muted3, fontSize: 12 }}>No data in range</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {groups.slice(0, 6).map((g, i) => (
+            <div key={g.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                <span>{g.key}</span>
+                <span style={{ fontWeight: 700 }}>
+                  {fmtK(g.net_sales)} · {total ? Math.round((g.net_sales / total) * 100) : 0}%
+                </span>
+              </div>
+              <div style={{ height: 8, background: colors.pageBg, borderRadius: 4 }}>
+                <div style={{ width: `${(g.net_sales / max) * 100}%`, height: '100%', background: STREAM_COLORS[i % STREAM_COLORS.length], borderRadius: 4 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-const TOP_FOOD = [
-  ['Jollof Rice & Chicken', '$4,180'],
-  ['Suya Platter', '$3,520'],
-  ['Grilled Lamb Chops', '$2,910'],
-  ['Egusi Soup', '$2,300'],
-  ['Thieboudienne', '$1,960'],
-]
-const TOP_LIQUOR = [
-  ['Hennessy VSOP', '$3,140'],
-  ['Don Julio 1942', '$2,540'],
-  ['Casamigos Blanco', '$1,890'],
-  ['Moët Impérial', '$1,740'],
-  ['Veuve Clicquot', '$1,400'],
-]
-const TOP_HOOKAH = [
-  ['Double Apple', '$1,540'],
-  ['Mint', '$1,240'],
-  ['Blue Mist', '$960'],
-  ['Watermelon', '$760'],
-  ['Lemon Mint', '$580'],
-]
+function dayHeights(rows, field) {
+  const byDate = new Map()
+  for (const r of rows) byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + Number(r[field] || 0))
+  const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-14)
+  const max = Math.max(1, ...days.map(([, v]) => v))
+  return days.map(([, v]) => Math.max(4, (v / max) * 100))
+}
 
-/* ---------- page ---------- */
+function TopList({ title, rows, mode }) {
+  return (
+    <div style={{ ...card, padding: 18 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
+      {rows.length === 0 ? (
+        <div style={{ color: colors.muted3, fontSize: 12 }}>No items in range</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {rows.map((r, i) => (
+            <RankRow key={r.key} n={i + 1} name={r.item_name} val={mode === 'dollar' ? fmtMoney(r.net_sales) : `${fmtInt(r.quantity)} sold`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function LocationReport() {
-  const [empMode, setEmpMode] = useState('dollar') // 'dollar' | 'qty'
+  const { loc } = useParams()
+  const [locations, setLocations] = useState(null)
+  const [mode, setMode] = useState('dollar') // top sellers + employees toggle
 
-  const empServers = buildRankedList('servers', empMode)
-  const empBartenders = buildRankedList('bartenders', empMode)
-  const empHookah = buildRankedList('hookah', empMode)
-  const overallRows = overallLeaders[empMode]
+  useEffect(() => {
+    fetchLocations().then(setLocations).catch(() => setLocations([]))
+  }, [])
 
-  const donut = `conic-gradient(${colors.brand} 0 71%, ${colors.brandTint1} 71% 83%, ${colors.brandTint2} 83% 94%, ${colors.brandTint3} 94% 98%, ${colors.brandTint5} 98% 100%)`
+  const location = locations?.find((l) => l.code.toLowerCase() === (loc || '').toLowerCase())
+  const data = useDashboardData(locations === null ? undefined : location?.id ?? null)
+
+  const totals = useMemo(() => (data.cur ? sumDaily(data.cur) : null), [data.cur])
+  const prevTotals = useMemo(() => (data.prev ? sumDaily(data.prev) : null), [data.prev])
+
+  const itemsByCat = useMemo(() => {
+    if (!data.items) return {}
+    const grouped = groupSum(data.items, (r) => r.item_key, ['net_sales', 'quantity'], (r) => ({ item_name: r.item_name, category: r.category }))
+    const byCat = {}
+    for (const g of grouped) {
+      const c = g.category || 'Uncategorized'
+      ;(byCat[c] = byCat[c] || []).push(g)
+    }
+    for (const c of Object.keys(byCat)) {
+      byCat[c].sort((a, b) => (mode === 'dollar' ? b.net_sales - a.net_sales : b.quantity - a.quantity))
+    }
+    return byCat
+  }, [data.items, mode])
+
+  const topServers = useMemo(() => {
+    if (!data.servers) return []
+    return groupSum(data.servers, (r) => r.employee_guid, ['net_sales', 'order_count'], (r) => ({ name: r.employee_name }))
+      .sort((a, b) => (mode === 'dollar' ? b.net_sales - a.net_sales : b.order_count - a.order_count))
+      .slice(0, 5)
+  }, [data.servers, mode])
+
+  const cb = useMemo(() => {
+    const by = { won: { amt: '$0', note: '0 recovered' }, in_progress: { amt: '$0', note: '0 at stake' }, lost: { amt: '$0', note: '0 forfeited' } }
+    for (const r of data.chargebacks ?? []) {
+      const noteWord = r.stage === 'won' ? 'recovered' : r.stage === 'lost' ? 'forfeited' : 'at stake'
+      by[r.stage] = { amt: fmtMoney(Number(r.total)), note: `${r.cnt} ${noteWord}` }
+    }
+    return by
+  }, [data.chargebacks])
+
+  if (locations !== null && !location) {
+    return (
+      <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
+        <AppHeader active="locations" />
+        <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '48px 26px', color: colors.muted2 }}>
+          Unknown location "{loc}". <Link to="/locations" style={{ color: colors.brand, fontWeight: 700 }}>← Back to Locations</Link>
+        </div>
+      </div>
+    )
+  }
+
+  const t = totals
+  const targets = data.targets ?? {}
+  const voidStatus = t?.voidPct == null ? 'neutral' : t.voidPct < (targets.void_pct ?? 1) ? 'good' : 'bad'
+  const discStatus = t?.discountPct == null ? 'neutral' : t.discountPct < (targets.discount_pct ?? 3) ? 'good' : 'bad'
+  const hasData = (data.cur?.length ?? 0) > 0
 
   return (
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
@@ -102,83 +253,44 @@ export default function LocationReport() {
 
       {/* ===== LOCATION SUB-BAR ===== */}
       <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '22px 26px 0' }}>
-        <Link
-          to="/locations"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            color: colors.muted2,
-            marginBottom: 12,
-          }}
-        >
+        <Link to="/locations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted2, marginBottom: 12 }}>
           ← Back to Locations
         </Link>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            gap: 20,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
           <div>
-            <div
-              style={{
-                fontFamily: fonts.serif,
-                fontSize: 30,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                lineHeight: 1.05,
-              }}
-            >
-              Teranga ATL
+            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
+              {location?.name ?? '…'}
             </div>
             <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
-              Atlanta, GA · measured against this location's targets
+              {(CITY_LABELS[location?.city] || location?.city || '') + " · measured against this location's targets"}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div
-              style={{
-                display: 'flex',
-                gap: 4,
-                background: '#fff',
-                border: `1px solid ${colors.border}`,
-                padding: 4,
-                borderRadius: 10,
-              }}
-            >
-              <div style={{ padding: '8px 14px', borderRadius: 7, background: colors.brand, color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                Teranga ATL
-              </div>
-              <div style={{ padding: '8px 14px', borderRadius: 7, color: colors.muted1, fontSize: 13, fontWeight: 600 }}>
-                Teranga CLT
-              </div>
-              <div style={{ padding: '8px 14px', borderRadius: 7, color: colors.muted1, fontSize: 13, fontWeight: 600 }}>
-                Afro District
-              </div>
-              <div style={{ padding: '8px 14px', borderRadius: 7, color: colors.muted4, fontSize: 13, fontWeight: 600 }}>
-                R Thomas · soon
-              </div>
+            <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 10 }}>
+              {(locations ?? []).map((l) =>
+                l.status === 'active' ? (
+                  <Link
+                    key={l.id}
+                    to={`/locations/${l.code.toLowerCase()}`}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 7,
+                      background: l.id === location?.id ? colors.brand : 'transparent',
+                      color: l.id === location?.id ? '#fff' : colors.muted1,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {l.name}
+                  </Link>
+                ) : (
+                  <div key={l.id} style={{ padding: '8px 14px', borderRadius: 7, color: colors.muted4, fontSize: 13, fontWeight: 600 }}>
+                    {l.name} · soon
+                  </div>
+                ),
+              )}
             </div>
-            <Link
-              to="/detail-drill"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '10px 16px',
-                background: colors.brand,
-                color: '#fff',
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
+            <Link to="/detail-drill" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', background: colors.brand, color: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 700 }}>
               View Detail Drill →
             </Link>
           </div>
@@ -186,177 +298,123 @@ export default function LocationReport() {
       </div>
 
       <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '24px 26px 48px' }}>
-        {/* ===== HEADLINE STRIP ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
-          {HEADLINE.map((t) => (
-            <StatTile key={t.label} {...t} />
-          ))}
-        </div>
+        {data.loading && (
+          <div style={{ padding: '40px 0', color: colors.muted3, fontSize: 13 }}>Loading live data…</div>
+        )}
+        {data.error && (
+          <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 20 }}>
+            Couldn't load data: {data.error}
+          </div>
+        )}
+        {!data.loading && !data.error && !hasData && (
+          <div style={{ padding: 14, background: colors.panelGray, borderRadius: 9, color: colors.muted2, fontSize: 13, fontWeight: 600, marginBottom: 20 }}>
+            No data for this location in the selected range — Toast import begins with the earliest backfilled day.
+          </div>
+        )}
 
-        {/* ===== MONEY IN ===== */}
-        <SectionHeader title="Money In" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 16, marginBottom: 30 }}>
-          {/* Daily Sales */}
-          <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>Daily Sales</div>
-              <div style={{ fontSize: 11, color: colors.muted3 }}>Net sales this location by day</div>
+        {!data.loading && !data.error && (
+          <>
+            {/* ===== HEADLINE STRIP ===== */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
+              <HeadTile label="Net Sales" cur={t?.net} prev={prevTotals?.net} fmt={fmtMoney} />
+              <HeadTile label="Covers" cur={t?.covers} prev={prevTotals?.covers} fmt={fmtInt} />
+              <HeadTile label="Avg Check" cur={t?.avgCheck} prev={prevTotals?.avgCheck} fmt={fmtMoneyC} />
+              <HeadTile label="Gross Sales" cur={t?.gross} prev={prevTotals?.gross} fmt={fmtMoney} />
             </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                gap: 14,
-                height: 172,
-                marginTop: 18,
-              }}
-            >
-              {DAILY_SALES.map((d) => (
-                <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, flex: 1 }}>
-                  <div style={{ fontSize: 10, color: colors.muted2, fontWeight: 600 }}>{d.label}</div>
-                  <div style={{ width: '100%', maxWidth: 46, height: d.h, background: colors.brand, borderRadius: '4px 4px 0 0' }} />
-                  <div style={{ fontSize: 10, color: colors.muted3 }}>{d.day}</div>
+
+            {/* ===== MONEY IN ===== */}
+            <SectionHeader title="Money In" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 16, marginBottom: 30 }}>
+              <DailySalesCard rows={data.cur ?? []} />
+              <PaymentMixCard pays={data.pays ?? []} />
+              <RevenueStreamsCard cats={data.cats ?? []} />
+            </div>
+
+            {/* ===== MONEY SAVED ===== */}
+            <SectionHeader title="Money Saved" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
+              <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `${fmtMoney(t.food_cost)} cost · Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
+              <KpiTile label="Labor %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `${fmtMoney(t.labor_cost)} cost · Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
+              <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} />
+              <KpiTile label="Total Expenses" value={t?.expenses ? fmtMoney(t.expenses) : '—'} sub="Awaiting invoice intake" />
+            </div>
+
+            {/* ===== MONEY PROTECTED ===== */}
+            <SectionHeader title="Money Protected" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16 }}>
+              <KpiTile
+                label="Void % of Sales"
+                value={fmtPct(t?.voidPct)}
+                status={voidStatus}
+                size={30}
+                padding={18}
+                sub={
+                  t?.voidPct == null ? 'No sales in range' : (
+                    <>
+                      {fmtMoney(t.voids)} · Target &lt; {targets.void_pct ?? 1}% ·{' '}
+                      {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}
+                    </>
+                  )
+                }
+              />
+              <DayBarsCard title="Voids by Day" bars={dayHeights(data.cur ?? [], 'voids_amount')} color={colors.muted3} />
+              <ChargebacksCard won={cb.won} inProgress={cb.in_progress} lost={cb.lost} />
+              <KpiTile
+                label="Discount % of Sales"
+                value={fmtPct(t?.discountPct)}
+                status={discStatus}
+                size={30}
+                padding={18}
+                sub={
+                  t?.discountPct == null ? 'No sales in range' : (
+                    <>
+                      {fmtMoney(t.discounts)} · Target &lt; {targets.discount_pct ?? 3}% ·{' '}
+                      {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}
+                    </>
+                  )
+                }
+              />
+              <DayBarsCard title="Discounts by Day" bars={dayHeights(data.cur ?? [], 'discounts_amount')} color={colors.brandTint1} />
+              <ExceptionTile count={data.exceptionCount ?? 0} to={`/exceptions?loc=${(location?.code ?? '').toLowerCase()}`} />
+            </div>
+
+            {/* ===== TOP SELLERS ===== */}
+            <SectionHeader title="Top Sellers" sub={location?.name} style={{ margin: '30px 0 14px' }} right={<ModeToggle mode={mode} onChange={setMode} />} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+              <TopList title="Top Food" rows={(itemsByCat['Food'] ?? []).slice(0, 5)} mode={mode} />
+              <TopList title="Top Liquor" rows={(itemsByCat['Liquor'] ?? []).slice(0, 5)} mode={mode} />
+              <TopList title="Top Hookah" rows={(itemsByCat['Hookah'] ?? []).slice(0, 5)} mode={mode} />
+              <RevenueStreamsCard cats={data.cats ?? []} title="Category Performance" />
+            </div>
+
+            {/* ===== TOP EMPLOYEES ===== */}
+            <SectionHeader title="Top Employees" sub={location?.name} style={{ margin: '30px 0 14px' }} right={<ModeToggle mode={mode} onChange={setMode} />} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ ...card, padding: 18 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>
+                  {mode === 'dollar' ? 'Top by Net Sales' : 'Top by Order Count'}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Payment Mix */}
-          <div style={card}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Payment Mix</div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>Tender type breakdown</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div
-                style={{
-                  width: 108,
-                  height: 108,
-                  borderRadius: '50%',
-                  background: donut,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <div style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff' }} />
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {PAYMENT_MIX.map((p) => (
-                  <div key={p.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color }} />
-                      {p.label}
-                    </span>
-                    <span style={{ fontWeight: 700 }}>{p.pct}</span>
+                {topServers.length === 0 ? (
+                  <div style={{ color: colors.muted3, fontSize: 12 }}>No server sales in range</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                    {topServers.map((s, i) => (
+                      <RankRow key={s.key} n={i + 1} name={s.name || s.key.slice(0, 8)} val={mode === 'dollar' ? fmtMoney(s.net_sales) : `${fmtInt(s.order_count)} orders`} />
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* Revenue Streams */}
-          <div style={card}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Revenue Streams</div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>Food · Drink · Hookah · Valet</div>
-            <BarList items={REVENUE_STREAMS} gap={13} />
-          </div>
-        </div>
-
-        {/* ===== MONEY SAVED ===== */}
-        <SectionHeader title="Money Saved" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
-          <KpiTile label="Food Cost %" value="29.4%" status="good" subTop={5} sub="$41,840 cost · Target < 30%" />
-          <KpiTile label="Labor %" value="26.5%" status="good" subTop={5} sub="$37,710 cost · Target < 28%" />
-          <KpiTile label="Liquor Cost %" value="22.0%" sub="No fixed target" />
-          <KpiTile label="Total Expenses" value="$24,800" sub="This location · invoice sheet" />
-        </div>
-
-        {/* ===== MONEY PROTECTED ===== */}
-        <SectionHeader title="Money Protected" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16 }}>
-          <KpiTile
-            label="Void % of Sales"
-            value="0.7%"
-            status="good"
-            size={30}
-            padding={18}
-            sub={<>$996 · Target &lt; 1% · <Within /></>}
-          />
-          <DayBarsCard title="Voids by Day" bars={VOID_BARS} color={colors.muted3} />
-          <ChargebacksCard
-            won={{ amt: '$1,120', note: '2 recovered' }}
-            inProgress={{ amt: '$640', note: '1 at stake' }}
-            lost={{ amt: '$480', note: '1 forfeited' }}
-          />
-          <KpiTile
-            label="Discount % of Sales"
-            value="2.8%"
-            status="good"
-            size={30}
-            padding={18}
-            sub={<>$3,984 · Target &lt; 3% · <Within /></>}
-          />
-          <DayBarsCard title="Discounts by Day" bars={DISCOUNT_BARS} color={colors.brandTint1} />
-          <ExceptionTile count={6} to="/exceptions?loc=atl" />
-        </div>
-
-        {/* ===== TOP SELLERS ===== */}
-        <SectionHeader title="Top Sellers" sub="Teranga ATL" style={{ margin: '30px 0 14px' }} right={<ModeToggle />} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-          <RankedCard title="Top Food" rows={TOP_FOOD} />
-          <RankedCard title="Top Liquor" rows={TOP_LIQUOR} />
-          <RankedCard title="Top Hookah Flavor" rows={TOP_HOOKAH} />
-          <div style={{ ...card, padding: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Category Performance</div>
-            <BarList items={CATEGORY_PERF} />
-          </div>
-        </div>
-
-        {/* ===== TOP EMPLOYEES ===== */}
-        <SectionHeader
-          title="Top Employees"
-          sub="Teranga ATL"
-          style={{ margin: '30px 0 14px' }}
-          right={<ModeToggle mode={empMode} onChange={setEmpMode} />}
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-          {[
-            ['Servers', empServers],
-            ['Bartenders', empBartenders],
-            ['Hookah', empHookah],
-          ].map(([title, rows]) => (
-            <div key={title} style={{ ...card, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-                {rows.map((e) => (
-                  <RankRow key={e.rank} n={e.rank} name={e.name} val={e.val} />
-                ))}
-              </div>
-            </div>
-          ))}
-          {/* Overall — category leaders, highlighted */}
-          <div style={{ background: colors.brand, borderRadius: 13, padding: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 13 }}>Overall</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {overallRows.map((o) => (
-                <div key={o.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.brandTint3, fontWeight: 700 }}>
-                    {o.label}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 600 }}>
-                      {o.name}{' '}
-                      <span style={{ color: colors.brandTint3, fontSize: 10, fontWeight: 500 }}>· {o.role}</span>
-                    </span>
-                    <span className="tnum" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>
-                      {o.val}
-                    </span>
-                  </div>
+              <div style={{ background: colors.brand, borderRadius: 13, padding: 18, color: '#fff' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Role breakdowns coming with labor</div>
+                <div style={{ fontSize: 12, color: colors.brandTint3, lineHeight: 1.6 }}>
+                  Servers / Bartenders / Hookah splits need job data, which arrives with the deferred labor source
+                  (Toast hours + your tipout sheet). Rankings here are total net sales attributed to each employee's
+                  orders for the selected range.
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   )

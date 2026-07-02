@@ -106,7 +106,10 @@ export default function ExceptionDetail() {
               Exception Flags
             </div>
             <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
-              Transactions tripping audit rules · Sep 15–21 · {loc ? LOC_NAMES[loc] : 'org-wide'}
+              Transactions tripping audit rules · {loc ? LOC_NAMES[loc] : 'org-wide'} ·{' '}
+              <span style={{ color: '#8A6D1A', background: '#FBF3DC', fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 5 }}>
+                Sample data — audit rules pending definition
+              </span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
