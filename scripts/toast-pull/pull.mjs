@@ -659,7 +659,15 @@ for (const account of accounts) {
           console.log(`    · item-level discounts:  ${fmtDbg(sales.discountDebug.item)}`)
         }
 
-        if (!dryRun) await upsertDay(locationId, businessDate, sales, labor)
+        if (!dryRun) {
+          if (sales.order_count === 0 && labor.entry_count === 0) {
+            // No evidence of activity (closed day or pre-Toast history):
+            // write nothing rather than a misleading $0 row.
+            console.log('    · no activity — row not written')
+          } else {
+            await upsertDay(locationId, businessDate, sales, labor)
+          }
+        }
       } catch (err) {
         // Spec §6: no partial-day silent writes — log loud, fail the run.
         failures.push(`${code} ${businessDate}: ${err.message}`)

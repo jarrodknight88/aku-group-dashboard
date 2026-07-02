@@ -61,6 +61,19 @@ written; Supabase secrets aren't needed for this mode.
 
 Locally: `node scripts/toast-pull/pull.mjs --discover <guid> <guid>`
 
+## Calibration status (verified 2026-07-02 against Sales Summary export 6/26–6/27)
+
+| Column | Status |
+|---|---|
+| net_sales | ✅ exact (Σ non-void selection prices) |
+| gross_sales | ✅ exact (net + applied discounts) |
+| covers | ✅ exact (guests on non-deleted orders with a live check) |
+| voids_amount | ✅ exact |
+| discounts_amount | ✅ exact per discount name (APPLIED processingState only) |
+| labor_cost | ⏸ deferred — Toast has hours but no wages for this venue; owner plans Toast hours + external tipout/credit-tip sheet. Time entries already carry tips fields for that work. Reads $0 until then; re-pull history to self-heal once solved. |
+
+Days with zero orders and zero time entries are skipped, not written as $0 rows.
+
 ## First-pull verification (spec §7)
 
 Before trusting the numbers, run the manual workflow with **dry run** checked:
