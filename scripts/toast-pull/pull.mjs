@@ -312,6 +312,20 @@ function uuidsInToken(token) {
 }
 
 /**
+ * A GUID embedded in the token is often the MANAGEMENT GROUP, not a
+ * restaurant (a restaurant probe on it 404s). This endpoint enumerates the
+ * restaurants under a group — the definitive way to find restaurant GUIDs.
+ */
+async function probeAsGroup(account, token, guid) {
+  try {
+    const r = await toastGet(account, token, `/restaurants/v1/groups/${guid}/restaurants`, guid)
+    return Array.isArray(r) && r.length ? r : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Validate a candidate restaurant GUID against a credential.
  * Primary: Restaurants API (returns the venue name + business-day closeout hour —
  * the spec §4 check for free). Fallback if that scope wasn't granted: probe the
@@ -387,6 +401,29 @@ if (discoverMode) {
     }
 
     for (const guid of candidates) {
+      // A candidate might be the management group — enumerate its restaurants.
+      const members = await probeAsGroup(account, token, guid)
+      if (members) {
+        console.log(`   ◈ ${guid} is a MANAGEMENT GROUP with ${members.length} restaurant(s):`)
+        for (const m of members) {
+          const rGuid = m.guid || m.restaurantGuid || m.id
+          if (!rGuid) {
+            console.log(`     · (unrecognized member shape) ${JSON.stringify(m)}`)
+            continue
+          }
+          const res = await probeGuid(account, token, rGuid)
+          console.log(
+            res.ok
+              ? `     ✓ ${rGuid} → ${res.name}${res.locationName ? ' · ' + res.locationName : ''}` +
+                (res.closeoutHour !== undefined && res.closeoutHour !== 'n/a'
+                  ? ` · business-day closeout hour: ${res.closeoutHour} · ${res.timeZone}`
+                  : '')
+              : `     ✗ ${rGuid} → in group but not accessible (${res.why})`,
+          )
+        }
+        continue
+      }
+
       const res = await probeGuid(account, token, guid)
       if (res.ok) {
         console.log(
