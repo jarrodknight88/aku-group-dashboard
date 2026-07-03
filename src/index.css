@@ -29,6 +29,11 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* Clickable table rows (exception review) — hover wash from the handoff design */
+.row-hover:hover {
+  background: #f8fafc;
+}
+
 /* By Location hub cards — hover lift from the handoff design */
 .loc-card {
   transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;

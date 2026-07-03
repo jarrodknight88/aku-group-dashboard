@@ -67,16 +67,19 @@ export function StatTile({ label, value, delta, up = true, note = 'vs last week'
  * KPI tile measured against a target.
  * status: 'good' (green border/dot/figure) | 'bad' (red wash) | 'neutral'.
  * `sub` is the line under the figure (string or JSX).
+ * `to` makes the whole tile a link (drill-down tiles carry a Details → tail).
  */
-export function KpiTile({ label, value, sub, status = 'neutral', size = 32, padding = 20, subTop, style }) {
+export function KpiTile({ label, value, sub, status = 'neutral', size = 32, padding = 20, subTop, style, to }) {
   const border =
     status === 'good' ? colors.greenBorder : status === 'bad' ? colors.redBorder : colors.border
   const bg = status === 'bad' ? colors.redBg : colors.white
   const figColor =
     status === 'good' ? colors.greenDark : status === 'bad' ? colors.red : colors.ink
+  const Tag = to ? Link : 'div'
 
   return (
-    <div
+    <Tag
+      to={to}
       style={{
         background: bg,
         border: `1px solid ${border}`,
@@ -84,6 +87,7 @@ export function KpiTile({ label, value, sub, status = 'neutral', size = 32, padd
         padding,
         display: 'flex',
         flexDirection: 'column',
+        cursor: to ? 'pointer' : undefined,
         ...style,
       }}
     >
@@ -116,13 +120,18 @@ export function KpiTile({ label, value, sub, status = 'neutral', size = 32, padd
       >
         {sub}
       </div>
-    </div>
+    </Tag>
   )
 }
 
 /** "within" tail for a target line, e.g. `Target < 1% · within`. */
 export function Within() {
   return <span style={{ color: colors.greenDark, fontWeight: 600 }}>within</span>
+}
+
+/** Drill-down tail for a linked KPI tile, e.g. `Target < 1% · within · Details →`. */
+export function DetailsTail() {
+  return <span style={{ color: colors.brand, fontWeight: 600 }}>Details →</span>
 }
 
 /** Single ranked row: serif rank numeral, name, bold value.

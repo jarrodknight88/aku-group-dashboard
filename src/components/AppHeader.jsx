@@ -12,7 +12,8 @@ const ROLE_LABELS = {
 
 /**
  * Global top bar — persists across every level of the dashboard.
- * `active` highlights the current nav tab: 'company' | 'locations' | 'settings'.
+ * `active` highlights the current nav tab:
+ * 'company' | 'locations' | 'payroll' | 'settings'.
  * `comparedTo` sets the comparison-window label under the date picker.
  */
 export default function AppHeader({
@@ -110,6 +111,9 @@ export default function AppHeader({
             </Link>
             <Link to="/locations" style={tab(active === 'locations')}>
               By Location
+            </Link>
+            <Link to="/payroll" style={tab(active === 'payroll')}>
+              Payroll
             </Link>
             <Link to="/settings" style={tab(active === 'settings')}>
               Settings

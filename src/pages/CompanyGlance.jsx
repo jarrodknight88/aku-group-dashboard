@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { card, StatTile, KpiTile, Within, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
+import { card, StatTile, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
 import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
@@ -294,12 +294,12 @@ export default function CompanyGlance() {
             {/* ===== MONEY PROTECTED ===== */}
             <SectionHeader title="Money Protected" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16, marginBottom: 30 }}>
-              <KpiTile label="Void % of Sales" value={fmtPct(t?.voidPct)} status={voidStatus} size={30} padding={18}
-                sub={t?.voidPct == null ? 'No sales in range' : (<>Target &lt; {targets.void_pct ?? 1}% · {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}</>)} />
+              <KpiTile label="Void % of Sales" value={fmtPct(t?.voidPct)} status={voidStatus} size={30} padding={18} to="/void-discount?tab=void"
+                sub={t?.voidPct == null ? 'No sales in range' : (<>Target &lt; {targets.void_pct ?? 1}% · {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>} · <DetailsTail /></>)} />
               <DayBarsCard title="Voids by Day" bars={weekdayBars(data.cur ?? [], 'voids_amount', 'voided', colors.redBright)} color={colors.muted3} labels={DAY_LABELS} />
               <ChargebacksCard won={cb.won} inProgress={cb.in_progress} lost={cb.lost} />
-              <KpiTile label="Discount % of Sales" value={fmtPct(t?.discountPct)} status={discStatus} size={30} padding={18}
-                sub={t?.discountPct == null ? 'No sales in range' : (<>Target &lt; {targets.discount_pct ?? 3}% · {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}</>)} />
+              <KpiTile label="Discount % of Sales" value={fmtPct(t?.discountPct)} status={discStatus} size={30} padding={18} to="/void-discount?tab=discount"
+                sub={t?.discountPct == null ? 'No sales in range' : (<>Target &lt; {targets.discount_pct ?? 3}% · {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>} · <DetailsTail /></>)} />
               <DayBarsCard title="Discounts by Day" bars={weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')} color={colors.brandTint1} labels={DAY_LABELS} />
               <ExceptionTile count={data.exceptionCount ?? 0} to="/exceptions" />
             </div>

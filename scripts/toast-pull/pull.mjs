@@ -24,6 +24,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { TIP_HOLD_THRESHOLD, TIP_HOLD_DAYS, TIP_HOLD_RULE } from '../../src/config.js'
 
 const {
   TOAST_ACCOUNTS,
@@ -325,6 +326,7 @@ function aggregateOrders(orders, lookups = {}) {
   const pays = new Map() // label -> { count, amountC, tipsC }
   const servers = new Map() // employee guid -> { netC, orders }
   const serverCats = new Map() // employee guid + category (\u0001-joined) -> { netC, qty }
+  const largeTips = [] // §8 — single-transaction tips over the auto-hold threshold
   const bump = (map, key, init) => {
     if (!map.has(key)) map.set(key, { ...init })
     return map.get(key)
@@ -368,6 +370,16 @@ function aggregateOrders(orders, lookups = {}) {
         pay.count += 1
         pay.amountC += cents(p.amount)
         pay.tipsC += cents(p.tipAmount)
+        // §8 — large-tip auto-hold: a single settled payment tipping over the
+        // threshold gets flagged and held through the chargeback window.
+        if (cents(p.tipAmount) > TIP_HOLD_THRESHOLD * 100) {
+          largeTips.push({
+            check: check.displayNumber ? `#${check.displayNumber}` : null,
+            serverGuid,
+            tipC: cents(p.tipAmount),
+            paidAt: p.paidDate || order.openedDate || null,
+          })
+        }
       }
       for (const sel of check.selections ?? []) {
         if (sel.voided) {
@@ -423,6 +435,8 @@ function aggregateOrders(orders, lookups = {}) {
     items,
     pays,
     servers,
+    serverCats,
+    largeTips,
   }
 }
 
@@ -708,6 +722,68 @@ async function upsertDay(locationId, businessDate, sales, labor) {
  * Breakdown tables get full-day replacement (delete + insert) so a re-pull
  * never leaves stale dimension members behind.
  */
+const addDaysIso = (dateIso, n) => {
+  const d = new Date(dateIso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * §8 — large-tip auto-hold, evaluated at import time. Each qualifying tip
+ * creates a held exception flag plus a tip_holds row that releases after the
+ * chargeback window. Insert-only, keyed by check number within the business
+ * date, so re-pulls never clobber a manager's review decision on an existing
+ * flag (a checkless payment can double-insert on re-pull; Toast always sends
+ * display numbers in practice).
+ */
+async function writeTipHolds(locationId, businessDate, largeTips, employeeNames) {
+  if (!largeTips.length) return
+  const releaseAt = addDaysIso(businessDate, TIP_HOLD_DAYS)
+  const { data: existing, error: exErr } = await supabase
+    .from('tip_holds')
+    .select('check_number')
+    .eq('location_id', locationId)
+    .eq('release_at', releaseAt)
+  if (exErr) throw new Error(`tip_holds read failed: ${exErr.message}`)
+  const seen = new Set((existing ?? []).map((r) => r.check_number))
+  for (const t of largeTips) {
+    if (t.check && seen.has(t.check)) continue
+    if (t.check) seen.add(t.check)
+    const occurredAt =
+      t.paidAt && !Number.isNaN(Date.parse(t.paidAt))
+        ? new Date(t.paidAt).toISOString()
+        : `${businessDate}T23:00:00Z`
+    const serverName = employeeNames?.get(t.serverGuid) || null
+    const { data: flag, error } = await supabase
+      .from('exception_flags')
+      .insert({
+        location_id: locationId,
+        occurred_at: occurredAt,
+        check_number: t.check,
+        server_name: serverName,
+        rule_tripped: TIP_HOLD_RULE,
+        amount: t.tipC / 100,
+        severity: 'high',
+        status: 'held',
+        source: 'rule',
+      })
+      .select('id')
+      .single()
+    if (error) throw new Error(`exception_flags insert failed: ${error.message}`)
+    const { error: thErr } = await supabase.from('tip_holds').insert({
+      location_id: locationId,
+      exception_id: flag.id,
+      check_number: t.check,
+      server_name: serverName,
+      amount: t.tipC / 100,
+      flagged_at: occurredAt,
+      release_at: releaseAt,
+      status: 'held',
+    })
+    if (thErr) throw new Error(`tip_holds insert failed: ${thErr.message}`)
+  }
+}
+
 async function replaceDayRows(table, locationId, businessDate, rows) {
   const del = await supabase.from(table).delete().eq('location_id', locationId).eq('business_date', businessDate)
   if (del.error) throw new Error(`${table} delete failed: ${del.error.message}`)
@@ -851,6 +927,14 @@ for (const account of accounts) {
               .map(([g]) => `${lookups.employeeNames.get(g) || g.slice(0, 8)} → ${jobTitles.get(g) || '(no job)'}`)
               .join(' · ') || 'none'),
           )
+          if (sales.largeTips.length) {
+            console.log(
+              `    · large tips (> $${TIP_HOLD_THRESHOLD} — auto-hold): ` +
+              sales.largeTips
+                .map((t) => `${lookups.employeeNames.get(t.serverGuid) || 'unknown'} ${money(t.tipC)} on ${t.check || '?'}`)
+                .join(' · '),
+            )
+          }
         }
 
         if (!dryRun) {
@@ -864,6 +948,7 @@ for (const account of accounts) {
             for (const [table, tableRows] of Object.entries(rows)) {
               await replaceDayRows(table, locationId, businessDate, tableRows)
             }
+            await writeTipHolds(locationId, businessDate, sales.largeTips, lookups.employeeNames)
           }
         }
       } catch (err) {
