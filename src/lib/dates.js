@@ -27,6 +27,7 @@ export function fmtRange(startStr, endStr) {
 }
 
 export const PRESETS = [
+  { key: 'yesterday', label: 'Yesterday' },
   { key: 'thisWeek', label: 'This Week' },
   { key: 'lastWeek', label: 'Last Week' },
   { key: 'thisMonth', label: 'This Month' },
@@ -43,6 +44,10 @@ export function presetRange(key, today = new Date()) {
   const monday = addDays(t, -dow)
 
   switch (key) {
+    case 'yesterday': {
+      const y = toStr(addDays(t, -1))
+      return { start: y, end: y, label: 'Yesterday' }
+    }
     case 'thisWeek':
       return { start: toStr(monday), end: toStr(t), label: 'This Week' }
     case 'lastWeek':

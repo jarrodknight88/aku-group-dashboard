@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fetchLocations } from '../data/live.js'
@@ -15,6 +15,18 @@ export default function AppHeader({ active = 'company' }) {
   const { profile, signOut } = useAuth()
   const [locations, setLocations] = useState([])
   const [menu, setMenu] = useState(null) // 'loc' | 'set' | null
+  // Small close delay so the menu survives the cursor briefly leaving the
+  // hover area (e.g. crossing between trigger and panel, or overshooting).
+  const closeTimer = useRef(null)
+  const openMenu = (name) => {
+    clearTimeout(closeTimer.current)
+    setMenu(name)
+  }
+  const closeSoon = () => {
+    clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => setMenu(null), 200)
+  }
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -35,12 +47,11 @@ export default function AppHeader({ active = 'company' }) {
     whiteSpace: 'nowrap',
   })
   const caret = <span style={{ fontSize: 9, color: colors.muted3 }}>▾</span>
+  // The wrapper starts flush at the trigger's bottom edge (top: '100%') and
+  // carries the visual gap as PADDING, so the cursor never crosses dead space
+  // between trigger and panel — that gap is what made the menus flicker away.
+  const menuWrap = (side) => ({ position: 'absolute', [side]: 0, top: '100%', paddingTop: 6, zIndex: 70 })
   const menuBox = (side) => ({
-    position: 'absolute',
-    [side]: 0,
-    top: '100%',
-    marginTop: 4,
-    zIndex: 70,
     minWidth: side === 'left' ? 200 : 180,
     background: '#fff',
     border: `1px solid ${colors.border}`,
@@ -86,42 +97,46 @@ export default function AppHeader({ active = 'company' }) {
           <Link to="/" style={tab(active === 'company')}>
             Company
           </Link>
-          <div style={{ position: 'relative' }} onMouseEnter={() => setMenu('loc')} onMouseLeave={() => setMenu(null)}>
+          <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('loc')} onMouseLeave={closeSoon}>
             <Link to="/locations" style={tab(active === 'locations')}>
               By Location {caret}
             </Link>
             {menu === 'loc' && (
-              <div style={menuBox('left')}>
-                <Link to="/locations" className="menu-item" style={item(true, colors.ink)}>All locations</Link>
-                {divider}
-                {locations.map((l) =>
-                  l.status === 'active' ? (
-                    <Link key={l.id} to={`/locations/${l.code.toLowerCase()}`} className="menu-item" style={item(false)}>
-                      {l.name}
-                    </Link>
-                  ) : (
-                    <div key={l.id} style={{ ...item(false, colors.muted4), cursor: 'default' }}>{l.name} · coming soon</div>
-                  ),
-                )}
+              <div style={menuWrap('left')}>
+                <div style={menuBox('left')}>
+                  <Link to="/locations" className="menu-item" style={item(true, colors.ink)}>All locations</Link>
+                  {divider}
+                  {locations.map((l) =>
+                    l.status === 'active' ? (
+                      <Link key={l.id} to={`/locations/${l.code.toLowerCase()}`} className="menu-item" style={item(false)}>
+                        {l.name}
+                      </Link>
+                    ) : (
+                      <div key={l.id} style={{ ...item(false, colors.muted4), cursor: 'default' }}>{l.name} · coming soon</div>
+                    ),
+                  )}
+                </div>
               </div>
             )}
           </div>
           <Link to="/payroll" style={tab(active === 'payroll')}>
             Payroll
           </Link>
-          <div style={{ position: 'relative' }} onMouseEnter={() => setMenu('set')} onMouseLeave={() => setMenu(null)}>
+          <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('set')} onMouseLeave={closeSoon}>
             <Link to={isAdmin ? '/settings' : '/settings?tab=account'} style={tab(active === 'settings')}>
               Settings {caret}
             </Link>
             {menu === 'set' && (
-              <div style={menuBox('right')}>
-                {isAdmin && (
-                  <Link to="/settings" className="menu-item" style={item(false)}>Config</Link>
-                )}
-                <Link to="/settings?tab=account" className="menu-item" style={item(false)}>Account</Link>
-                {divider}
-                <div onClick={signOut} className="menu-item menu-item-danger" style={{ ...item(true, colors.red), cursor: 'pointer' }}>
-                  Log out
+              <div style={menuWrap('right')}>
+                <div style={menuBox('right')}>
+                  {isAdmin && (
+                    <Link to="/settings" className="menu-item" style={item(false)}>Config</Link>
+                  )}
+                  <Link to="/settings?tab=account" className="menu-item" style={item(false)}>Account</Link>
+                  {divider}
+                  <div onClick={signOut} className="menu-item menu-item-danger" style={{ ...item(true, colors.red), cursor: 'pointer' }}>
+                    Log out
+                  </div>
                 </div>
               </div>
             )}

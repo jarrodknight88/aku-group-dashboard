@@ -21,7 +21,7 @@ import {
 } from '../components/cards.jsx'
 import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
-import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
+import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
@@ -88,23 +88,46 @@ function statItem(label, cur, prev, fmt) {
   return { label, value: fmt(cur), sub: <DeltaChip delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
 }
 
-/** Daily net-sales bar chart; buckets into weeks when the range is long. */
+/** Daily net-sales bar chart; buckets into weeks when the range is long and
+    into hours when the range is a single day (daily_metrics.sales_by_hour). */
 function DailySalesCard({ rows }) {
-  const buckets = useMemo(() => {
+  const { buckets, hourly } = useMemo(() => {
     const byDate = new Map()
     for (const r of rows) byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + Number(r.net_sales))
     const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    if (days.length <= 31) {
-      return days.map(([d, v]) => {
-        const dt = fromStr(d)
-        const wd = DAY_LABELS[(dt.getDay() + 6) % 7]
+
+    // Single day + hourly data → one bar per active hour. The business day
+    // rolls past midnight, so order slots 6am → 5am before trimming.
+    if (days.length === 1 && rows.some((r) => Array.isArray(r.sales_by_hour))) {
+      const perHour = new Array(24).fill(0)
+      for (const r of rows) {
+        if (!Array.isArray(r.sales_by_hour)) continue
+        r.sales_by_hour.forEach((v, h) => { perHour[h] += Number(v) || 0 })
+      }
+      const order = Array.from({ length: 24 }, (_, i) => (i + 6) % 24)
+      const active = order.filter((h) => perHour[h] > 0)
+      if (active.length) {
         return {
-          label: days.length <= 14 ? wd : String(dt.getDate()),
-          tipDay: days.length <= 14 ? wd : `${dt.getMonth() + 1}/${dt.getDate()}`,
-          v,
-          key: d,
+          hourly: true,
+          buckets: active.map((h) => ({ label: hourLabel(h), tipDay: hourLabel(h), v: perHour[h], key: `h${h}` })),
         }
-      })
+      }
+    }
+
+    if (days.length <= 31) {
+      return {
+        hourly: false,
+        buckets: days.map(([d, v]) => {
+          const dt = fromStr(d)
+          const wd = DAY_LABELS[(dt.getDay() + 6) % 7]
+          return {
+            label: days.length <= 14 ? wd : String(dt.getDate()),
+            tipDay: days.length <= 14 ? wd : `${dt.getMonth() + 1}/${dt.getDate()}`,
+            v,
+            key: d,
+          }
+        }),
+      }
     }
     const weeks = new Map()
     for (const [d, v] of days) {
@@ -114,16 +137,19 @@ function DailySalesCard({ rows }) {
       const k = monday.toISOString().slice(5, 10)
       weeks.set(k, (weeks.get(k) || 0) + v)
     }
-    return [...weeks.entries()].map(([k, v]) => ({ label: k.replace('-', '/'), tipDay: `wk ${k.replace('-', '/')}`, v, key: `wk ${k}` }))
+    return {
+      hourly: false,
+      buckets: [...weeks.entries()].map(([k, v]) => ({ label: k.replace('-', '/'), tipDay: `wk ${k.replace('-', '/')}`, v, key: `wk ${k}` })),
+    }
   }, [rows])
 
   const max = Math.max(1, ...buckets.map((b) => b.v))
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Daily Sales</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>{hourly ? 'Sales by Hour' : 'Daily Sales'}</div>
         <div style={{ fontSize: 11, color: colors.muted3 }}>
-          Net sales by {buckets.length > 0 && rows.length > 31 ? 'week' : 'day'}
+          Net sales by {hourly ? 'hour' : buckets.length > 0 && rows.length > 31 ? 'week' : 'day'}
         </div>
       </div>
       {buckets.length === 0 ? (
@@ -136,7 +162,7 @@ function DailySalesCard({ rows }) {
             <div key={b.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 }}>
               {buckets.length <= 14 && <div style={{ fontSize: 10, color: colors.muted2, fontWeight: 600 }}>{fmtK(b.v)}</div>}
               <div
-                data-tip={`${b.tipDay} · ${fmtK(b.v)} net sales${b.v === max && b.v > 0 ? ' — best day' : ''}`}
+                data-tip={`${b.tipDay} · ${fmtK(b.v)} net sales${b.v === max && b.v > 0 ? (hourly ? ' — peak hour' : ' — best day') : ''}`}
                 style={{ width: '100%', maxWidth: 46, height: Math.max(3, (b.v / max) * 118), background: colors.brand, borderRadius: '4px 4px 0 0' }}
               />
               <div style={{ fontSize: 9, color: colors.muted3, whiteSpace: 'nowrap' }}>{b.label}</div>
@@ -417,7 +443,7 @@ export default function LocationReport() {
             <SectionHeader title="Money Saved" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `${fmtMoney(t.food_cost)} cost · Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
-              <KpiTile label="Labor %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `${fmtMoney(t.labor_cost)} cost · Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
+              <KpiTile label="Labor %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Hours × rates, no tips — awaiting import' : `${fmtMoney(t.labor_cost)} wages · no tips · Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} status={t?.liquorPct == null ? 'neutral' : t.liquorPct < (targets.liquor_pct ?? 24) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Total Expenses" value={t?.expenses ? fmtMoney(t.expenses) : '—'} sub="Awaiting invoice intake" />
             </div>

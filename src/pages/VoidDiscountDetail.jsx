@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
-import PageTitle, { Crumbs } from '../components/PageTitle.jsx'
+import PageTitle, { Crumbs, dataThrough } from '../components/PageTitle.jsx'
 import DateRangePicker from '../components/DateRangePicker.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { card, StatRow, RankRow, ModeToggle } from '../components/cards.jsx'
+import { card, StatRow, RankRow, ModeToggle, DAY_LABELS } from '../components/cards.jsx'
 import { colors, layout } from '../theme.js'
+import { useRange } from '../state/RangeContext.jsx'
+import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../data/live.js'
+import { fromStr } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
 
 /** §11 responsive pattern: wide tables collapse to stacked cards below 720px. */
@@ -21,79 +24,32 @@ function useWindowWidth() {
 
 /* Void & Discount drill-down (handoff §10) — reached from the Void % /
    Discount % tiles in Money Protected (?tab=void|discount, plus &loc=<code>
-   from a location report). Scoping matches the exception page: ?loc= filters
-   everything and the back link returns to that location's report.
-   Ships on the handoff's sample rows until void reasons / discount detail /
-   per-employee sales come through the Toast import (VoidDetails +
-   SalesSummary/ProductMix). */
+   from a location report). Live: totals and % of sales from daily_metrics,
+   reason/type and by-employee accountability from daily_void_discounts
+   (written by the Toast pull), own-sales denominators from
+   daily_server_sales, roles from daily_server_categories. */
 
 const NAMES = { atl: 'Teranga ATL', clt: 'Teranga CLT', afro: 'Afro District' }
-
-const VOID_REASONS = [
-  { label: "86'd item — out of stock", d: 610, q: 22 },
-  { label: 'Customer changed mind', d: 520, q: 24 },
-  { label: 'Wrong order entered', d: 486, q: 19 },
-  { label: 'Long wait — walkout', d: 412, q: 12 },
-  { label: 'Spill / quality issue', d: 306, q: 11 },
-  { label: 'Manager void — other', d: 206, q: 8 },
-]
-const DISC_TYPES = [
-  { label: 'Birthday 20%', d: 2760, q: 48 },
-  { label: 'Industry 15%', d: 2180, q: 42 },
-  { label: 'Manager comp', d: 2050, q: 31 },
-  { label: 'Happy Hour', d: 1690, q: 54 },
-  { label: 'Employee meal 50%', d: 1260, q: 26 },
-  { label: 'Loyalty / other', d: 850, q: 13 },
-]
-const VOID_ITEMS = [
-  { name: 'Jollof Rice & Chicken', d: 420, q: 14 },
-  { name: 'Suya Platter', d: 360, q: 9 },
-  { name: 'Hennessy VSOP (glass)', d: 330, q: 6 },
-  { name: 'Grilled Lamb Chops', d: 290, q: 7 },
-  { name: 'Double Apple Hookah', d: 240, q: 8 },
-]
-const DISC_ITEMS = [
-  { name: 'Jollof Rice & Chicken', d: 1840, q: 38 },
-  { name: 'Suya Platter', d: 1420, q: 29 },
-  { name: 'Hookah — house flavors', d: 1180, q: 31 },
-  { name: 'Grilled Lamb Chops', d: 960, q: 18 },
-  { name: 'House cocktails', d: 890, q: 24 },
-]
-const VOID_EMP = [
-  { name: 'M. Diallo', role: 'Server', loc: 'atl', d: 640, q: 24, pct: 1.4 },
-  { name: 'K. Owusu', role: 'Server', loc: 'clt', d: 460, q: 18, pct: 1.1 },
-  { name: 'J. Mensah', role: 'Server', loc: 'afro', d: 410, q: 15, pct: 1.2 },
-  { name: 'A. Sow', role: 'Server', loc: 'atl', d: 390, q: 15, pct: 0.8 },
-  { name: 'F. Kamara', role: 'Bartender', loc: 'afro', d: 330, q: 12, pct: 0.9 },
-  { name: 'R. Bah', role: 'Bartender', loc: 'clt', d: 310, q: 12, pct: 0.7 },
-]
-const DISC_EMP = [
-  { name: 'M. Diallo', role: 'Server', loc: 'atl', d: 2340, q: 42, pct: 5.1 },
-  { name: 'K. Owusu', role: 'Server', loc: 'clt', d: 2190, q: 40, pct: 3.9 },
-  { name: 'J. Mensah', role: 'Server', loc: 'afro', d: 1780, q: 35, pct: 2.6 },
-  { name: 'F. Kamara', role: 'Bartender', loc: 'afro', d: 1610, q: 32, pct: 1.9 },
-  { name: 'A. Sow', role: 'Server', loc: 'atl', d: 1510, q: 35, pct: 2.9 },
-  { name: 'R. Bah', role: 'Bartender', loc: 'clt', d: 1360, q: 30, pct: 2.4 },
-]
-// per-scope % of sales + peak day [void, disc]
-const SCOPE = {
-  all: { vPct: 0.8, dPct: 3.4, vPeak: ['Fri', '$460 voided'], dPeak: ['Fri', '$2,300 discounted'] },
-  atl: { vPct: 0.7, dPct: 2.8, vPeak: ['Fri', '$225 voided'], dPeak: ['Fri', '$785 discounted'] },
-  clt: { vPct: 0.9, dPct: 3.9, vPeak: ['Sat', '$150 voided'], dPeak: ['Sat', '$730 discounted'] },
-  afro: { vPct: 0.8, dPct: 2.6, vPeak: ['Fri', '$120 voided'], dPeak: ['Fri', '$540 discounted'] },
-}
-
 const BAR_PALETTE = [colors.brand, colors.brandTint1, colors.brandTint2, '#9DB6DC', colors.brandTint3, colors.brandTint4]
 
-const fmt = (n) => '$' + n.toLocaleString('en-US')
+const fmt = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
 export default function VoidDiscountDetail() {
   const [params] = useSearchParams()
+  const { range } = useRange()
   const [tabOv, setTabOv] = useState(null) // tab clicks override ?tab=
   const [mode, setMode] = useState('dollar')
   const [empSort, setEmpSort] = useState(null) // null = follow toggle; else {key, dir}
   const [query, setQuery] = useState('')
   const isMobile = useWindowWidth() < 720
+
+  const [locations, setLocations] = useState([])
+  const [metrics, setMetrics] = useState([])
+  const [vd, setVd] = useState([])
+  const [serverSales, setServerSales] = useState([])
+  const [serverCats, setServerCats] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   let loc = (params.get('loc') || '').toLowerCase()
   if (!NAMES[loc]) loc = ''
@@ -101,45 +57,147 @@ export default function VoidDiscountDetail() {
   const urlTab = (params.get('tab') || 'void').toLowerCase()
   const tab = tabOv || (urlTab === 'discount' ? 'discount' : 'void')
   const isVoid = tab === 'void'
-  const sc = SCOPE[scope]
+  const kind = isVoid ? 'void' : 'discount'
   const target = isVoid ? PERSONAL_VOID_TARGET : PERSONAL_DISCOUNT_TARGET
   const noun = isVoid ? 'Voided' : 'Discounted'
 
-  const orgEmpAll = isVoid ? VOID_EMP : DISC_EMP
-  const emps = loc ? orgEmpAll.filter((r) => r.loc === loc) : orgEmpAll
+  const locByCode = Object.fromEntries(locations.map((l) => [l.code.toLowerCase(), l]))
+  const locById = Object.fromEntries(locations.map((l) => [l.id, l]))
+  const scopeId = loc ? (locByCode[loc]?.id ?? null) : null
+
+  useEffect(() => {
+    let live = true
+    setLoading(true)
+    fetchLocations()
+      .then((locs) => {
+        if (!live) return null
+        setLocations(locs)
+        const id = loc ? (locs.find((l) => l.code.toLowerCase() === loc)?.id ?? null) : null
+        return Promise.all([
+          fetchDaily(id, range.start, range.end),
+          fetchDim('daily_void_discounts', id, range.start, range.end),
+          fetchDim('daily_server_sales', id, range.start, range.end),
+          fetchDim('daily_server_categories', id, range.start, range.end),
+        ])
+      })
+      .then((res) => {
+        if (!live || !res) return
+        const [m, v, ss, sc] = res
+        setMetrics(m)
+        setVd(v)
+        setServerSales(ss)
+        setServerCats(sc)
+        setLoading(false)
+        setError('')
+      })
+      .catch((e) => {
+        if (!live) return
+        setError(e.message)
+        setLoading(false)
+      })
+    return () => { live = false }
+  }, [loc, range.start, range.end])
+
+  const totals = useMemo(() => sumDaily(metrics), [metrics])
+  const kindRows = vd.filter((r) => r.kind === kind)
+  const empRaw = kindRows.filter((r) => r.dim === 'employee')
+  const itemRaw = kindRows.filter((r) => r.dim === 'item')
+  const hasDetail = vd.length > 0
+
+  // Real dollars from daily_metrics (calibrated against Toast reports);
+  // qty comes from the detail rows.
+  const totalD = isVoid ? totals.voids : totals.discounts
+  const totalQ = empRaw.reduce((a, r) => a + Number(r.qty), 0)
+  const pctVal = isVoid ? totals.voidPct : totals.discountPct
+  const overTarget = pctVal != null && pctVal > (isVoid ? 1 : 3)
+
+  // Peak weekday from daily_metrics.
+  const peak = useMemo(() => {
+    const by = new Array(7).fill(0)
+    for (const r of metrics) {
+      const amt = Number(isVoid ? r.voids_amount : r.discounts_amount) || 0
+      by[(fromStr(r.business_date).getDay() + 6) % 7] += amt
+    }
+    const max = Math.max(...by)
+    if (!(max > 0)) return null
+    return [DAY_LABELS[by.indexOf(max)], `${fmt(max)} ${noun.toLowerCase()}`]
+  }, [metrics, isVoid, noun])
+
+  // Role lookup: dominant job title from daily_server_categories.
+  const roleOf = useMemo(() => {
+    const m = new Map()
+    for (const r of serverCats) {
+      if (r.job_title && !m.has(r.employee_guid)) m.set(r.employee_guid, r.job_title)
+    }
+    return m
+  }, [serverCats])
+
+  // Own-sales denominators per employee.
+  const ownSales = useMemo(() => {
+    const m = new Map()
+    for (const r of serverSales) {
+      const k = `${r.location_id}|${r.employee_guid}`
+      m.set(k, (m.get(k) ?? 0) + (Number(r.net_sales) || 0))
+    }
+    return m
+  }, [serverSales])
+
+  const emps = useMemo(
+    () =>
+      groupSum(
+        empRaw,
+        (r) => `${r.location_id}|${r.employee_guid ?? r.employee_name ?? 'unknown'}`,
+        ['amount', 'qty'],
+        (r) => ({
+          name: r.employee_name || 'Unattributed',
+          guid: r.employee_guid,
+          locId: r.location_id,
+        }),
+      ).map((e) => {
+        const sales = ownSales.get(`${e.locId}|${e.guid}`) ?? 0
+        return {
+          name: e.name,
+          role: roleOf.get(e.guid) || '—',
+          locId: e.locId,
+          d: e.amount,
+          q: e.qty,
+          pct: sales > 0 ? (e.amount / sales) * 100 : null,
+        }
+      }),
+    [empRaw, ownSales, roleOf],
+  )
   const empTotal = { d: emps.reduce((a, r) => a + r.d, 0), q: emps.reduce((a, r) => a + r.q, 0) }
 
-  // reasons/items scale to this scope's share of the org totals
-  const orgTotal = { d: orgEmpAll.reduce((a, r) => a + r.d, 0), q: orgEmpAll.reduce((a, r) => a + r.q, 0) }
-  const shareD = empTotal.d / orgTotal.d
-  const shareQ = empTotal.q / orgTotal.q
+  const reasonRows = useMemo(() => {
+    const grouped = groupSum(empRaw, (r) => r.reason || 'No reason recorded', ['amount', 'qty'])
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6)
+    const maxV = Math.max(...grouped.map((r) => (mode === 'dollar' ? r.amount : r.qty)), 1)
+    return grouped.map((r, i) => {
+      const v = mode === 'dollar' ? r.amount : r.qty
+      return {
+        label: r.key,
+        color: BAR_PALETTE[i % BAR_PALETTE.length],
+        pct: Math.round((v / maxV) * 100),
+        val: mode === 'dollar' ? fmt(v) : `${Math.round(r.qty)} ${isVoid ? 'items' : 'checks'}`,
+      }
+    })
+  }, [empRaw, mode, isVoid])
 
-  const scaled = (isVoid ? VOID_REASONS : DISC_TYPES).map((r, i) => ({
-    label: r.label,
-    dv: Math.round(r.d * shareD),
-    qv: Math.round(r.q * shareQ),
-    color: BAR_PALETTE[i],
-  }))
-  const maxV = Math.max(...scaled.map((r) => (mode === 'dollar' ? r.dv : r.qv)), 1)
-  const reasons = scaled.map((r) => {
-    const v = mode === 'dollar' ? r.dv : r.qv
-    return {
-      label: r.label,
-      color: r.color,
-      pct: Math.round((v / maxV) * 100),
-      val: mode === 'dollar' ? fmt(v) : `${v} ${isVoid ? 'items' : 'checks'}`,
-    }
-  })
+  const items = useMemo(
+    () =>
+      groupSum(itemRaw, (r) => r.item_name || 'Unknown item', ['amount', 'qty'])
+        .map((it) => ({
+          name: it.key,
+          v: mode === 'dollar' ? it.amount : it.qty,
+          val: mode === 'dollar' ? fmt(it.amount) : `${Math.round(it.qty)}×`,
+        }))
+        .sort((a, b) => b.v - a.v)
+        .slice(0, 5),
+    [itemRaw, mode],
+  )
 
-  const items = (isVoid ? VOID_ITEMS : DISC_ITEMS)
-    .map((it) => ({
-      name: it.name,
-      v: mode === 'dollar' ? it.d : it.q,
-      val: mode === 'dollar' ? fmt(Math.round(it.d * shareD)) : `${Math.round(it.q * shareQ)}×`,
-    }))
-    .sort((a, b) => b.v - a.v)
-
-  const empVal = (e, key) => (key === 'name' ? e.name.toLowerCase() : key === 'role' ? e.role.toLowerCase() : e[key])
+  const empVal = (e, key) => (key === 'name' ? e.name.toLowerCase() : key === 'role' ? e.role.toLowerCase() : (e[key] ?? -1))
   const sortKey = empSort?.key ?? (mode === 'dollar' ? 'd' : 'q')
   const sortDir = empSort?.dir ?? 'desc'
   const sortedEmps = [...emps]
@@ -150,7 +208,7 @@ export default function VoidDiscountDetail() {
       const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb
       return sortDir === 'asc' ? c : -c
     })
-  const overCount = emps.filter((e) => e.pct > target).length
+  const overCount = emps.filter((e) => e.pct != null && e.pct > target).length
   const EmpTh = ({ k, left, wide, children }) => (
     <th
       onClick={() => setEmpSort((s) => ({ key: k, dir: s?.key === k && s.dir === 'desc' ? 'asc' : k === 'name' || k === 'role' ? 'asc' : 'desc' }))}
@@ -161,9 +219,11 @@ export default function VoidDiscountDetail() {
     </th>
   )
 
-  const pctVal = isVoid ? sc.vPct : sc.dPct
-  const overTarget = pctVal > target
-  const peak = isVoid ? sc.vPeak : sc.dPeak
+  const statusPill = (over) => (
+    <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5, whiteSpace: 'nowrap' }}>
+      {over ? 'Over target' : 'Within'}
+    </span>
+  )
 
   const tabStyle = (active) => ({
     padding: '7px 16px',
@@ -189,14 +249,7 @@ export default function VoidDiscountDetail() {
         />
         <PageTitle
           title="Void & Discount Detail"
-          meta={
-            <>
-              The "why" behind the numbers · {loc ? NAMES[loc] : 'org-wide'} ·{' '}
-              <span style={{ color: '#8A6D1A', background: '#FBF3DC', fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 5 }}>
-                Sample data — void/discount detail pending Toast import
-              </span>
-            </>
-          }
+          meta={<>The "why" behind the numbers · {loc ? NAMES[loc] : 'org-wide'} · {loading ? 'Loading…' : dataThrough(metrics)} · Toast</>}
           right={
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
               <DateRangePicker />
@@ -211,6 +264,18 @@ export default function VoidDiscountDetail() {
           }
         />
 
+        {error && (
+          <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 18 }}>
+            Couldn't load data: {error}
+          </div>
+        )}
+        {!loading && !error && !hasDetail && (
+          <div style={{ padding: '10px 14px', background: '#FBF3DC', borderRadius: 9, color: '#8A6D1A', fontSize: 12, fontWeight: 600, marginBottom: 18 }}>
+            Totals below are live, but reason / item / employee detail hasn't been imported for this range yet — re-run the
+            Toast backfill (Actions → "Toast daily pull") to populate it.
+          </div>
+        )}
+
         {/* ===== SUMMARY STRIP ===== */}
         <StatRow
           size={26}
@@ -219,29 +284,29 @@ export default function VoidDiscountDetail() {
           items={[
             {
               label: `Total ${noun}`,
-              value: mode === 'dollar' ? fmt(empTotal.d) : empTotal.q,
+              value: mode === 'dollar' ? fmt(totalD) : Math.round(totalQ),
               sub: (
                 <span style={{ fontSize: 11, color: colors.muted3 }}>
                   {mode === 'dollar'
-                    ? `${empTotal.q} ${isVoid ? 'voided items' : 'discounted checks'}`
-                    : `${isVoid ? 'items voided · ' : 'checks discounted · '}${fmt(empTotal.d)}`}
+                    ? `${Math.round(totalQ)} ${isVoid ? 'voided items' : 'discounts applied'}`
+                    : `${isVoid ? 'items voided · ' : 'discounts applied · '}${fmt(totalD)}`}
                 </span>
               ),
             },
             {
               label: '% of Sales',
-              value: `${pctVal.toFixed(1)}%`,
-              valueColor: overTarget ? colors.red : colors.greenDark,
+              value: pctVal == null ? '—' : `${pctVal.toFixed(1)}%`,
+              valueColor: pctVal == null ? colors.ink : overTarget ? colors.red : colors.greenDark,
               sub: (
                 <span style={{ fontSize: 11, color: overTarget ? colors.red : colors.muted3, fontWeight: 600 }}>
-                  Target &lt; {target}% · {overTarget ? 'over' : 'within'}
+                  Target &lt; {isVoid ? 1 : 3}% · {pctVal == null ? 'awaiting data' : overTarget ? 'over' : 'within'}
                 </span>
               ),
             },
             {
               label: 'Peak Day',
-              value: peak[0],
-              sub: <span style={{ fontSize: 11, color: colors.muted3 }}>{peak[1]} — highest of the week</span>,
+              value: peak ? peak[0] : '—',
+              sub: <span style={{ fontSize: 11, color: colors.muted3 }}>{peak ? `${peak[1]} — highest of the range` : 'No data in range'}</span>,
             },
             {
               label: 'Employees Over Target',
@@ -260,17 +325,21 @@ export default function VoidDiscountDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div style={card}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{isVoid ? 'Voids by Reason' : 'Discounts by Type'}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {reasons.map((rr) => (
-                <div key={rr.label} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <span style={{ width: 210, fontSize: 12, color: '#3A4150' }}>{rr.label}</span>
-                  <div style={{ flex: 1, height: 10, background: colors.pageBg, borderRadius: 5 }}>
-                    <div style={{ width: `${rr.pct}%`, height: '100%', background: rr.color, borderRadius: 5 }} />
+            {reasonRows.length === 0 ? (
+              <div style={{ padding: '24px 0', color: colors.muted3, fontSize: 12 }}>No {isVoid ? 'void' : 'discount'} detail in this range.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {reasonRows.map((rr) => (
+                  <div key={rr.label} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span style={{ width: 210, fontSize: 12, color: '#3A4150' }}>{rr.label}</span>
+                    <div style={{ flex: 1, height: 10, background: colors.pageBg, borderRadius: 5 }}>
+                      <div style={{ width: `${rr.pct}%`, height: '100%', background: rr.color, borderRadius: 5 }} />
+                    </div>
+                    <span className="tnum" style={{ width: 70, textAlign: 'right', fontSize: 12, fontWeight: 700 }}>{rr.val}</span>
                   </div>
-                  <span className="tnum" style={{ width: 70, textAlign: 'right', fontSize: 12, fontWeight: 700 }}>{rr.val}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
               {isVoid
                 ? 'Reasons come from the Toast void-reason field at entry.'
@@ -279,11 +348,15 @@ export default function VoidDiscountDetail() {
           </div>
           <div style={card}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{isVoid ? 'Most Voided Items' : 'Most Discounted Items'}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {items.map((it, i) => (
-                <RankRow key={it.name} n={i + 1} name={it.name} val={it.val} />
-              ))}
-            </div>
+            {items.length === 0 ? (
+              <div style={{ padding: '24px 0', color: colors.muted3, fontSize: 12 }}>No item detail in this range.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {items.map((it, i) => (
+                  <RankRow key={it.name} n={i + 1} name={it.name} val={it.val} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -302,25 +375,29 @@ export default function VoidDiscountDetail() {
             </div>
           }
         />
-        {isMobile ? (
+        {sortedEmps.length === 0 ? (
+          <div style={{ ...card, color: colors.muted3, fontSize: 12 }}>
+            {loading ? 'Loading…' : `No per-employee ${isVoid ? 'void' : 'discount'} detail in this range.`}
+          </div>
+        ) : isMobile ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {sortedEmps.map((e) => {
-              const over = e.pct > target
+              const over = e.pct != null && e.pct > target
               return (
-                <div key={e.name} style={{ ...card, padding: 16 }}>
+                <div key={`${e.locId}|${e.name}`} style={{ ...card, padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <div>
                       <span style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</span>{' '}
-                      <span style={{ color: colors.muted3, fontSize: 11 }}>· {e.role} · {NAMES[e.loc]}</span>
+                      <span style={{ color: colors.muted3, fontSize: 11 }}>· {e.role} · {locById[e.locId]?.name ?? ''}</span>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5, whiteSpace: 'nowrap' }}>
-                      {over ? 'Over target' : 'Within'}
-                    </span>
+                    {statusPill(over)}
                   </div>
                   <div className="tnum" style={{ display: 'flex', gap: 16, fontSize: 12 }}>
                     <span><span style={{ color: colors.muted3 }}>{noun} </span><b>{fmt(e.d)}</b></span>
-                    <span><span style={{ color: colors.muted3 }}>{isVoid ? 'Items ' : 'Checks '}</span><b>{e.q}</b></span>
-                    <span style={{ color: over ? colors.red : colors.greenDark, fontWeight: 700 }}>{e.pct.toFixed(1)}% of own sales</span>
+                    <span><span style={{ color: colors.muted3 }}>{isVoid ? 'Items ' : 'Checks '}</span><b>{Math.round(e.q)}</b></span>
+                    <span style={{ color: over ? colors.red : colors.greenDark, fontWeight: 700 }}>
+                      {e.pct == null ? 'no sales recorded' : `${e.pct.toFixed(1)}% of own sales`}
+                    </span>
                   </div>
                 </div>
               )
@@ -343,22 +420,18 @@ export default function VoidDiscountDetail() {
                 </thead>
                 <tbody>
                   {sortedEmps.map((e) => {
-                    const over = e.pct > target
+                    const over = e.pct != null && e.pct > target
                     return (
-                      <tr key={e.name} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right' }}>
+                      <tr key={`${e.locId}|${e.name}`} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right' }}>
                         <td style={{ textAlign: 'left', padding: '13px 18px', fontWeight: 600 }}>{e.name}</td>
                         <td style={{ textAlign: 'left', padding: '13px 12px', color: colors.muted2 }}>{e.role}</td>
-                        <td style={{ textAlign: 'left', padding: '13px 12px' }}>{NAMES[e.loc]}</td>
+                        <td style={{ textAlign: 'left', padding: '13px 12px' }}>{locById[e.locId]?.name ?? ''}</td>
                         <td style={{ padding: '13px 12px', fontWeight: 700 }}>{fmt(e.d)}</td>
-                        <td style={{ padding: '13px 12px' }}>{e.q}</td>
-                        <td style={{ padding: '13px 12px', fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : 'transparent' }}>
-                          {e.pct.toFixed(1)}%
+                        <td style={{ padding: '13px 12px' }}>{Math.round(e.q)}</td>
+                        <td style={{ padding: '13px 12px', fontWeight: 700, color: e.pct == null ? colors.muted3 : over ? colors.red : colors.greenDark, background: over ? colors.redBg : 'transparent' }}>
+                          {e.pct == null ? '—' : `${e.pct.toFixed(1)}%`}
                         </td>
-                        <td style={{ padding: '13px 18px', textAlign: 'left' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5, whiteSpace: 'nowrap' }}>
-                            {over ? 'Over target' : 'Within'}
-                          </span>
-                        </td>
+                        <td style={{ padding: '13px 18px', textAlign: 'left' }}>{statusPill(over)}</td>
                       </tr>
                     )
                   })}

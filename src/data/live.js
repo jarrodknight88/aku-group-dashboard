@@ -19,7 +19,7 @@ export async function fetchLocations() {
 export async function fetchDaily(locationId, start, end) {
   let q = supabase
     .from('daily_metrics')
-    .select('location_id, business_date, net_sales, gross_sales, covers, food_cost, labor_cost, liquor_cost, voids_amount, discounts_amount, expenses')
+    .select('location_id, business_date, net_sales, gross_sales, covers, food_cost, labor_cost, liquor_cost, voids_amount, discounts_amount, expenses, sales_by_hour')
     .gte('business_date', start)
     .lte('business_date', end)
     .order('business_date')
@@ -35,6 +35,7 @@ const DIM_COLS = {
   daily_payments: 'location_id, business_date, payment_type, pay_count, amount, tips',
   daily_server_sales: 'location_id, business_date, employee_guid, employee_name, net_sales, order_count',
   daily_server_categories: 'location_id, business_date, employee_guid, employee_name, job_title, category, quantity, net_sales',
+  daily_void_discounts: 'location_id, business_date, kind, dim, employee_guid, employee_name, reason, item_name, amount, qty',
 }
 
 export async function fetchDim(table, locationId, start, end) {
@@ -96,6 +97,24 @@ export function dailySeries(rows, start, end) {
     byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + (Number(r.net_sales) || 0))
   }
   return byDate
+}
+
+/** "5p"-style label for a 0-23 hour slot. */
+export const hourLabel = (h) => (h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h - 12}p`)
+
+/** Sum per-hour sales across rows (each row's sales_by_hour is a 24-slot
+    array). Returns null unless at least one row carries hourly data. */
+export function sumHourly(rows) {
+  const out = new Array(24).fill(0)
+  let any = false
+  for (const r of rows) {
+    if (!Array.isArray(r.sales_by_hour)) continue
+    any = true
+    r.sales_by_hour.forEach((v, h) => {
+      out[h] += Number(v) || 0
+    })
+  }
+  return any ? out : null
 }
 
 export async function fetchOrgTargets() {

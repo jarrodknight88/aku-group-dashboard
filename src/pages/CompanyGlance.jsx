@@ -6,7 +6,7 @@ import DateRangePicker from '../components/DateRangePicker.jsx'
 import { card, StatRow, DeltaChip, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
 import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
-import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
+import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr, fmtRange } from '../lib/dates.js'
@@ -28,11 +28,36 @@ function statItem(label, cur, prev, fmt) {
   return { label, value: fmt(cur), sub: <DeltaChip delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
 }
 
-/** Grouped daily (or weekly) bars, one series per location. */
+/** Grouped daily (or weekly) bars, one series per location. Single-day
+    ranges switch to hourly bars from daily_metrics.sales_by_hour. */
 function DailyByLocationCard({ rows, locations }) {
-  const { buckets, series } = useMemo(() => {
+  const { buckets, series, hourly } = useMemo(() => {
     const withData = locations.filter((l) => rows.some((r) => r.location_id === l.id))
     const keys = [...new Set(rows.map((r) => r.business_date))].sort()
+
+    // Single day + hourly data present → one bucket per active hour.
+    if (keys.length === 1 && rows.some((r) => Array.isArray(r.sales_by_hour))) {
+      const perLoc = withData.map((l) => {
+        const out = new Array(24).fill(0)
+        for (const r of rows) {
+          if (r.location_id !== l.id || !Array.isArray(r.sales_by_hour)) continue
+          r.sales_by_hour.forEach((v, h) => { out[h] += Number(v) || 0 })
+        }
+        return out
+      })
+      // Business day runs into the small hours: order slots 6am → 5am so a
+      // 1am rush sits at the right edge, then trim to the active span.
+      const order = Array.from({ length: 24 }, (_, i) => (i + 6) % 24)
+      const active = order.filter((h) => perLoc.some((a) => a[h] > 0))
+      const hoursBuckets = active.map((h) => ({
+        key: `h${h}`,
+        label: hourLabel(h),
+        tipDay: hourLabel(h),
+        values: perLoc.map((a) => a[h]),
+      }))
+      if (hoursBuckets.length) return { buckets: hoursBuckets, series: withData, hourly: true }
+    }
+
     const weekly = keys.length > 31
     const bucketOf = (dstr) => {
       if (!weekly) return dstr
@@ -61,15 +86,15 @@ function DailyByLocationCard({ rows, locations }) {
         values: withData.map((l) => m.get(l.id) || 0),
       }
     })
-    return { buckets, series: withData }
+    return { buckets, series: withData, hourly: false }
   }, [rows, locations])
 
   const max = Math.max(1, ...buckets.flatMap((b) => b.values))
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Daily Sales by Location</div>
-        <div style={{ fontSize: 11, color: colors.muted3 }}>Net sales</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>{hourly ? 'Sales by Hour' : 'Daily Sales by Location'}</div>
+        <div style={{ fontSize: 11, color: colors.muted3 }}>{hourly ? 'Net sales by hour' : 'Net sales'}</div>
       </div>
       <div style={{ display: 'flex', gap: 14, margin: '11px 0 16px' }}>
         {series.map((l, i) => (
@@ -297,7 +322,7 @@ export default function CompanyGlance() {
             <SectionHeader title="Money Saved" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
-              <KpiTile label="Labor Cost %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
+              <KpiTile label="Labor Cost %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Hours × rates, no tips — awaiting import' : `Target < ${targets.labor_pct ?? 28}% · wages only, no tips`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} status={t?.liquorPct == null ? 'neutral' : t.liquorPct < (targets.liquor_pct ?? 24) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Total Expenses" value={t?.expenses ? fmtMoney(t.expenses) : '—'} sub="Awaiting invoice intake" />
             </div>
