@@ -20,7 +20,6 @@ import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
-import { buildRankedList, overallLeaders } from '../data/topEmployees.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
 
@@ -30,6 +29,55 @@ import { fromStr } from '../lib/dates.js'
 
 const CITY_LABELS = { Atlanta: 'Atlanta, GA', Charlotte: 'Charlotte, NC' }
 const STREAM_COLORS = [colors.brand, colors.brandTint1, colors.brandTint2, colors.brandTint3, colors.brandTint4, colors.brandTint5]
+
+/* Top Employees is fed by daily_server_categories (per-employee sales split
+   by Toast sales category, with the day's clocked-in job title). Sales
+   attribute to the order's server, so hookah/bar staff who don't ring their
+   own orders rank by what sold on the orders they DID ring. */
+
+// Toast job title → dashboard role card. Order-takers default to Servers.
+const roleOf = (job) =>
+  /bartend|mixolog/i.test(job || '') ? 'bartenders' : /hookah/i.test(job || '') ? 'hookah' : 'servers'
+
+// Category → qty unit per role card ("512 items" / "517 drinks" / "142 hookahs").
+const DRINK_CATS = /liquor|beer|wine|bever|cocktail|drink/i
+const HOOKAH_CATS = /hookah/i
+
+const catQty = (emp, re) =>
+  Object.entries(emp.cats).reduce((s, [c, v]) => (re.test(c) ? s + v.qty : s), 0)
+
+/** Aggregate daily_server_categories rows into one record per employee. */
+function rollupEmployees(rows) {
+  const byEmp = new Map()
+  for (const r of rows ?? []) {
+    let e = byEmp.get(r.employee_guid)
+    if (!e) byEmp.set(r.employee_guid, (e = { guid: r.employee_guid, name: '', job: '', total: 0, items: 0, cats: {} }))
+    if (r.employee_name) e.name = r.employee_name
+    if (r.job_title) e.job = r.job_title
+    const net = Number(r.net_sales) || 0
+    const qty = Number(r.quantity) || 0
+    e.total += net
+    e.items += qty
+    const c = (e.cats[r.category] = e.cats[r.category] || { net: 0, qty: 0 })
+    c.net += net
+    c.qty += qty
+  }
+  return [...byEmp.values()].map((e) => ({ ...e, name: e.name || e.guid.slice(0, 8), role: roleOf(e.job) }))
+}
+
+const ROLE_CARDS = [
+  { key: 'servers', title: 'Servers', qtyOf: (e) => e.items, unit: 'items' },
+  { key: 'bartenders', title: 'Bartenders', qtyOf: (e) => catQty(e, DRINK_CATS), unit: 'drinks' },
+  { key: 'hookah', title: 'Hookah', qtyOf: (e) => catQty(e, HOOKAH_CATS), unit: 'hookahs' },
+]
+
+// Overall card: per-category leaders across every role.
+const LEADER_DEFS = [
+  { label: 'Most Food Sold', re: /^food$/i, unit: 'items' },
+  { label: 'Most Liquor Sold', re: /^liquor$/i, unit: 'drinks' },
+  { label: 'Most Hookah Sold', re: /^hookah$/i, unit: 'hookahs' },
+]
+const ROLE_TAGS = { servers: 'Server', bartenders: 'Bartender', hookah: 'Hookah' }
 
 function HeadTile({ label, cur, prev, fmt }) {
   const d = deltaPct(cur, prev)
@@ -220,6 +268,31 @@ export default function LocationReport() {
       .sort((a, b) => (bottomMode === 'dollar' ? a.net_sales - b.net_sales : a.quantity - b.quantity))
       .slice(0, 5)
 
+  const employees = useMemo(() => rollupEmployees(data.serverCats), [data.serverCats])
+
+  const roleRanking = (roleCard) =>
+    employees
+      .filter((e) => e.role === roleCard.key)
+      .sort((a, b) => (empMode === 'dollar' ? b.total - a.total : roleCard.qtyOf(b) - roleCard.qtyOf(a)))
+      .slice(0, 5)
+
+  const overallLeaders = useMemo(
+    () =>
+      LEADER_DEFS.map((def) => {
+        const metric = (e) =>
+          Object.entries(e.cats).reduce((s, [c, v]) => (def.re.test(c) ? s + (empMode === 'dollar' ? v.net : v.qty) : s), 0)
+        const best = employees.reduce((top, e) => (metric(e) > metric(top ?? { cats: {} }) ? e : top), null)
+        if (!best || metric(best) <= 0) return null
+        return {
+          label: def.label,
+          name: best.name,
+          role: ROLE_TAGS[best.role],
+          val: empMode === 'dollar' ? fmtMoney(metric(best)) : `${fmtInt(metric(best))} ${def.unit}`,
+        }
+      }).filter(Boolean),
+    [employees, empMode],
+  )
+
   const cb = useMemo(() => {
     const by = { won: { amt: '$0', note: '0 recovered' }, in_progress: { amt: '$0', note: '0 at stake' }, lost: { amt: '$0', note: '0 forfeited' } }
     for (const r of data.chargebacks ?? []) {
@@ -401,37 +474,51 @@ export default function LocationReport() {
             </div>
 
             {/* ===== TOP EMPLOYEES ===== */}
-            {/* Demo rankings from topEmployees.js until the labor source lands;
-                the section-level toggle re-ranks all four cards at once. */}
             <SectionHeader title="Top Employees" sub={location?.name} style={{ margin: '30px 0 14px' }} right={<ModeToggle mode={empMode} onChange={setEmpMode} />} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-              {[['Servers', 'servers'], ['Bartenders', 'bartenders'], ['Hookah', 'hookah']].map(([title, role]) => (
-                <div key={role} style={{ ...card, padding: 18 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-                    {buildRankedList(role, empMode).map((e) => (
-                      <RankRow key={e.name} n={e.rank} name={e.name} val={e.val} />
-                    ))}
+              {ROLE_CARDS.map((rc) => {
+                const ranked = roleRanking(rc)
+                return (
+                  <div key={rc.key} style={{ ...card, padding: 18 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{rc.title}</div>
+                    {ranked.length === 0 ? (
+                      <div style={{ color: colors.muted3, fontSize: 12 }}>No {rc.key === 'servers' ? 'employee' : rc.title.toLowerCase()} sales in range</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                        {ranked.map((e, i) => (
+                          <RankRow
+                            key={e.guid}
+                            n={i + 1}
+                            name={e.name}
+                            val={empMode === 'dollar' ? fmtMoney(e.total) : `${fmtInt(rc.qtyOf(e))} ${rc.unit}`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
               <div style={{ background: colors.brand, borderRadius: 13, padding: 18 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 13 }}>Overall</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-                  {overallLeaders[empMode].map((o) => (
-                    <div key={o.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.brandTint3, fontWeight: 700 }}>
-                        {o.label}
+                {overallLeaders.length === 0 ? (
+                  <div style={{ color: colors.brandTint3, fontSize: 12 }}>No employee sales in range</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                    {overallLeaders.map((o) => (
+                      <div key={o.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.brandTint3, fontWeight: 700 }}>
+                          {o.label}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 600 }}>
+                            {o.name} <span style={{ color: colors.brandTint3, fontSize: 10, fontWeight: 500 }}>· {o.role}</span>
+                          </span>
+                          <span className="tnum" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{o.val}</span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 600 }}>
-                          {o.name} <span style={{ color: colors.brandTint3, fontSize: 10, fontWeight: 500 }}>· {o.role}</span>
-                        </span>
-                        <span className="tnum" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{o.val}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>

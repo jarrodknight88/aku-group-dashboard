@@ -210,12 +210,13 @@ async function fetchGuidNames(account, token, restaurantGuid, path, label) {
 }
 
 async function fetchWageIndex(account, token, restaurantGuid) {
-  const idx = { empJob: new Map(), job: new Map(), names: new Map(), notes: [] }
+  const idx = { empJob: new Map(), job: new Map(), jobTitle: new Map(), empJobs: new Map(), names: new Map(), notes: [] }
   try {
     const jobs = await toastGet(account, token, '/labor/v1/jobs', restaurantGuid)
     for (const j of jobs ?? []) {
       const w = Number(j.defaultWage ?? j.wage) || 0
       if (j.guid && w > 0) idx.job.set(j.guid, w)
+      if (j.guid) idx.jobTitle.set(j.guid, j.title || j.name || '')
     }
   } catch (err) {
     idx.notes.push(`jobs lookup unavailable: ${err.message.slice(0, 140)}`)
@@ -229,6 +230,7 @@ async function fetchWageIndex(account, token, restaurantGuid) {
         if (name) idx.names.set(emp.guid, name)
       }
       const refs = emp.jobReferences ?? emp.jobs ?? []
+      if (emp.guid && refs.length) idx.empJobs.set(emp.guid, refs.map((r) => r.guid).filter(Boolean))
       for (const jr of refs) {
         const w = Number(jr.wage ?? jr.hourlyWage ?? jr.defaultWage) || 0
         if (emp.guid && jr.guid && w > 0) idx.empJob.set(`${emp.guid}:${jr.guid}`, w)
@@ -243,6 +245,27 @@ async function fetchWageIndex(account, token, restaurantGuid) {
     idx.notes.push(`employees lookup unavailable: ${err.message.slice(0, 140)}`)
   }
   return idx
+}
+
+/**
+ * Employee → job title for one business day, from the day's clock-ins (an
+ * employee's role can differ by shift); falls back to the first job on their
+ * profile for staff who ring orders without clocking in that day.
+ */
+function dayJobTitles(entries, wageIdx) {
+  const titles = new Map()
+  for (const e of entries) {
+    const emp = e.employeeReference?.guid ?? e.employee?.guid
+    const job = e.jobReference?.guid ?? e.job?.guid
+    if (emp && job && !titles.has(emp)) {
+      const t = wageIdx.jobTitle.get(job)
+      if (t) titles.set(emp, t)
+    }
+  }
+  return {
+    get: (empGuid) =>
+      titles.get(empGuid) ?? wageIdx.jobTitle.get((wageIdx.empJobs.get(empGuid) ?? [])[0]) ?? null,
+  }
 }
 
 /* ---------- aggregation (⚠ VERIFY block — confirm against Toast Web on sample pulls) ---------- */
@@ -301,6 +324,7 @@ function aggregateOrders(orders, lookups = {}) {
   const items = new Map() // item key -> { name, category, qty, netC }
   const pays = new Map() // label -> { count, amountC, tipsC }
   const servers = new Map() // employee guid -> { netC, orders }
+  const serverCats = new Map() // employee guid + category (\u0001-joined) -> { netC, qty }
   const bump = (map, key, init) => {
     if (!map.has(key)) map.set(key, { ...init })
     return map.get(key)
@@ -364,6 +388,12 @@ function aggregateOrders(orders, lookups = {}) {
         const item = bump(items, itemKey, { name: sel.displayName || 'Unknown item', category: catName, qty: 0, netC: 0 })
         item.qty += qty
         item.netC += priceC
+
+        if (serverGuid) {
+          const sc = bump(serverCats, `${serverGuid}\u0001${catName}`, { netC: 0, qty: 0 })
+          sc.netC += priceC
+          sc.qty += qty
+        }
 
         for (const d of sel.appliedDiscounts ?? []) {
           if (!isApplied(d)) continue
@@ -687,7 +717,7 @@ async function replaceDayRows(table, locationId, businessDate, rows) {
   }
 }
 
-function breakdownRows(sales, locationId, businessDate, employeeNames) {
+function breakdownRows(sales, locationId, businessDate, employeeNames, jobTitles) {
   const base = { location_id: locationId, business_date: businessDate }
   return {
     daily_sales_categories: [...sales.cats].map(([category, v]) => ({
@@ -703,6 +733,16 @@ function breakdownRows(sales, locationId, businessDate, employeeNames) {
       ...base, employee_guid, employee_name: employeeNames?.get(employee_guid) || null,
       net_sales: v.netC / 100, order_count: v.orders,
     })),
+    daily_server_categories: [...sales.serverCats].map(([key, v]) => {
+      const sep = key.indexOf('\u0001')
+      const employee_guid = key.slice(0, sep)
+      const category = key.slice(sep + 1)
+      return {
+        ...base, employee_guid, employee_name: employeeNames?.get(employee_guid) || null,
+        job_title: jobTitles?.get(employee_guid) || null, category,
+        quantity: v.qty, net_sales: v.netC / 100,
+      }
+    }),
   }
 }
 
@@ -754,6 +794,7 @@ for (const account of accounts) {
         ])
         const sales = aggregateOrders(orders, lookups)
         const labor = aggregateLabor(entries, wageIdx)
+        const jobTitles = dayJobTitles(entries, wageIdx)
 
         console.log(
           `${code} ${businessDate}: net $${sales.net_sales.toFixed(2)} · gross $${sales.gross_sales.toFixed(2)}` +
@@ -803,6 +844,13 @@ for (const account of accounts) {
               .map(([g, v]) => `${lookups.employeeNames.get(g) || g.slice(0, 8)} ${money(v.netC)} (${v.orders} orders)`)
               .join(' · '),
           )
+          // Role calibration — check titles against Toast Web's job list.
+          console.log(
+            `    · server roles: ` +
+            ([...sales.servers].slice(0, 5)
+              .map(([g]) => `${lookups.employeeNames.get(g) || g.slice(0, 8)} → ${jobTitles.get(g) || '(no job)'}`)
+              .join(' · ') || 'none'),
+          )
         }
 
         if (!dryRun) {
@@ -812,7 +860,7 @@ for (const account of accounts) {
             console.log('    · no activity — row not written')
           } else {
             await upsertDay(locationId, businessDate, sales, labor)
-            const rows = breakdownRows(sales, locationId, businessDate, lookups.employeeNames)
+            const rows = breakdownRows(sales, locationId, businessDate, lookups.employeeNames, jobTitles)
             for (const [table, tableRows] of Object.entries(rows)) {
               await replaceDayRows(table, locationId, businessDate, tableRows)
             }

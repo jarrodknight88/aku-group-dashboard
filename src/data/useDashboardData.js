@@ -23,18 +23,19 @@ export function useDashboardData(locationId) {
     setState({ loading: true })
     ;(async () => {
       try {
-        const [cur, prev, cats, items, pays, servers, targets, chargebacks, exceptionCount] = await Promise.all([
+        const [cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount] = await Promise.all([
           fetchDaily(locationId, range.start, range.end),
           fetchDaily(locationId, compare.start, compare.end),
           fetchDim('daily_sales_categories', locationId, range.start, range.end),
           fetchDim('daily_menu_items', locationId, range.start, range.end),
           fetchDim('daily_payments', locationId, range.start, range.end),
           fetchDim('daily_server_sales', locationId, range.start, range.end),
+          fetchDim('daily_server_categories', locationId, range.start, range.end),
           fetchOrgTargets(),
           fetchChargebackTotals(locationId ?? null, range.start, range.end),
           fetchExceptionCount(locationId, range.start, range.end),
         ])
-        if (live) setState({ loading: false, cur, prev, cats, items, pays, servers, targets, chargebacks, exceptionCount })
+        if (live) setState({ loading: false, cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount })
       } catch (err) {
         if (live) setState({ loading: false, error: err.message })
       }
