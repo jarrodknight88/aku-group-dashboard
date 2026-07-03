@@ -6,12 +6,14 @@ import SectionHeader from '../components/SectionHeader.jsx'
 import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations } from '../data/live.js'
-import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried } from '../data/payroll.js'
+import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate } from '../data/payroll.js'
 import { supabase } from '../lib/supabase.js'
 import { fmtRange } from '../lib/dates.js'
 import { TIP_HOLD_THRESHOLD, TIP_HOLD_DAYS, PAY_PERIOD_DAYS, ADP_CO_CODES } from '../config.js'
 
-/* Payroll (handoff §9) — live: hours × rates from daily_labor (Toast pull),
+/* Payroll (handoff §9) — live: hours from daily_labor (Toast pull), rates
+   from employee_rates (set inline on this page; each rate carries into every
+   future period until changed, overriding Toast's mostly-absent wages),
    tips owed from daily_tips (reconciliation sheet, fetched on demand by the
    Run Payroll button through the pull-tips edge function). Check =
    (hours × rate) + tips owed; OT pays at the regular rate. Sheet names match
@@ -92,6 +94,7 @@ export default function Payroll() {
   const [draft, setDraft] = useState({ name: '', loc: 'atl', role: '', salary: '' })
   const [reloadKey, setReloadKey] = useState(0)
   const [sort, setSort] = useState({ key: 'check', dir: 'desc' })
+  const [rateEdit, setRateEdit] = useState(null) // { guid, value } while a rate cell is open
 
   const period = useMemo(() => payPeriod(offset), [offset])
 
@@ -231,6 +234,20 @@ export default function Payroll() {
       setReloadKey((k) => k + 1)
     } catch (e) {
       setPullState({ msg: `Add failed: ${e.message}` })
+    }
+  }
+
+  const commitRate = async (r) => {
+    const raw = String(rateEdit?.value ?? '').replace(/[$,]/g, '').trim()
+    setRateEdit(null)
+    if (raw === '') return
+    const val = parseFloat(raw)
+    if (Number.isNaN(val) || val < 0) return
+    try {
+      await saveEmployeeRate(r.loc, r.guid, r.name, val)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setPullState({ msg: `Rate save failed: ${e.message}` })
     }
   }
 
@@ -452,7 +469,7 @@ export default function Payroll() {
             ) : (
               <>
                 {/* ===== HOURLY TABLE (run view) ===== */}
-                <SectionHeader title="Hourly Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Check = (hours × rate) + tips owed</span>} />
+                <SectionHeader title="Hourly Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Check = (hours × rate) + tips owed · click a rate to set it — it carries into every future period</span>} />
                 <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: unmatched.length ? 12 : 28 }}>
                   <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
@@ -482,7 +499,29 @@ export default function Payroll() {
                           <td style={{ textAlign: 'left', padding: 12, color: colors.muted2 }}>{r.role || '—'}</td>
                           <td style={{ padding: 12 }}>{r.hours.toFixed(2)}</td>
                           <td style={{ padding: 12, color: colors.muted3 }}>{r.ot > 0 ? r.ot.toFixed(2) : '—'}</td>
-                          <td style={{ padding: 12 }}>{fmt(r.rate)}</td>
+                          <td style={{ padding: 12 }}>
+                            {rateEdit?.guid === r.guid ? (
+                              <input
+                                autoFocus
+                                value={rateEdit.value}
+                                onChange={(e) => setRateEdit({ guid: r.guid, value: e.target.value })}
+                                onBlur={() => commitRate(r)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') commitRate(r)
+                                  if (e.key === 'Escape') setRateEdit(null)
+                                }}
+                                style={{ width: 64, padding: '4px 6px', border: `1px solid ${colors.borderStrong}`, borderRadius: 6, fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }}
+                              />
+                            ) : (
+                              <span
+                                onClick={() => setRateEdit({ guid: r.guid, value: r.rate > 0 ? r.rate.toFixed(2) : '' })}
+                                title="Set this employee's hourly rate — it applies to every pay period until changed"
+                                style={{ cursor: 'pointer', borderBottom: `1px dashed ${colors.muted4}`, paddingBottom: 1, ...(r.rate > 0 ? {} : { color: colors.brand, fontWeight: 700, fontSize: 11 }) }}
+                              >
+                                {r.rate > 0 ? fmt(r.rate) : 'set rate'}
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: 12 }}>{fmt(r.wages)}</td>
                           <td style={{ padding: 12 }}>
                             {r.matched ? fmt(r.tips) : '—'}
