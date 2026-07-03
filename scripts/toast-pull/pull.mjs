@@ -304,6 +304,15 @@ function paymentLabel(p, altPayments) {
   return t || 'Unknown'
 }
 
+// Venue-local hour (0-23) of an ISO timestamp; both ATL and CLT are Eastern.
+const hourFmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/New_York' })
+function hourOf(iso) {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return Number(hourFmt.format(new Date(t))) % 24
+}
+
 function aggregateOrders(orders, lookups = {}) {
   let netC = 0
   let covers = 0
@@ -313,6 +322,27 @@ function aggregateOrders(orders, lookups = {}) {
   const addDebug = (level, d, c) => {
     const name = d.name || d.discount?.name || 'unnamed'
     discountDebug[level][name] = (discountDebug[level][name] || 0) + c
+  }
+  // Hourly net sales (24 slots, venue local) — single-day dashboard ranges
+  // chart these instead of by-day bars.
+  const salesByHourC = new Array(24).fill(0)
+  // Void/discount detail: per (server, reason) and per item, in cents.
+  const vdEmp = new Map() // kind‧serverGuid‧reason -> { amountC, qty }
+  const vdItem = new Map() // kind‧itemName -> { amountC, qty }
+  const addVd = (kind, serverGuid, reason, itemName, amountC, qty) => {
+    if (!(amountC > 0)) return
+    const e = bumpVd(vdEmp, `${kind}\u0001${serverGuid ?? ''}\u0001${reason}`)
+    e.amountC += amountC
+    e.qty += qty
+    if (itemName) {
+      const i = bumpVd(vdItem, `${kind}\u0001${itemName}`)
+      i.amountC += amountC
+      i.qty += qty
+    }
+  }
+  const bumpVd = (map, key) => {
+    if (!map.has(key)) map.set(key, { amountC: 0, qty: 0 })
+    return map.get(key)
   }
   // Toast keeps removed discounts in the response with processingState VOID/
   // PENDING; the Sales Summary counts only applied ones. (Calibration: the
@@ -333,10 +363,17 @@ function aggregateOrders(orders, lookups = {}) {
   }
 
   for (const order of orders) {
+    const orderHour = hourOf(order.openedDate || order.paidDate)
+    const orderServer = order.server?.guid
+    const voidReasonOf = (sel) => sel.voidReason?.name || 'No reason recorded'
+
     if (order.voided) {
       // Fully voided order: contributes to voids, not to sales.
       for (const check of order.checks ?? []) {
-        for (const sel of check.selections ?? []) voidsC += cents(sel.price)
+        for (const sel of check.selections ?? []) {
+          voidsC += cents(sel.price)
+          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+        }
       }
       continue
     }
@@ -350,7 +387,10 @@ function aggregateOrders(orders, lookups = {}) {
 
     for (const check of checks) {
       if (check.voided) {
-        for (const sel of check.selections ?? []) voidsC += cents(sel.price)
+        for (const sel of check.selections ?? []) {
+          voidsC += cents(sel.price)
+          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+        }
         continue
       }
       for (const disc of check.appliedDiscounts ?? []) {
@@ -358,6 +398,7 @@ function aggregateOrders(orders, lookups = {}) {
         const c = cents(disc.discountAmount)
         discountsC += c
         addDebug('check', disc, c)
+        addVd('discount', orderServer, disc.name || disc.discount?.name || 'unnamed', null, c, 1)
       }
       for (const p of check.payments ?? []) {
         // Calibration: cash/Discover/OpenTable matched the Payments summary
@@ -385,11 +426,13 @@ function aggregateOrders(orders, lookups = {}) {
       for (const sel of check.selections ?? []) {
         if (sel.voided) {
           voidsC += cents(sel.price)
+          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
           continue
         }
         const priceC = cents(sel.price)
         netC += priceC
         orderNetC += priceC
+        if (orderHour != null) salesByHourC[orderHour] += priceC
 
         const catName = lookups.categoryNames?.get(sel.salesCategory?.guid) || 'Uncategorized'
         const qty = Number(sel.quantity) || 0
@@ -397,10 +440,25 @@ function aggregateOrders(orders, lookups = {}) {
         cat.netC += priceC
         cat.qty += qty
 
-        const itemKey = sel.item?.guid || `name:${sel.displayName || 'unknown'}`
-        const item = bump(items, itemKey, { name: sel.displayName || 'Unknown item', category: catName, qty: 0, netC: 0 })
-        item.qty += qty
-        item.netC += priceC
+        // Hookah performance is tracked by FLAVOR, which rides on the
+        // modifier, not the item ("House Hookah" + modifier "Double Apple").
+        // For hookah-category selections with modifiers, the modifiers become
+        // the menu-item rows — parent price apportioned across them — so
+        // Top/Bottom Sellers rank flavors instead of one generic hookah line.
+        const hookahMods = /hookah/i.test(catName) ? (sel.modifiers ?? []).filter((m) => !m.voided && m.displayName) : []
+        if (hookahMods.length) {
+          const shareC = Math.round(priceC / hookahMods.length)
+          for (const m of hookahMods) {
+            const modItem = bump(items, `hkmod:${m.displayName}`, { name: m.displayName, category: catName, qty: 0, netC: 0 })
+            modItem.qty += Number(m.quantity) || qty || 1
+            modItem.netC += shareC + cents(m.price)
+          }
+        } else {
+          const itemKey = sel.item?.guid || `name:${sel.displayName || 'unknown'}`
+          const item = bump(items, itemKey, { name: sel.displayName || 'Unknown item', category: catName, qty: 0, netC: 0 })
+          item.qty += qty
+          item.netC += priceC
+        }
 
         if (serverGuid) {
           const sc = bump(serverCats, `${serverGuid}\u0001${catName}`, { netC: 0, qty: 0 })
@@ -413,6 +471,7 @@ function aggregateOrders(orders, lookups = {}) {
           const c = cents(d.discountAmount)
           discountsC += c
           addDebug('item', d, c)
+          addVd('discount', orderServer, d.name || d.discount?.name || 'unnamed', sel.displayName, c, 1)
         }
       }
     }
@@ -438,6 +497,9 @@ function aggregateOrders(orders, lookups = {}) {
     servers,
     serverCats,
     largeTips,
+    sales_by_hour: salesByHourC.map((c) => c / 100),
+    vdEmp,
+    vdItem,
   }
 }
 
@@ -710,6 +772,7 @@ async function upsertDay(locationId, businessDate, sales, labor) {
     voids_amount: sales.voids_amount,
     discounts_amount: sales.discounts_amount,
     labor_cost: labor.labor_cost,
+    sales_by_hour: sales.sales_by_hour,
     source: 'toast_api_v1',
     updated_at: new Date().toISOString(),
   }
@@ -857,6 +920,26 @@ function breakdownRows(sales, locationId, businessDate, employeeNames, jobTitles
         quantity: v.qty, net_sales: v.netC / 100,
       }
     }),
+    daily_void_discounts: [
+      ...[...sales.vdEmp].map(([key, v]) => {
+        const [kind, employee_guid, reason] = key.split('\u0001')
+        return {
+          ...base, kind, dim: 'employee',
+          employee_guid: employee_guid || null,
+          employee_name: (employee_guid && employeeNames?.get(employee_guid)) || null,
+          reason, item_name: null,
+          amount: v.amountC / 100, qty: v.qty,
+        }
+      }),
+      ...[...sales.vdItem].map(([key, v]) => {
+        const [kind, item_name] = key.split('\u0001')
+        return {
+          ...base, kind, dim: 'item',
+          employee_guid: null, employee_name: null, reason: null, item_name,
+          amount: v.amountC / 100, qty: v.qty,
+        }
+      }),
+    ],
   }
 }
 
@@ -868,6 +951,17 @@ console.log(`Toast pull — dates: ${dates[0]}${dates.length > 1 ? '..' + dates.
   ` · locations: ${allCodes.join(', ')}${dryRun ? ' · DRY RUN' : ''}`)
 
 const codeToUuid = await resolveLocations()
+
+// Dashboard-entered hourly rates (employee_rates) override Toast wages when
+// computing the labor_cost aggregate — Toast rarely carries a wage here.
+// Wages only: tips/gratuity never count as labor.
+let dashboardRates = new Map()
+if (!dryRun) {
+  const { data, error } = await supabase.from('employee_rates').select('employee_guid, rate')
+  if (error) fail(`employee_rates read failed: ${error.message}`)
+  dashboardRates = new Map((data ?? []).map((r) => [r.employee_guid, Number(r.rate)]))
+  console.log(`dashboard rates loaded: ${dashboardRates.size}`)
+}
 
 const failures = []
 
@@ -981,6 +1075,14 @@ for (const account of accounts) {
             // write nothing rather than a misleading $0 row.
             console.log('    · no activity — row not written')
           } else {
+            const laborRows = laborBreakdown(entries, wageIdx)
+            labor.labor_cost =
+              Math.round(
+                laborRows.reduce((s, r) => {
+                  const dash = dashboardRates.get(r.employee_guid)
+                  return s + (dash != null ? r.hours * dash : r.wages)
+                }, 0) * 100,
+              ) / 100
             await upsertDay(locationId, businessDate, sales, labor)
             const rows = breakdownRows(sales, locationId, businessDate, lookups.employeeNames, jobTitles)
             for (const [table, tableRows] of Object.entries(rows)) {
@@ -990,7 +1092,7 @@ for (const account of accounts) {
               'daily_labor',
               locationId,
               businessDate,
-              laborBreakdown(entries, wageIdx).map((r) => ({ location_id: locationId, business_date: businessDate, ...r })),
+              laborRows.map((r) => ({ location_id: locationId, business_date: businessDate, ...r })),
             )
             await writeTipHolds(locationId, businessDate, sales.largeTips, lookups.employeeNames)
           }
