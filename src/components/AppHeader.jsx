@@ -122,6 +122,9 @@ export default function AppHeader({ active = 'company' }) {
           <Link to="/payroll" style={tab(active === 'payroll')}>
             Payroll
           </Link>
+          <Link to="/financials" style={tab(active === 'financials')}>
+            Financials
+          </Link>
           <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('set')} onMouseLeave={closeSoon}>
             <Link to={isAdmin ? '/settings' : '/settings?tab=account'} style={tab(active === 'settings')}>
               Settings {caret}
