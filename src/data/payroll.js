@@ -45,14 +45,24 @@ export async function fetchPayrollData(start, end) {
 export const normName = (s) =>
   (s || '').toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim()
 
-/** Conservative fuzzy pass: same last name + compatible first name (or the
-    mirrored form), only when exactly one employee qualifies. */
+/** Fuzzy pass, calibrated on the real sheet↔Toast name pairs. A tip name only
+    matches when exactly one employee qualifies:
+    - same last name + compatible first name (or the mirrored form), where
+      compatible = equal, contained ("liyah"⊂"aliyah", "kenzie"⊂"mckenzie"),
+      or same initial ("kiki"→"kibbyann");
+    - or a single-token sheet name ("Cesar", "Lynda") equal to / contained in
+      exactly one employee's first name. */
 function fuzzyCandidates(sheetNorm, employees) {
   const t = sheetNorm.split(' ')
-  if (t.length < 2) return []
-  const [first, last] = [t[0], t[t.length - 1]]
   const compat = (a, b) =>
-    a === b || (a.length >= 3 && b.startsWith(a)) || (b.length >= 3 && a.startsWith(b)) || a[0] === b[0]
+    a === b || (a.length >= 3 && b.includes(a)) || (b.length >= 3 && a.includes(b)) || a[0] === b[0]
+  if (t.length === 1) {
+    return employees.filter((e) => {
+      const ef = e.normName.split(' ')[0]
+      return ef === t[0] || (t[0].length >= 3 && ef.includes(t[0])) || (ef.length >= 3 && t[0].includes(ef))
+    })
+  }
+  const [first, last] = [t[0], t[t.length - 1]]
   return employees.filter((e) => {
     const et = e.normName.split(' ')
     if (et.length < 2) return false
