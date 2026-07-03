@@ -29,6 +29,14 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* Nav dropdown items (enterprise pass) */
+.menu-item:hover {
+  background: #f4f6f8;
+}
+.menu-item-danger:hover {
+  background: #fbeae8;
+}
+
 /* Clickable table rows (exception review) — hover wash from the handoff design */
 .row-hover:hover {
   background: #f8fafc;

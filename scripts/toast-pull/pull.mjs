@@ -370,9 +370,10 @@ function aggregateOrders(orders, lookups = {}) {
         pay.count += 1
         pay.amountC += cents(p.amount)
         pay.tipsC += cents(p.tipAmount)
-        // §8 — large-tip auto-hold: a single settled payment tipping over the
-        // threshold gets flagged and held through the chargeback window.
-        if (cents(p.tipAmount) > TIP_HOLD_THRESHOLD * 100) {
+        // §8 — large-tip auto-hold: a single settled CARD payment tipping over
+        // the threshold gets flagged and held through the chargeback window.
+        // Cash/gift-card tips carry no chargeback risk, so they never hold.
+        if ((p.type || '').toUpperCase() === 'CREDIT' && cents(p.tipAmount) > TIP_HOLD_THRESHOLD * 100) {
           largeTips.push({
             check: check.displayNumber ? `#${check.displayNumber}` : null,
             serverGuid,

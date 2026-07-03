@@ -1,10 +1,23 @@
-import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import PageTitle, { Crumbs } from '../components/PageTitle.jsx'
+import DateRangePicker from '../components/DateRangePicker.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { card, labelUpper, RankRow, ModeToggle } from '../components/cards.jsx'
-import { colors, fonts, layout } from '../theme.js'
+import { card, StatRow, RankRow, ModeToggle } from '../components/cards.jsx'
+import { colors, layout } from '../theme.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
+
+/** §11 responsive pattern: wide tables collapse to stacked cards below 720px. */
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
+  useEffect(() => {
+    const onR = () => setW(window.innerWidth)
+    window.addEventListener('resize', onR)
+    return () => window.removeEventListener('resize', onR)
+  }, [])
+  return w
+}
 
 /* Void & Discount drill-down (handoff §10) — reached from the Void % /
    Discount % tiles in Money Protected (?tab=void|discount, plus &loc=<code>
@@ -78,6 +91,9 @@ export default function VoidDiscountDetail() {
   const [params] = useSearchParams()
   const [tabOv, setTabOv] = useState(null) // tab clicks override ?tab=
   const [mode, setMode] = useState('dollar')
+  const [empSort, setEmpSort] = useState(null) // null = follow toggle; else {key, dir}
+  const [query, setQuery] = useState('')
+  const isMobile = useWindowWidth() < 720
 
   let loc = (params.get('loc') || '').toLowerCase()
   if (!NAMES[loc]) loc = ''
@@ -123,8 +139,27 @@ export default function VoidDiscountDetail() {
     }))
     .sort((a, b) => b.v - a.v)
 
-  const sortedEmps = [...emps].sort((a, b) => (mode === 'dollar' ? b.d - a.d : b.q - a.q))
+  const empVal = (e, key) => (key === 'name' ? e.name.toLowerCase() : key === 'role' ? e.role.toLowerCase() : e[key])
+  const sortKey = empSort?.key ?? (mode === 'dollar' ? 'd' : 'q')
+  const sortDir = empSort?.dir ?? 'desc'
+  const sortedEmps = [...emps]
+    .filter((e) => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => {
+      const va = empVal(a, sortKey)
+      const vb = empVal(b, sortKey)
+      const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb
+      return sortDir === 'asc' ? c : -c
+    })
   const overCount = emps.filter((e) => e.pct > target).length
+  const EmpTh = ({ k, left, wide, children }) => (
+    <th
+      onClick={() => setEmpSort((s) => ({ key: k, dir: s?.key === k && s.dir === 'desc' ? 'asc' : k === 'name' || k === 'role' ? 'asc' : 'desc' }))}
+      style={{ textAlign: left ? 'left' : 'right', padding: wide ? '12px 18px' : '12px 12px', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      {children}
+      <span style={{ color: colors.brand }}>{sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
 
   const pctVal = isVoid ? sc.vPct : sc.dPct
   const overTarget = pctVal > target
@@ -144,77 +179,85 @@ export default function VoidDiscountDetail() {
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
       <AppHeader active={loc ? 'locations' : 'company'} />
 
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '22px 26px 48px' }}>
-        <Link
-          to={loc ? `/locations/${loc}` : '/'}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted2, marginBottom: 12 }}
-        >
-          {loc ? `← Back to ${NAMES[loc]}` : '← Back to Company'}
-        </Link>
-
-        {/* ===== PAGE TITLE + TABS + TOGGLE ===== */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
-          <div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-              Void &amp; Discount Detail
-            </div>
-            <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
+      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '20px 26px 48px' }}>
+        <Crumbs
+          items={[
+            loc ? { label: NAMES[loc], to: `/locations/${loc}` } : { label: 'Company', to: '/' },
+            { label: 'Money Protected' },
+            { label: 'Void & Discount Detail' },
+          ]}
+        />
+        <PageTitle
+          title="Void & Discount Detail"
+          meta={
+            <>
               The "why" behind the numbers · {loc ? NAMES[loc] : 'org-wide'} ·{' '}
               <span style={{ color: '#8A6D1A', background: '#FBF3DC', fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 5 }}>
                 Sample data — void/discount detail pending Toast import
               </span>
+            </>
+          }
+          right={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+              <DateRangePicker />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9 }}>
+                  <div onClick={() => setTabOv('void')} style={tabStyle(isVoid)}>Voids</div>
+                  <div onClick={() => setTabOv('discount')} style={tabStyle(!isVoid)}>Discounts</div>
+                </div>
+                <ModeToggle mode={mode} onChange={setMode} labels={['By $', 'By Qty']} />
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9 }}>
-              <div onClick={() => setTabOv('void')} style={tabStyle(isVoid)}>Voids</div>
-              <div onClick={() => setTabOv('discount')} style={tabStyle(!isVoid)}>Discounts</div>
-            </div>
-            <ModeToggle mode={mode} onChange={setMode} labels={['By $', 'By Qty']} />
-          </div>
-        </div>
+          }
+        />
 
         {/* ===== SUMMARY STRIP ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
-          <div style={{ background: colors.brand, borderRadius: 13, padding: 20, color: '#fff' }}>
-            <div style={{ ...labelUpper, color: colors.brandTint3 }}>Total {noun}</div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 36, fontWeight: 600, marginTop: 6 }}>
-              {mode === 'dollar' ? fmt(empTotal.d) : empTotal.q}
-            </div>
-            <div style={{ fontSize: 11, color: colors.brandTint4, marginTop: 4 }}>
-              {mode === 'dollar'
-                ? `${empTotal.q} ${isVoid ? 'voided items' : 'discounted checks'}`
-                : `${isVoid ? 'items voided · ' : 'checks discounted · '}${fmt(empTotal.d)}`}
-            </div>
-          </div>
-          <div style={{ ...card, border: `1px solid ${overTarget ? colors.redBorder : colors.greenBorder}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={labelUpper}>% of Sales</div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: overTarget ? colors.redBright : colors.green }} />
-            </div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 36, fontWeight: 500, marginTop: 6, color: overTarget ? colors.red : colors.greenDark }}>
-              {pctVal.toFixed(1)}%
-            </div>
-            <div style={{ fontSize: 11, color: overTarget ? colors.red : colors.muted3, marginTop: 4, fontWeight: 600 }}>
-              Target &lt; {target}% · {overTarget ? 'over' : 'within'}
-            </div>
-          </div>
-          <div style={card}>
-            <div style={labelUpper}>Peak Day</div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 36, fontWeight: 500, marginTop: 6 }}>{peak[0]}</div>
-            <div style={{ fontSize: 11, color: colors.muted3, marginTop: 4 }}>{peak[1]} — highest of the week</div>
-          </div>
-          <div style={{ ...card, border: `1px solid ${colors.redBorder}` }}>
-            <div style={labelUpper}>Employees Over Target</div>
-            <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 36, fontWeight: 500, marginTop: 6, color: colors.red }}>{overCount}</div>
-            <div style={{ fontSize: 11, color: colors.red, marginTop: 4, fontWeight: 600 }}>
-              {overCount > 0 ? `vs ${target}% personal target` : 'All within target'}
-            </div>
-          </div>
-        </div>
+        <StatRow
+          size={26}
+          min={170}
+          style={{ marginBottom: 20 }}
+          items={[
+            {
+              label: `Total ${noun}`,
+              value: mode === 'dollar' ? fmt(empTotal.d) : empTotal.q,
+              sub: (
+                <span style={{ fontSize: 11, color: colors.muted3 }}>
+                  {mode === 'dollar'
+                    ? `${empTotal.q} ${isVoid ? 'voided items' : 'discounted checks'}`
+                    : `${isVoid ? 'items voided · ' : 'checks discounted · '}${fmt(empTotal.d)}`}
+                </span>
+              ),
+            },
+            {
+              label: '% of Sales',
+              value: `${pctVal.toFixed(1)}%`,
+              valueColor: overTarget ? colors.red : colors.greenDark,
+              sub: (
+                <span style={{ fontSize: 11, color: overTarget ? colors.red : colors.muted3, fontWeight: 600 }}>
+                  Target &lt; {target}% · {overTarget ? 'over' : 'within'}
+                </span>
+              ),
+            },
+            {
+              label: 'Peak Day',
+              value: peak[0],
+              sub: <span style={{ fontSize: 11, color: colors.muted3 }}>{peak[1]} — highest of the week</span>,
+            },
+            {
+              label: 'Employees Over Target',
+              value: overCount,
+              valueColor: overCount > 0 ? colors.red : colors.ink,
+              sub: (
+                <span style={{ fontSize: 11, color: overCount > 0 ? colors.red : colors.muted3, fontWeight: 600 }}>
+                  {overCount > 0 ? `vs ${target}% personal target` : 'All within target'}
+                </span>
+              ),
+            },
+          ]}
+        />
 
         {/* ===== BREAKDOWN + TOP ITEMS ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div style={card}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{isVoid ? 'Voids by Reason' : 'Discounts by Type'}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
@@ -247,45 +290,83 @@ export default function VoidDiscountDetail() {
         {/* ===== BY EMPLOYEE ===== */}
         <SectionHeader
           title={`${isVoid ? 'Voids' : 'Discounts'} by Employee`}
-          right={<span style={{ fontSize: 12, color: colors.muted3 }}>Target: &lt; {target}% of own sales</span>}
+          right={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search employee"
+                style={{ padding: '7px 11px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, fontSize: 12, fontFamily: 'inherit', width: 160 }}
+              />
+              <span style={{ fontSize: 12, color: colors.muted3, whiteSpace: 'nowrap' }}>Target: &lt; {target}% of own sales</span>
+            </div>
+          }
         />
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
-                <th style={{ textAlign: 'left', padding: '12px 18px', fontWeight: 600 }}>Employee</th>
-                <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600 }}>Role</th>
-                <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600 }}>Location</th>
-                <th style={{ padding: '12px 12px', fontWeight: 600 }}>{noun} $</th>
-                <th style={{ padding: '12px 12px', fontWeight: 600 }}>{isVoid ? 'Items' : 'Checks'}</th>
-                <th style={{ padding: '12px 12px', fontWeight: 600 }}>% of Own Sales</th>
-                <th style={{ padding: '12px 18px', fontWeight: 600, textAlign: 'left' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedEmps.map((e) => {
-                const over = e.pct > target
-                return (
-                  <tr key={e.name} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right' }}>
-                    <td style={{ textAlign: 'left', padding: '13px 18px', fontWeight: 600 }}>{e.name}</td>
-                    <td style={{ textAlign: 'left', padding: '13px 12px', color: colors.muted2 }}>{e.role}</td>
-                    <td style={{ textAlign: 'left', padding: '13px 12px' }}>{NAMES[e.loc]}</td>
-                    <td style={{ padding: '13px 12px', fontWeight: 700 }}>{fmt(e.d)}</td>
-                    <td style={{ padding: '13px 12px' }}>{e.q}</td>
-                    <td style={{ padding: '13px 12px', fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : 'transparent' }}>
-                      {e.pct.toFixed(1)}%
-                    </td>
-                    <td style={{ padding: '13px 18px', textAlign: 'left' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5 }}>
-                        {over ? '● Over target' : '✓ Within'}
-                      </span>
-                    </td>
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sortedEmps.map((e) => {
+              const over = e.pct > target
+              return (
+                <div key={e.name} style={{ ...card, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</span>{' '}
+                      <span style={{ color: colors.muted3, fontSize: 11 }}>· {e.role} · {NAMES[e.loc]}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5, whiteSpace: 'nowrap' }}>
+                      {over ? 'Over target' : 'Within'}
+                    </span>
+                  </div>
+                  <div className="tnum" style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+                    <span><span style={{ color: colors.muted3 }}>{noun} </span><b>{fmt(e.d)}</b></span>
+                    <span><span style={{ color: colors.muted3 }}>{isVoid ? 'Items ' : 'Checks '}</span><b>{e.q}</b></span>
+                    <span style={{ color: over ? colors.red : colors.greenDark, fontWeight: 700 }}>{e.pct.toFixed(1)}% of own sales</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 720 }}>
+                <thead>
+                  <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
+                    <EmpTh k="name" left wide>Employee</EmpTh>
+                    <EmpTh k="role" left>Role</EmpTh>
+                    <th style={{ textAlign: 'left', padding: '12px 12px', fontWeight: 600 }}>Location</th>
+                    <EmpTh k="d">{noun} $</EmpTh>
+                    <EmpTh k="q">{isVoid ? 'Items' : 'Checks'}</EmpTh>
+                    <EmpTh k="pct">% of Own Sales</EmpTh>
+                    <th style={{ padding: '12px 18px', fontWeight: 600, textAlign: 'left' }}>Status</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {sortedEmps.map((e) => {
+                    const over = e.pct > target
+                    return (
+                      <tr key={e.name} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right' }}>
+                        <td style={{ textAlign: 'left', padding: '13px 18px', fontWeight: 600 }}>{e.name}</td>
+                        <td style={{ textAlign: 'left', padding: '13px 12px', color: colors.muted2 }}>{e.role}</td>
+                        <td style={{ textAlign: 'left', padding: '13px 12px' }}>{NAMES[e.loc]}</td>
+                        <td style={{ padding: '13px 12px', fontWeight: 700 }}>{fmt(e.d)}</td>
+                        <td style={{ padding: '13px 12px' }}>{e.q}</td>
+                        <td style={{ padding: '13px 12px', fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : 'transparent' }}>
+                          {e.pct.toFixed(1)}%
+                        </td>
+                        <td style={{ padding: '13px 18px', textAlign: 'left' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: over ? colors.red : colors.greenDark, background: over ? colors.redBg : colors.greenBg, padding: '3px 9px', borderRadius: 5, whiteSpace: 'nowrap' }}>
+                            {over ? 'Over target' : 'Within'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
           % of own sales = {noun.toLowerCase()} dollars ÷ that employee's net sales for the period. Rows over the personal
           target are tinted; investigate via the exception list for check-level detail.

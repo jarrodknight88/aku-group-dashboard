@@ -133,8 +133,10 @@ export function buildRun({ labor, tips, aliases, holds }, periodStart, periodEnd
 
   // --- large-tip holds ---
   // A held tip is excluded from the run whose period it was FLAGGED in (that
-  // period's sheet tips include it); a released hold is added to the run
-  // whose period contains its release date. Other periods are unaffected.
+  // period's sheet tips include it). A released hold pays on the NEXT run
+  // exported after approval: eligible once approved (release_at = approval
+  // date) and not yet stamped with the run that paid it (released_run_id,
+  // set at export time — see Payroll's download-and-save).
   const inPeriod = (iso) => iso && iso.slice(0, 10) >= periodStart && iso.slice(0, 10) <= periodEnd
   const holdsByName = (list) => {
     const m = new Map()
@@ -144,8 +146,16 @@ export function buildRun({ labor, tips, aliases, holds }, periodStart, periodEnd
     }
     return m
   }
+  const todayIso = new Date().toISOString().slice(0, 10)
   const heldMap = holdsByName(holds.filter((h) => h.status === 'held' && inPeriod(h.flagged_at)))
-  const releasedMap = holdsByName(holds.filter((h) => h.status === 'released' && inPeriod(h.release_at)))
+  const releasedMap = holdsByName(
+    holds.filter(
+      (h) =>
+        h.status === 'released' &&
+        !h.released_run_id &&
+        h.release_at <= (periodEnd < todayIso ? periodEnd : todayIso),
+    ),
+  )
 
   const locTipDays = new Map() // location_id -> distinct tip dates (feed presence)
   for (const t of tips) {
@@ -165,6 +175,7 @@ export function buildRun({ labor, tips, aliases, holds }, periodStart, periodEnd
     return {
       ...e,
       sheetTips, held, heldRel, released, releasedAt, matched,
+      releasedHoldIds: (releasedMap.get(key) ?? []).map((h) => h.id),
       tips: payable,
       check: e.wages + (payable ?? 0),
     }

@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import PageTitle from '../components/PageTitle.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { colors, fonts } from '../theme.js'
 
 /* ----------
-   All three tabs are wired to Supabase:
+   Config tabs are wired to Supabase:
    - KPI Targets ⇄ kpi_targets (org rows) + reset_kpi_targets()
    - Period History ⇄ get_period_snapshots() / clear_period_snapshots()
    - Expense Mapping ⇄ expense_categories + expense_category_keywords,
      match_expense_category() tester, export_expense_mapping_json()
    Writes are owner/admin-only via RLS; the UI surfaces a denial rather than
    pretending the save landed.
+   Account tab (§11, ?tab=account) ⇄ profiles.full_name + auth password change.
+   Managers see only Account — config tabs are admin/owner. UI gating mirrors
+   RLS; enforcement lives in the database.
 ---------- */
 
 const METRIC_ROWS = [
@@ -59,8 +65,17 @@ function ErrorNote({ msg }) {
   )
 }
 
+const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', general_manager: 'General Manager', manager: 'Manager' }
+
 export default function Settings() {
-  const [tab, setTab] = useState('targets') // 'targets' | 'history' | 'mapping'
+  const { session, profile, signOut } = useAuth()
+  const isAdmin = ['owner', 'admin'].includes(profile?.role)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const CONFIG_TABS = ['targets', 'history', 'mapping']
+  const requested = searchParams.get('tab') || 'targets'
+  // Managers only ever see Account; unknown params fall back to the default.
+  const tab = !isAdmin ? 'account' : [...CONFIG_TABS, 'account'].includes(requested) ? requested : 'targets'
+  const setTab = (t) => setSearchParams(t === 'targets' ? {} : { tab: t }, { replace: true })
 
   /* ---- KPI targets ---- */
   const [targets, setTargets] = useState({}) // metric -> threshold (string/number)
@@ -224,6 +239,67 @@ export default function Settings() {
     })
   }
 
+  /* ---- account ---- */
+  const [acctName, setAcctName] = useState('')
+  useEffect(() => {
+    setAcctName(profile?.full_name ?? '')
+  }, [profile?.full_name])
+  const [profileState, setProfileState] = useState('idle') // idle | saving | saved
+  const [profileError, setProfileError] = useState('')
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
+  const [pwState, setPwState] = useState('idle') // idle | saving | saved
+  const [pwError, setPwError] = useState('')
+
+  const saveProfile = async () => {
+    if (!session?.user?.id) return
+    setProfileState('saving')
+    setProfileError('')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: acctName.trim() })
+      .eq('id', session.user.id)
+    if (error) {
+      setProfileError('Save failed — ' + error.message)
+      setProfileState('idle')
+      return
+    }
+    setProfileState('saved')
+    setTimeout(() => setProfileState('idle'), 1600)
+  }
+
+  const updatePassword = async () => {
+    setPwError('')
+    if (pw.next.length < 8) {
+      setPwError('New password must be at least 8 characters.')
+      return
+    }
+    if (pw.next !== pw.confirm) {
+      setPwError('New password and confirmation don’t match.')
+      return
+    }
+    setPwState('saving')
+    // Re-authenticate with the current password before changing it —
+    // supabase.auth.updateUser alone would accept any live session.
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: session?.user?.email,
+      password: pw.current,
+    })
+    if (authErr) {
+      setPwError('Current password is incorrect.')
+      setPwState('idle')
+      return
+    }
+    const { error } = await supabase.auth.updateUser({ password: pw.next })
+    if (error) {
+      setPwError('Update failed — ' + error.message)
+      setPwState('idle')
+      return
+    }
+    setPw({ current: '', next: '', confirm: '' })
+    setPwState('saved')
+    setTimeout(() => setPwState('idle'), 1600)
+  }
+
   const tabStyle = (active) => ({
     padding: '9px 18px',
     borderRadius: 7,
@@ -236,20 +312,33 @@ export default function Settings() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
-      <AppHeader active="settings" maxWidth={1200} showDatePicker={false} />
+      <AppHeader active="settings" />
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 26px 48px' }}>
-        <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 6 }}>
-          Settings
-        </div>
-        <div style={{ fontSize: 13, color: colors.muted3, marginBottom: 22 }}>
-          Configure targets, history, and expense mapping for the whole group
-        </div>
+        <PageTitle
+          title="Settings"
+          meta={
+            <>
+              Group configuration and your account ·{' '}
+              <span style={{ color: colors.muted2 }}>signed in as {session?.user?.email ?? '…'}</span>
+            </>
+          }
+          right={
+            <div
+              onClick={signOut}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 700, color: colors.red, cursor: 'pointer' }}
+            >
+              Sign out
+            </div>
+          }
+          style={{ marginBottom: 22 }}
+        />
 
         {/* ===== TAB BAR ===== */}
         <div
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
             gap: 4,
             background: '#fff',
             border: `1px solid ${colors.border}`,
@@ -257,11 +346,18 @@ export default function Settings() {
             borderRadius: 11,
             marginBottom: 24,
             width: 'fit-content',
+            maxWidth: '100%',
           }}
         >
-          <div onClick={() => setTab('targets')} style={tabStyle(tab === 'targets')}>KPI Targets</div>
-          <div onClick={() => setTab('history')} style={tabStyle(tab === 'history')}>Period History</div>
-          <div onClick={() => setTab('mapping')} style={tabStyle(tab === 'mapping')}>Expense Category Mapping</div>
+          {isAdmin && (
+            <>
+              <div onClick={() => setTab('targets')} style={tabStyle(tab === 'targets')}>KPI Targets</div>
+              <div onClick={() => setTab('history')} style={tabStyle(tab === 'history')}>Period History</div>
+              <div onClick={() => setTab('mapping')} style={tabStyle(tab === 'mapping')}>Expense Category Mapping</div>
+              <div style={{ width: 1, background: colors.border, margin: '4px 2px' }} />
+            </>
+          )}
+          <div onClick={() => setTab('account')} style={tabStyle(tab === 'account')}>Account</div>
         </div>
 
         {/* ===== KPI TARGETS ===== */}
@@ -281,7 +377,7 @@ export default function Settings() {
                   borderRadius: 8,
                 }}
               >
-                ↺ Reset to Defaults
+                Reset to defaults
               </div>
             </div>
             <div style={{ fontSize: 12, color: colors.muted3, marginBottom: 20 }}>
@@ -338,7 +434,7 @@ export default function Settings() {
                   opacity: saveState === 'saving' ? 0.7 : 1,
                 }}
               >
-                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : 'Save Targets'}
+                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save Targets'}
               </div>
             </div>
           </div>
@@ -538,7 +634,7 @@ export default function Settings() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>JSON Export</div>
                   <div onClick={copyJson} style={{ fontSize: 12, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}>
-                    {copied ? '✓ Copied' : '⤓ Copy'}
+                    {copied ? 'Copied' : 'Copy'}
                   </div>
                 </div>
                 <pre
@@ -557,6 +653,77 @@ export default function Settings() {
                 >
                   {jsonExport}
                 </pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===== ACCOUNT ===== */}
+        {tab === 'account' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
+            {/* Profile */}
+            <div style={panel}>
+              <div style={{ fontFamily: fonts.serif, fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Profile</div>
+              <div style={{ fontSize: 12, color: colors.muted3, marginBottom: 18 }}>Your sign-in details for this dashboard.</div>
+              <ErrorNote msg={profileError} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Full name</div>
+                  <input value={acctName} onChange={(e) => setAcctName(e.target.value)} style={{ ...inputStyle, width: '100%' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Email</div>
+                  <input value={session?.user?.email ?? ''} readOnly disabled style={{ ...inputStyle, width: '100%', background: colors.panelGray, color: colors.muted1 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Role</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: colors.brand, background: '#E8EEF6', padding: '4px 10px', borderRadius: 6 }}>
+                      {ROLE_LABELS[profile?.role] ?? '…'}
+                      {isAdmin ? ' · all locations' : ''}
+                    </span>
+                    <span style={{ fontSize: 11, color: colors.muted3 }}>Location managers see only their venue and Account settings</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+                <div
+                  onClick={profileState === 'saving' ? undefined : saveProfile}
+                  style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: profileState === 'saved' ? colors.green : colors.brand, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', opacity: profileState === 'saving' ? 0.7 : 1 }}
+                >
+                  {profileState === 'saving' ? 'Saving…' : profileState === 'saved' ? 'Saved' : 'Save profile'}
+                </div>
+              </div>
+            </div>
+
+            {/* Password */}
+            <div style={panel}>
+              <div style={{ fontFamily: fonts.serif, fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Password</div>
+              <div style={{ fontSize: 12, color: colors.muted3, marginBottom: 18 }}>
+                Use at least 8 characters. Changing your password signs you out on other devices.
+              </div>
+              <ErrorNote msg={pwError} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Current password</div>
+                  <input type="password" placeholder="••••••••" value={pw.current} onChange={(e) => setPw((p) => ({ ...p, current: e.target.value }))} style={{ ...inputStyle, width: '100%' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>New password</div>
+                  <input type="password" placeholder="At least 8 characters" value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} style={{ ...inputStyle, width: '100%' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Confirm new password</div>
+                  <input type="password" placeholder="Repeat new password" value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} style={{ ...inputStyle, width: '100%' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+                <div
+                  onClick={pwState === 'saving' ? undefined : updatePassword}
+                  style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: pwState === 'saved' ? colors.green : colors.brand, padding: '9px 18px', borderRadius: 8, cursor: 'pointer', opacity: pwState === 'saving' ? 0.7 : 1 }}
+                >
+                  {pwState === 'saving' ? 'Updating…' : pwState === 'saved' ? 'Updated' : 'Update password'}
+                </div>
               </div>
             </div>
           </div>

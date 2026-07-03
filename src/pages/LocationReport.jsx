@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
+import PageTitle, { Crumbs, dataThrough } from '../components/PageTitle.jsx'
+import DateRangePicker from '../components/DateRangePicker.jsx'
 import {
   card,
-  StatTile,
+  StatRow,
+  DeltaChip,
   KpiTile,
   DetailsTail,
   RankRow,
@@ -79,11 +82,10 @@ const LEADER_DEFS = [
 ]
 const ROLE_TAGS = { servers: 'Server', bartenders: 'Bartender', hookah: 'Hookah' }
 
-function HeadTile({ label, cur, prev, fmt }) {
+/** Joined-row headline item with a delta chip vs the comparison window. */
+function statItem(label, cur, prev, fmt) {
   const d = deltaPct(cur, prev)
-  return (
-    <StatTile label={label} value={fmt(cur)} delta={fmtDelta(d)} up={d == null ? true : d >= 0} note="vs prior period" />
-  )
+  return { label, value: fmt(cur), sub: <DeltaChip delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
 }
 
 /** Daily net-sales bar chart; buckets into weeks when the range is long. */
@@ -324,53 +326,58 @@ export default function LocationReport() {
       {hoverTip.tip}
       <AppHeader active="locations" />
 
-      {/* ===== LOCATION SUB-BAR ===== */}
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '22px 26px 0' }}>
-        <Link to="/locations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted2, marginBottom: 12 }}>
-          ← Back to Locations
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-              {location?.name ?? '…'}
+      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '20px 26px 48px' }}>
+        <Crumbs
+          items={[
+            { label: 'Company', to: '/' },
+            { label: 'By Location', to: '/locations' },
+            { label: location?.name ?? '…' },
+          ]}
+        />
+        <PageTitle
+          title={location?.name ?? '…'}
+          meta={
+            <>
+              {(CITY_LABELS[location?.city] || location?.city || '') + ' · '}
+              <span style={{ color: colors.muted2 }}>{dataThrough(data.cur)} · Toast + recon sheet</span>
+            </>
+          }
+          right={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+              <DateRangePicker />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 10, overflowX: 'auto', maxWidth: '100%' }}>
+                  {(locations ?? []).map((l) =>
+                    l.status === 'active' ? (
+                      <Link
+                        key={l.id}
+                        to={`/locations/${l.code.toLowerCase()}`}
+                        style={{
+                          padding: '7px 13px',
+                          borderRadius: 7,
+                          background: l.id === location?.id ? colors.brand : 'transparent',
+                          color: l.id === location?.id ? '#fff' : colors.muted1,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {l.name}
+                      </Link>
+                    ) : (
+                      <div key={l.id} style={{ padding: '7px 13px', borderRadius: 7, color: colors.muted4, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {l.name} · soon
+                      </div>
+                    ),
+                  )}
+                </div>
+                <Link to="/detail-drill" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: colors.brand, color: '#fff', borderRadius: 9, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  View Detail Drill →
+                </Link>
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
-              {(CITY_LABELS[location?.city] || location?.city || '') + " · measured against this location's targets"}
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 10 }}>
-              {(locations ?? []).map((l) =>
-                l.status === 'active' ? (
-                  <Link
-                    key={l.id}
-                    to={`/locations/${l.code.toLowerCase()}`}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 7,
-                      background: l.id === location?.id ? colors.brand : 'transparent',
-                      color: l.id === location?.id ? '#fff' : colors.muted1,
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {l.name}
-                  </Link>
-                ) : (
-                  <div key={l.id} style={{ padding: '8px 14px', borderRadius: 7, color: colors.muted4, fontSize: 13, fontWeight: 600 }}>
-                    {l.name} · soon
-                  </div>
-                ),
-              )}
-            </div>
-            <Link to="/detail-drill" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', background: colors.brand, color: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 700 }}>
-              View Detail Drill →
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '24px 26px 48px' }}>
+          }
+        />
         {data.loading && (
           <div style={{ padding: '40px 0', color: colors.muted3, fontSize: 13 }}>Loading live data…</div>
         )}
@@ -388,16 +395,19 @@ export default function LocationReport() {
         {!data.loading && !data.error && (
           <>
             {/* ===== HEADLINE STRIP ===== */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
-              <HeadTile label="Net Sales" cur={t?.net} prev={prevTotals?.net} fmt={fmtMoney} />
-              <HeadTile label="Covers" cur={t?.covers} prev={prevTotals?.covers} fmt={fmtInt} />
-              <HeadTile label="Avg Check" cur={t?.avgCheck} prev={prevTotals?.avgCheck} fmt={fmtMoneyC} />
-              <HeadTile label="Gross Sales" cur={t?.gross} prev={prevTotals?.gross} fmt={fmtMoney} />
-            </div>
+            <StatRow
+              style={{ marginBottom: 28 }}
+              items={[
+                statItem('Net Sales', t?.net, prevTotals?.net, fmtMoney),
+                statItem('Covers', t?.covers, prevTotals?.covers, fmtInt),
+                statItem('Avg Check', t?.avgCheck, prevTotals?.avgCheck, fmtMoneyC),
+                statItem('Gross Sales', t?.gross, prevTotals?.gross, fmtMoney),
+              ]}
+            />
 
             {/* ===== MONEY IN ===== */}
             <SectionHeader title="Money In" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 30 }}>
               <DailySalesCard rows={data.cur ?? []} />
               <PaymentMixCard pays={data.pays ?? []} />
               <RevenueStreamsCard cats={data.cats ?? []} />
@@ -405,7 +415,7 @@ export default function LocationReport() {
 
             {/* ===== MONEY SAVED ===== */}
             <SectionHeader title="Money Saved" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `${fmtMoney(t.food_cost)} cost · Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Labor %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `${fmtMoney(t.labor_cost)} cost · Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} status={t?.liquorPct == null ? 'neutral' : t.liquorPct < (targets.liquor_pct ?? 24) ? 'good' : 'bad'} subTop={5} />
@@ -453,7 +463,7 @@ export default function LocationReport() {
 
             {/* ===== TOP SELLERS ===== */}
             <SectionHeader title="Top Sellers" sub={location?.name} style={{ margin: '30px 0 14px' }} right={<ModeToggle mode={mode} onChange={setMode} />} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16 }}>
               <TopList title="Top Food" rows={(itemsByCat['Food'] ?? []).slice(0, 5)} mode={mode} />
               <TopList title="Top Liquor" rows={(itemsByCat['Liquor'] ?? []).slice(0, 5)} mode={mode} />
               <TopList title="Top Hookah" rows={(itemsByCat['Hookah'] ?? []).slice(0, 5)} mode={mode} />
@@ -467,7 +477,7 @@ export default function LocationReport() {
               style={{ margin: '30px 0 14px' }}
               right={<ModeToggle mode={bottomMode} onChange={setBottomMode} labels={['Bottom by $', 'Bottom by Qty']} />}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
               <TopList title="Bottom Food" rows={bottomList('Food')} mode={bottomMode} rankColor={colors.muted3} />
               <TopList title="Bottom Liquor" rows={bottomList('Liquor')} mode={bottomMode} rankColor={colors.muted3} />
               <TopList title="Bottom Hookah Flavor" rows={bottomList('Hookah')} mode={bottomMode} rankColor={colors.muted3} />
@@ -475,7 +485,7 @@ export default function LocationReport() {
 
             {/* ===== TOP EMPLOYEES ===== */}
             <SectionHeader title="Top Employees" sub={location?.name} style={{ margin: '30px 0 14px' }} right={<ModeToggle mode={empMode} onChange={setEmpMode} />} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16 }}>
               {ROLE_CARDS.map((rc) => {
                 const ranked = roleRanking(rc)
                 return (
