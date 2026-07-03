@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { colors, fonts } from '../theme.js'
 import { fmtMoney } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
+import { hourLabel } from '../data/live.js'
 
 /* Shared card building blocks, ported from the Claude Design handoff.
    Used by Company Glance and Location Report (and later levels). */
@@ -256,6 +257,40 @@ export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
  * hover tip like `Fri · $460 voided — peak` (`— peak` on the max day only);
  * `peakColor` optionally recolors the peak bar (red spike on Company voids).
  */
+/**
+ * Hour-of-day bars for single-day ranges (Voids/Discounts by Hour). The axis
+ * comes from hours with any sales OR any value (6am → 5am order, so the
+ * late-night close sits at the right edge); values from `hourField` arrays
+ * (e.g. voids_by_hour). Returns { bars, labels } or null when the rows span
+ * more than one day / carry no hourly data — callers fall back to weekdays.
+ */
+export function hourlyDayBars(rows, hourField, verb, peakColor) {
+  if (new Set(rows.map((r) => r.business_date)).size !== 1) return null
+  if (!rows.some((r) => Array.isArray(r[hourField]) || Array.isArray(r.sales_by_hour))) return null
+  const vals = new Array(24).fill(0)
+  const sales = new Array(24).fill(0)
+  for (const r of rows) {
+    if (Array.isArray(r[hourField])) r[hourField].forEach((v, h) => { vals[h] += Number(v) || 0 })
+    if (Array.isArray(r.sales_by_hour)) r.sales_by_hour.forEach((v, h) => { sales[h] += Number(v) || 0 })
+  }
+  const order = Array.from({ length: 24 }, (_, i) => (i + 6) % 24)
+  const active = order.filter((h) => vals[h] > 0 || sales[h] > 0)
+  if (!active.length) return null
+  const max = Math.max(...active.map((h) => vals[h]))
+  return {
+    // Crowded axes label every other hour.
+    labels: active.map((h, i) => (active.length > 10 && i % 2 ? '' : hourLabel(h))),
+    bars: active.map((h) => {
+      const peak = max > 0 && vals[h] === max && vals[h] > 0
+      return {
+        h: max > 0 && vals[h] > 0 ? Math.max(4, (vals[h] / max) * 100) : 0,
+        tip: `${hourLabel(h)} · ${fmtMoney(vals[h])} ${verb}${peak ? ' — peak' : ''}`,
+        color: peak ? peakColor : undefined,
+      }
+    }),
+  }
+}
+
 export function weekdayBars(rows, field, verb, peakColor) {
   const sums = [0, 0, 0, 0, 0, 0, 0]
   for (const r of rows) sums[(fromStr(r.business_date).getDay() + 6) % 7] += Number(r[field]) || 0
@@ -276,7 +311,7 @@ export function weekdayBars(rows, field, verb, peakColor) {
  * red; `tip` feeds the shared hover tooltip. `labels` renders the x-axis
  * (Mon–Sun) plus the `Day of week` caption under the bars.
  */
-export function DayBarsCard({ title, bars, color, labels }) {
+export function DayBarsCard({ title, bars, color, labels, caption = 'Day of week' }) {
   return (
     <div style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column' }}>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{title}</div>
@@ -292,13 +327,13 @@ export function DayBarsCard({ title, bars, color, labels }) {
       {labels && (
         <>
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            {labels.map((l) => (
-              <span key={l} style={{ flex: 1, textAlign: 'center', fontSize: 10, color: colors.muted3 }}>
+            {labels.map((l, i) => (
+              <span key={i} style={{ flex: 1, textAlign: 'center', fontSize: 10, color: colors.muted3 }}>
                 {l}
               </span>
             ))}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 10, color: colors.muted4, marginTop: 4 }}>Day of week</div>
+          <div style={{ textAlign: 'center', fontSize: 10, color: colors.muted4, marginTop: 4 }}>{caption}</div>
         </>
       )}
     </div>

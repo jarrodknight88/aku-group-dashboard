@@ -323,9 +323,11 @@ function aggregateOrders(orders, lookups = {}) {
     const name = d.name || d.discount?.name || 'unnamed'
     discountDebug[level][name] = (discountDebug[level][name] || 0) + c
   }
-  // Hourly net sales (24 slots, venue local) — single-day dashboard ranges
-  // chart these instead of by-day bars.
+  // Hourly net sales / voids / discounts (24 slots, venue local) —
+  // single-day dashboard ranges chart these instead of by-day bars.
   const salesByHourC = new Array(24).fill(0)
+  const voidsByHourC = new Array(24).fill(0)
+  const discountsByHourC = new Array(24).fill(0)
   // Void/discount detail: per (server, reason) and per item, in cents.
   const vdEmp = new Map() // kind‧serverGuid‧reason -> { amountC, qty }
   const vdItem = new Map() // kind‧itemName -> { amountC, qty }
@@ -365,14 +367,28 @@ function aggregateOrders(orders, lookups = {}) {
   for (const order of orders) {
     const orderHour = hourOf(order.openedDate || order.paidDate)
     const orderServer = order.server?.guid
-    const voidReasonOf = (sel) => sel.voidReason?.name || 'No reason recorded'
+    // Toast sends voidReason as a bare reference ({guid}) — the display name
+    // lives in restaurant config, resolved via lookups (calibration: 670/670
+    // backfilled void rows had no inline name). Wholesale voids may carry the
+    // reason on the check or order instead of each selection.
+    const reasonName = (ref) => (ref ? ref.name || lookups.voidReasons?.get(ref.guid) || null : null)
+    const voidReasonOf = (sel, check) =>
+      reasonName(sel.voidReason) || reasonName(check?.voidReason) || reasonName(order.voidReason) || 'No reason recorded'
+    const addVoidC = (c) => {
+      voidsC += c
+      if (orderHour != null) voidsByHourC[orderHour] += c
+    }
+    const addDiscountC = (c) => {
+      discountsC += c
+      if (orderHour != null) discountsByHourC[orderHour] += c
+    }
 
     if (order.voided) {
       // Fully voided order: contributes to voids, not to sales.
       for (const check of order.checks ?? []) {
         for (const sel of check.selections ?? []) {
-          voidsC += cents(sel.price)
-          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          addVoidC(cents(sel.price))
+          addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
         }
       }
       continue
@@ -388,15 +404,15 @@ function aggregateOrders(orders, lookups = {}) {
     for (const check of checks) {
       if (check.voided) {
         for (const sel of check.selections ?? []) {
-          voidsC += cents(sel.price)
-          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          addVoidC(cents(sel.price))
+          addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
         }
         continue
       }
       for (const disc of check.appliedDiscounts ?? []) {
         if (!isApplied(disc)) continue
         const c = cents(disc.discountAmount)
-        discountsC += c
+        addDiscountC(c)
         addDebug('check', disc, c)
         addVd('discount', orderServer, disc.name || disc.discount?.name || 'unnamed', null, c, 1)
       }
@@ -425,8 +441,8 @@ function aggregateOrders(orders, lookups = {}) {
       }
       for (const sel of check.selections ?? []) {
         if (sel.voided) {
-          voidsC += cents(sel.price)
-          addVd('void', orderServer, voidReasonOf(sel), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          addVoidC(cents(sel.price))
+          addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
           continue
         }
         const priceC = cents(sel.price)
@@ -469,7 +485,7 @@ function aggregateOrders(orders, lookups = {}) {
         for (const d of sel.appliedDiscounts ?? []) {
           if (!isApplied(d)) continue
           const c = cents(d.discountAmount)
-          discountsC += c
+          addDiscountC(c)
           addDebug('item', d, c)
           addVd('discount', orderServer, d.name || d.discount?.name || 'unnamed', sel.displayName, c, 1)
         }
@@ -498,6 +514,8 @@ function aggregateOrders(orders, lookups = {}) {
     serverCats,
     largeTips,
     sales_by_hour: salesByHourC.map((c) => c / 100),
+    voids_by_hour: voidsByHourC.map((c) => c / 100),
+    discounts_by_hour: discountsByHourC.map((c) => c / 100),
     vdEmp,
     vdItem,
   }
@@ -773,6 +791,8 @@ async function upsertDay(locationId, businessDate, sales, labor) {
     discounts_amount: sales.discounts_amount,
     labor_cost: labor.labor_cost,
     sales_by_hour: sales.sales_by_hour,
+    voids_by_hour: sales.voids_by_hour,
+    discounts_by_hour: sales.discounts_by_hour,
     source: 'toast_api_v1',
     updated_at: new Date().toISOString(),
   }
@@ -985,12 +1005,13 @@ for (const account of accounts) {
     const wageIdx = await fetchWageIndex(account, token, guid)
     const catNames = await fetchGuidNames(account, token, guid, '/config/v2/salesCategories', 'sales categories')
     const altPays = await fetchGuidNames(account, token, guid, '/config/v2/alternatePaymentTypes', 'alternate payments')
-    const lookups = { categoryNames: catNames.map, altPayments: altPays.map, employeeNames: wageIdx.names }
+    const voidRsns = await fetchGuidNames(account, token, guid, '/config/v2/voidReasons', 'void reasons')
+    const lookups = { categoryNames: catNames.map, altPayments: altPays.map, employeeNames: wageIdx.names, voidReasons: voidRsns.map }
     if (dryRun) {
       console.log(
         `${code}: lookups — ${wageIdx.empJob.size} employee-job wages · ${wageIdx.names.size} employee names` +
-        ` · ${catNames.map.size} sales categories · ${altPays.map.size} alternate payment types` +
-        [...wageIdx.notes, catNames.note, altPays.note].filter(Boolean).map((n) => ` · ${n}`).join(''),
+        ` · ${catNames.map.size} sales categories · ${altPays.map.size} alternate payment types · ${voidRsns.map.size} void reasons` +
+        [...wageIdx.notes, catNames.note, altPays.note, voidRsns.note].filter(Boolean).map((n) => ` · ${n}`).join(''),
       )
     }
 

@@ -19,7 +19,7 @@ export async function fetchLocations() {
 export async function fetchDaily(locationId, start, end) {
   let q = supabase
     .from('daily_metrics')
-    .select('location_id, business_date, net_sales, gross_sales, covers, food_cost, labor_cost, liquor_cost, voids_amount, discounts_amount, expenses, sales_by_hour')
+    .select('location_id, business_date, net_sales, gross_sales, covers, food_cost, labor_cost, liquor_cost, voids_amount, discounts_amount, expenses, sales_by_hour, voids_by_hour, discounts_by_hour')
     .gte('business_date', start)
     .lte('business_date', end)
     .order('business_date')

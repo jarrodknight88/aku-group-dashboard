@@ -3,13 +3,14 @@ import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import PageTitle, { dataThrough } from '../components/PageTitle.jsx'
 import DateRangePicker from '../components/DateRangePicker.jsx'
-import { card, StatRow, DeltaChip, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
+import { card, StatRow, DeltaChip, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, hourlyDayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
 import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr, fmtRange } from '../lib/dates.js'
+import { useRange } from '../state/RangeContext.jsx'
 
 /* Live Level 1 — org rollup across every location the signed-in user can
    see. Percentages recompute from summed dollars across locations (never
@@ -30,13 +31,13 @@ function statItem(label, cur, prev, fmt) {
 
 /** Grouped daily (or weekly) bars, one series per location. Single-day
     ranges switch to hourly bars from daily_metrics.sales_by_hour. */
-function DailyByLocationCard({ rows, locations }) {
+function DailyByLocationCard({ rows, locations, singleDay }) {
   const { buckets, series, hourly } = useMemo(() => {
     const withData = locations.filter((l) => rows.some((r) => r.location_id === l.id))
     const keys = [...new Set(rows.map((r) => r.business_date))].sort()
 
-    // Single day + hourly data present → one bucket per active hour.
-    if (keys.length === 1 && rows.some((r) => Array.isArray(r.sales_by_hour))) {
+    // Single-day range + hourly data present → one bucket per active hour.
+    if (singleDay && rows.some((r) => Array.isArray(r.sales_by_hour))) {
       const perLoc = withData.map((l) => {
         const out = new Array(24).fill(0)
         for (const r of rows) {
@@ -87,7 +88,7 @@ function DailyByLocationCard({ rows, locations }) {
       }
     })
     return { buckets, series: withData, hourly: false }
-  }, [rows, locations])
+  }, [rows, locations, singleDay])
 
   const max = Math.max(1, ...buckets.flatMap((b) => b.values))
   return (
@@ -235,6 +236,8 @@ export default function CompanyGlance() {
   const [mode, setMode] = useState('dollar')
   const [bottomMode, setBottomMode] = useState('dollar')
   const hoverTip = useHoverTip()
+  const { range } = useRange()
+  const singleDay = range.start === range.end
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -313,7 +316,7 @@ export default function CompanyGlance() {
             {/* ===== MONEY IN ===== */}
             <SectionHeader title="Money In" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 30 }}>
-              <DailyByLocationCard rows={data.cur ?? []} locations={active} />
+              <DailyByLocationCard rows={data.cur ?? []} locations={active} singleDay={singleDay} />
               <RevenueMixCard rows={data.cur ?? []} locations={active} totalNet={t?.net ?? 0} />
               <StreamsByLocationCard cats={data.cats ?? []} locations={active} />
             </div>
@@ -332,11 +335,33 @@ export default function CompanyGlance() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Void % of Sales" value={fmtPct(t?.voidPct)} status={voidStatus} size={30} padding={18} to="/void-discount?tab=void"
                 sub={t?.voidPct == null ? 'No sales in range' : (<>Target &lt; {targets.void_pct ?? 1}% · {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>} · <DetailsTail /></>)} />
-              <DayBarsCard title="Voids by Day" bars={weekdayBars(data.cur ?? [], 'voids_amount', 'voided', colors.redBright)} color={colors.muted3} labels={DAY_LABELS} />
+              {(() => {
+                const hb = singleDay ? hourlyDayBars(data.cur ?? [], 'voids_by_hour', 'voided', colors.redBright) : null
+                return (
+                  <DayBarsCard
+                    title={hb ? 'Voids by Hour' : 'Voids by Day'}
+                    bars={hb ? hb.bars : weekdayBars(data.cur ?? [], 'voids_amount', 'voided', colors.redBright)}
+                    color={colors.muted3}
+                    labels={hb ? hb.labels : DAY_LABELS}
+                    caption={hb ? 'Hour' : 'Day of week'}
+                  />
+                )
+              })()}
               <ChargebacksCard won={cb.won} inProgress={cb.in_progress} lost={cb.lost} />
               <KpiTile label="Discount % of Sales" value={fmtPct(t?.discountPct)} status={discStatus} size={30} padding={18} to="/void-discount?tab=discount"
                 sub={t?.discountPct == null ? 'No sales in range' : (<>Target &lt; {targets.discount_pct ?? 3}% · {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>} · <DetailsTail /></>)} />
-              <DayBarsCard title="Discounts by Day" bars={weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')} color={colors.brandTint1} labels={DAY_LABELS} />
+              {(() => {
+                const hb = singleDay ? hourlyDayBars(data.cur ?? [], 'discounts_by_hour', 'discounted') : null
+                return (
+                  <DayBarsCard
+                    title={hb ? 'Discounts by Hour' : 'Discounts by Day'}
+                    bars={hb ? hb.bars : weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')}
+                    color={colors.brandTint1}
+                    labels={hb ? hb.labels : DAY_LABELS}
+                    caption={hb ? 'Hour' : 'Day of week'}
+                  />
+                )
+              })()}
               <ExceptionTile count={data.exceptionCount ?? 0} to="/exceptions" />
             </div>
 
