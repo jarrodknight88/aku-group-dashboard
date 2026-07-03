@@ -5,6 +5,7 @@
 export const colors = {
   // brand
   brand: '#184080',
+  navy: '#102C58', // gradients, tooltips, P&L footer
   brandTint1: '#4A7BC8',
   brandTint2: '#7FA3D6',
   brandTint3: '#A9C2E4',

@@ -9,7 +9,8 @@ import { fmtMoney, fmtMoneyC, fmtInt, fmtPct, deltaPct, fmtDelta } from '../lib/
 /* Live location hub: real totals per venue for the selected range. Venues
    with no data yet (credentials pending) show an awaiting state instead of
    numbers. Chips ordered Food · Liquor · Labor · Void · Disc per the brief —
-   cost chips stay neutral until invoice/labor sources exist. */
+   food/labor chips stay neutral until invoice/labor sources exist; liquor
+   colors against its editable target once cost data flows. */
 
 const CITY_LABELS = { Atlanta: 'Atlanta, GA', Charlotte: 'Charlotte, NC' }
 
@@ -139,6 +140,7 @@ export default function ByLocation() {
             const delta = hasData ? deltaPct(t.net, d.prev.net) : null
             const voidBad = t?.voidPct != null && t.voidPct >= (targets.void_pct ?? 1)
             const discBad = t?.discountPct != null && t.discountPct >= (targets.discount_pct ?? 3)
+            const liqBad = t?.liquorPct != null && t.liquorPct >= (targets.liquor_pct ?? 24)
             const status = !hasData ? 'pending' : voidBad || discBad ? 'bad' : 'good'
 
             return (
@@ -177,7 +179,7 @@ export default function ByLocation() {
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, paddingTop: 16, borderTop: `1px solid ${colors.pageBg}` }}>
                   <TargetChip label={`Food ${fmtPct(t?.foodPct)}`} status="none" />
-                  <TargetChip label={`Liquor ${fmtPct(t?.liquorPct)}`} status="none" />
+                  <TargetChip label={`Liquor ${fmtPct(t?.liquorPct)}`} status={t?.liquorPct == null ? 'none' : liqBad ? 'bad' : 'good'} />
                   <TargetChip label={`Labor ${fmtPct(t?.laborPct)}`} status="none" />
                   <TargetChip label={`Void ${fmtPct(t?.voidPct)}`} status={!hasData ? 'none' : voidBad ? 'bad' : 'good'} />
                   <TargetChip label={`Disc ${fmtPct(t?.discountPct)}`} status={!hasData ? 'none' : discBad ? 'bad' : 'good'} />
