@@ -112,6 +112,94 @@ export async function fetchPayrollMonths(year, locationId) {
   return data ?? []
 }
 
+/* ---- native intake form (§10.1) ---- */
+
+/** Mirror of the DB's normalize_vendor_name(): lowercase, strip apostrophes
+    and periods, collapse whitespace — keeps client-side vendor matching in
+    lockstep with the alias table. */
+export function normalizeVendorName(p) {
+  return String(p ?? '')
+    .toLowerCase()
+    .replace(/['’.]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Vendor list for the intake dropdown (RLS: any authenticated user). */
+export async function fetchVendors() {
+  const { data, error } = await supabase
+    .from('vendors')
+    .select('id, name, default_category_id, is_recurring, expected_amount, expected_frequency')
+    .order('name')
+    .limit(2000)
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** alias → vendor_id map so typed names resolve exactly like the trigger. */
+export async function fetchVendorAliases() {
+  const { data, error } = await supabase.from('vendor_aliases').select('alias, vendor_id').limit(5000)
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** Look-ahead for the duplicate rule: same vendor with the same amount within
+    ±7 days, or the same invoice #. Two separate queries (not a PostgREST
+    `or=` string) so a free-text invoice number can't break the filter. */
+export async function findLikelyDuplicates({ vendorId, amount, invoiceDate, invoiceNumber }) {
+  if (!vendorId || !amount || !invoiceDate) return []
+  const shift = (days) => {
+    const d = new Date(`${invoiceDate}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    return d.toISOString().slice(0, 10)
+  }
+  const cols = 'id, invoice_date, amount, invoice_number, status, locations(name)'
+  const queries = [
+    supabase.from('invoices').select(cols).eq('vendor_id', vendorId).eq('amount', amount)
+      .gte('invoice_date', shift(-7)).lte('invoice_date', shift(7)).limit(5),
+  ]
+  if (invoiceNumber?.trim()) {
+    queries.push(supabase.from('invoices').select(cols).eq('vendor_id', vendorId).eq('invoice_number', invoiceNumber.trim()).limit(5))
+  }
+  const results = await Promise.all(queries)
+  const seen = new Map()
+  for (const { data } of results) for (const r of data ?? []) seen.set(r.id, r)
+  return [...seen.values()].sort((a, b) => (a.invoice_date < b.invoice_date ? 1 : -1))
+}
+
+/** Upload the invoice photo/PDF to the public `invoices` bucket. */
+export async function uploadInvoiceFile(file, locCode) {
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase().slice(0, 8)
+  const path = `${locCode || 'org'}/${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('invoices').upload(path, file, { contentType: file.type || undefined })
+  if (error) throw new Error(error.message)
+  return supabase.storage.from('invoices').getPublicUrl(path).data.publicUrl
+}
+
+/** Insert straight into invoices — the BEFORE trigger runs the rules engine,
+    stamps submitted_by from the JWT, and forces the status through review.
+    Returns the decided row so the form can show the outcome. */
+export async function submitInvoice({ locationId, vendorName, invoiceDate, amount, invoiceNumber, categoryId, notes, fileUrl, userId }) {
+  const { data, error } = await supabase
+    .from('invoices')
+    .insert({
+      submission_id: `native-${crypto.randomUUID()}`,
+      location_id: locationId,
+      vendor_name_raw: vendorName.trim(),
+      invoice_date: invoiceDate,
+      amount,
+      invoice_number: invoiceNumber?.trim() || null,
+      category_id: categoryId || null,
+      notes: notes?.trim() || null,
+      file_url: fileUrl || null,
+      submitted_by: userId,
+    })
+    .select('id, status, flag_reasons, vendors(name)')
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export async function fetchCategories() {
   const { data, error } = await supabase.from('expense_categories').select('id, name, grp').order('sort_order')
   if (error) throw new Error(error.message)
