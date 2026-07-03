@@ -14,6 +14,7 @@ import {
   DayBarsCard,
   DAY_LABELS,
   weekdayBars,
+  hourlyDayBars,
   DonutRing,
   ChargebacksCard,
   ExceptionTile,
@@ -25,6 +26,7 @@ import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
+import { useRange } from '../state/RangeContext.jsx'
 
 /* Live Level 2 — everything on this page derives from the Toast import
    tables for the globally selected date range. Cost tiles show awaiting
@@ -90,15 +92,15 @@ function statItem(label, cur, prev, fmt) {
 
 /** Daily net-sales bar chart; buckets into weeks when the range is long and
     into hours when the range is a single day (daily_metrics.sales_by_hour). */
-function DailySalesCard({ rows }) {
+function DailySalesCard({ rows, singleDay }) {
   const { buckets, hourly } = useMemo(() => {
     const byDate = new Map()
     for (const r of rows) byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + Number(r.net_sales))
     const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
 
-    // Single day + hourly data → one bar per active hour. The business day
-    // rolls past midnight, so order slots 6am → 5am before trimming.
-    if (days.length === 1 && rows.some((r) => Array.isArray(r.sales_by_hour))) {
+    // Single-day range + hourly data → one bar per active hour. The business
+    // day rolls past midnight, so order slots 6am → 5am before trimming.
+    if (singleDay && rows.some((r) => Array.isArray(r.sales_by_hour))) {
       const perHour = new Array(24).fill(0)
       for (const r of rows) {
         if (!Array.isArray(r.sales_by_hour)) continue
@@ -141,7 +143,7 @@ function DailySalesCard({ rows }) {
       hourly: false,
       buckets: [...weeks.entries()].map(([k, v]) => ({ label: k.replace('-', '/'), tipDay: `wk ${k.replace('-', '/')}`, v, key: `wk ${k}` })),
     }
-  }, [rows])
+  }, [rows, singleDay])
 
   const max = Math.max(1, ...buckets.map((b) => b.v))
   return (
@@ -266,6 +268,8 @@ export default function LocationReport() {
   const [bottomMode, setBottomMode] = useState('dollar') // bottom sellers toggle
   const [empMode, setEmpMode] = useState('dollar') // top employees section toggle
   const hoverTip = useHoverTip()
+  const { range } = useRange()
+  const singleDay = range.start === range.end
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -434,7 +438,7 @@ export default function LocationReport() {
             {/* ===== MONEY IN ===== */}
             <SectionHeader title="Money In" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 30 }}>
-              <DailySalesCard rows={data.cur ?? []} />
+              <DailySalesCard rows={data.cur ?? []} singleDay={singleDay} />
               <PaymentMixCard pays={data.pays ?? []} />
               <RevenueStreamsCard cats={data.cats ?? []} />
             </div>
@@ -466,7 +470,18 @@ export default function LocationReport() {
                   )
                 }
               />
-              <DayBarsCard title="Voids by Day" bars={weekdayBars(data.cur ?? [], 'voids_amount', 'voided')} color={colors.muted3} labels={DAY_LABELS} />
+              {(() => {
+                const hb = singleDay ? hourlyDayBars(data.cur ?? [], 'voids_by_hour', 'voided') : null
+                return (
+                  <DayBarsCard
+                    title={hb ? 'Voids by Hour' : 'Voids by Day'}
+                    bars={hb ? hb.bars : weekdayBars(data.cur ?? [], 'voids_amount', 'voided')}
+                    color={colors.muted3}
+                    labels={hb ? hb.labels : DAY_LABELS}
+                    caption={hb ? 'Hour' : 'Day of week'}
+                  />
+                )
+              })()}
               <ChargebacksCard won={cb.won} inProgress={cb.in_progress} lost={cb.lost} />
               <KpiTile
                 label="Discount % of Sales"
@@ -483,7 +498,18 @@ export default function LocationReport() {
                   )
                 }
               />
-              <DayBarsCard title="Discounts by Day" bars={weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')} color={colors.brandTint1} labels={DAY_LABELS} />
+              {(() => {
+                const hb = singleDay ? hourlyDayBars(data.cur ?? [], 'discounts_by_hour', 'discounted') : null
+                return (
+                  <DayBarsCard
+                    title={hb ? 'Discounts by Hour' : 'Discounts by Day'}
+                    bars={hb ? hb.bars : weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')}
+                    color={colors.brandTint1}
+                    labels={hb ? hb.labels : DAY_LABELS}
+                    caption={hb ? 'Hour' : 'Day of week'}
+                  />
+                )
+              })()}
               <ExceptionTile count={data.exceptionCount ?? 0} to={`/exceptions?loc=${(location?.code ?? '').toLowerCase()}`} />
             </div>
 
