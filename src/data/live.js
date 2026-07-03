@@ -34,6 +34,7 @@ const DIM_COLS = {
   daily_menu_items: 'location_id, business_date, item_key, item_name, category, quantity, net_sales',
   daily_payments: 'location_id, business_date, payment_type, pay_count, amount, tips',
   daily_server_sales: 'location_id, business_date, employee_guid, employee_name, net_sales, order_count',
+  daily_server_categories: 'location_id, business_date, employee_guid, employee_name, job_title, category, quantity, net_sales',
 }
 
 export async function fetchDim(table, locationId, start, end) {
