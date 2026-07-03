@@ -122,9 +122,28 @@ export default function AppHeader({ active = 'company' }) {
           <Link to="/payroll" style={tab(active === 'payroll')}>
             Payroll
           </Link>
-          <Link to="/financials" style={tab(active === 'financials')}>
-            Financials
-          </Link>
+          <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('fin')} onMouseLeave={closeSoon}>
+            <Link to="/financials" style={tab(active === 'financials')}>
+              Financials {caret}
+            </Link>
+            {menu === 'fin' && (
+              <div style={menuWrap('left')}>
+                <div style={menuBox('left')}>
+                  <Link to="/financials" className="menu-item" style={item(true, colors.ink)}>All locations</Link>
+                  {divider}
+                  {locations.map((l) =>
+                    l.status === 'active' ? (
+                      <Link key={l.id} to={`/financials?loc=${l.code.toLowerCase()}`} className="menu-item" style={item(false)}>
+                        {l.name}
+                      </Link>
+                    ) : (
+                      <div key={l.id} style={{ ...item(false, colors.muted4), cursor: 'default' }}>{l.name} · coming soon</div>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('set')} onMouseLeave={closeSoon}>
             <Link to={isAdmin ? '/settings' : '/settings?tab=account'} style={tab(active === 'settings')}>
               Settings {caret}

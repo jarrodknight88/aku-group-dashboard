@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import DateRangePicker from '../components/DateRangePicker.jsx'
@@ -8,7 +9,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily } from '../data/live.js'
-import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, sumBy } from '../data/financials.js'
+import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, sumBy } from '../data/financials.js'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -42,7 +43,10 @@ export default function Financials() {
   const year = range.end.slice(0, 4)
 
   const [locations, setLocations] = useState([])
-  const [loc, setLoc] = useState('all')
+  // location scope lives in the URL (?loc=atl) so the nav dropdown can deep-link
+  const [searchParams, setSearchParams] = useSearchParams()
+  const loc = (searchParams.get('loc') || 'all').toLowerCase()
+  const setLoc = (code) => setSearchParams(code === 'all' ? {} : { loc: code }, { replace: true })
   const [queue, setQueue] = useState([])
   const [invoices, setInvoices] = useState([]) // selected range, drill + categories
   const [yearInvoices, setYearInvoices] = useState([]) // full year, P&L + recurring
@@ -51,6 +55,7 @@ export default function Financials() {
   const [payments, setPayments] = useState([]) // { bill_id, month, amount } for the year
   const [categories, setCategories] = useState([])
   const [billModal, setBillModal] = useState(null) // bill row or null
+  const [payrollMonths, setPayrollMonths] = useState([]) // rpc: { month, tips, salaried_monthly }
   const [billDraft, setBillDraft] = useState({ name: '', category_id: '', due_day: '', expected: '', loc: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -78,11 +83,12 @@ export default function Financials() {
           fetchBills(id),
           fetchBillPayments(year),
           fetchCategories(),
+          fetchPayrollMonths(year, id),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [q, inv, yInv, yMet, b, p, cats] = res
+        const [q, inv, yInv, yMet, b, p, cats, pay] = res
         setQueue(q)
         setInvoices(inv)
         setYearInvoices(yInv)
@@ -90,6 +96,7 @@ export default function Financials() {
         setBills(b)
         setPayments(p)
         setCategories(cats)
+        setPayrollMonths(pay)
         setError('')
         setLoading(false)
       })
@@ -112,31 +119,55 @@ export default function Financials() {
     setActing(null)
   }
 
-  /* ---- monthly P&L (expenses = approved invoices + manual bill payments) ---- */
+  /* ---- monthly P&L ----
+     Expenses = non-payroll approved invoices + non-payroll bill payments +
+     REAL payroll from the Payroll system: wages (daily_metrics.labor_cost =
+     Toast hours × dashboard rates) + tips paid + salaried monthly (admin-only
+     via RPC; managers see wages-only payroll). Payroll never comes from an
+     invoice line. */
   const billIds = useMemo(() => new Set(bills.map((b) => b.id)), [bills])
-  const scopedPayments = useMemo(() => payments.filter((p) => billIds.has(p.bill_id)), [payments, billIds])
+  const payrollBillIds = useMemo(
+    () => new Set(bills.filter((b) => b.expense_categories?.name === 'Payroll').map((b) => b.id)),
+    [bills],
+  )
+  const scopedPayments = useMemo(
+    () => payments.filter((p) => billIds.has(p.bill_id) && !payrollBillIds.has(p.bill_id)),
+    [payments, billIds, payrollBillIds],
+  )
   const pnl = useMemo(() => {
     const rev = new Array(12).fill(0)
     const exp = new Array(12).fill(0)
     const cogs = new Array(12).fill(0)
-    for (const r of yearMetrics) rev[Number(r.business_date.slice(5, 7)) - 1] += Number(r.net_sales) || 0
+    const payroll = new Array(12).fill(0)
+    for (const r of yearMetrics) {
+      const m = Number(r.business_date.slice(5, 7)) - 1
+      rev[m] += Number(r.net_sales) || 0
+      payroll[m] += Number(r.labor_cost) || 0 // wages: Toast hours × rates
+    }
     for (const i of yearInvoices) {
+      if (i.expense_categories?.name === 'Payroll') continue // payroll comes from the Payroll system
       const m = Number(i.invoice_date.slice(5, 7)) - 1
       exp[m] += Number(i.amount) || 0
       if (i.expense_categories?.grp === 'Inventory & COGS') cogs[m] += Number(i.amount) || 0
     }
     for (const p of scopedPayments) exp[Number(p.month.slice(5, 7)) - 1] += Number(p.amount) || 0
+    for (const pm of payrollMonths) {
+      const m = Number(pm.month.slice(5, 7)) - 1
+      payroll[m] += Number(pm.tips) || 0
+      if (payroll[m] > 0) payroll[m] += Number(pm.salaried_monthly) || 0
+    }
     return MO.map((label, m) => {
-      const net = rev[m] - exp[m]
+      const total = exp[m] + payroll[m]
+      const net = rev[m] - total
       return {
         label: `${label}-${year}`,
-        rev: rev[m], exp: exp[m], net,
+        rev: rev[m], exp: total, payroll: payroll[m], net,
         margin: rev[m] > 0 ? (net / rev[m]) * 100 : null,
-        opex: rev[m] > 0 ? ((exp[m] - cogs[m]) / rev[m]) * 100 : null,
-        has: rev[m] > 0 || exp[m] > 0,
+        opex: rev[m] > 0 ? ((total - cogs[m]) / rev[m]) * 100 : null,
+        has: rev[m] > 0 || total > 0,
       }
     })
-  }, [yearMetrics, yearInvoices, scopedPayments, year])
+  }, [yearMetrics, yearInvoices, scopedPayments, payrollMonths, year])
   const ytd = pnl.reduce((a, m) => ({ rev: a.rev + m.rev, exp: a.exp + m.exp }), { rev: 0, exp: 0 })
 
   /* ---- category drill (selected range) ---- */
@@ -363,15 +394,16 @@ export default function Financials() {
         </div>
 
         {/* ===== MONTHLY P&L ===== */}
-        <SectionHeader title={`Monthly P&L · ${year}`} sub={loc === 'all' ? 'all locations' : locByCode[loc]?.name} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Revenue = Toast net sales · Expenses = approved invoices (incl. payroll invoices)</span>} />
+        <SectionHeader title={`Monthly P&L · ${year}`} sub={loc === 'all' ? 'all locations' : locByCode[loc]?.name} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Revenue = Toast net sales · Expenses = invoices + bills + payroll from the Payroll tab (wages + tips + salaries)</span>} />
         <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
           <div style={{ overflowX: 'auto' }}>
-            <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 680 }}>
+            <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
               <thead>
                 <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
                   <th style={{ ...thL, padding: '11px 18px' }}>Month</th>
                   <th style={th}>Revenue</th>
                   <th style={th}>Expenses</th>
+                  <th style={th}>of which Payroll</th>
                   <th style={th}>Net</th>
                   <th style={th}>Margin</th>
                   <th style={{ ...th, padding: '11px 18px' }}>OPEX Ratio</th>
@@ -383,13 +415,14 @@ export default function Financials() {
                     <td style={{ ...tdL, padding: '11px 18px', fontWeight: 700 }}>{m.label}</td>
                     <td style={td}>{fmtK(m.rev)}</td>
                     <td style={td}>{fmtK(m.exp)}</td>
+                    <td style={{ ...td, color: colors.muted2 }}>{m.payroll > 0 ? fmtK(m.payroll) : '—'}</td>
                     <td style={{ ...td, fontWeight: 700, color: m.net >= 0 ? colors.greenDark : colors.red }}>{m.net < 0 ? `(${fmtMoney(-m.net)})` : fmtMoney(m.net)}</td>
                     <td style={td}>{m.margin == null ? '—' : `${m.margin.toFixed(1)}%`}</td>
                     <td style={{ ...td, padding: '11px 18px' }}>{m.opex == null ? '—' : `${m.opex.toFixed(1)}%`}</td>
                   </tr>
                 ))}
                 {pnl.every((m) => !m.has) && (
-                  <tr><td colSpan={6} style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>No {year} data yet — run the invoice backfill workflow to load history.</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>No {year} data yet.</td></tr>
                 )}
               </tbody>
             </table>

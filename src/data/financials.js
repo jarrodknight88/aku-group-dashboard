@@ -100,6 +100,18 @@ export async function removeBill(id) {
   if (error) throw new Error(error.message)
 }
 
+/** Real payroll per month for the P&L: tips paid + salaried monthly total.
+    Admin-only server-side — non-admins get [] (their P&L shows wages only,
+    which come from daily_metrics.labor_cost they can already read). */
+export async function fetchPayrollMonths(year, locationId) {
+  const { data, error } = await supabase.rpc('payroll_month_totals', {
+    p_year: Number(year),
+    p_location: locationId ?? null,
+  })
+  if (error) return []
+  return data ?? []
+}
+
 export async function fetchCategories() {
   const { data, error } = await supabase.from('expense_categories').select('id, name, grp').order('sort_order')
   if (error) throw new Error(error.message)
