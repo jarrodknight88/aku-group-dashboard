@@ -8,6 +8,7 @@ import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
+import { sumValet } from '../data/financials.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { useRange } from '../state/RangeContext.jsx'
@@ -309,6 +310,7 @@ export default function CompanyGlance() {
                 statItem('Total Net Sales', t?.net, prev?.net, fmtMoney),
                 statItem('Total Covers', t?.covers, prev?.covers, fmtInt),
                 statItem('Avg Check Size', t?.avgCheck, prev?.avgCheck, fmtMoneyC),
+                statItem('Valet Revenue', sumValet(data.valet), sumValet(data.valetPrev), fmtMoney),
                 statItem('Gross Sales', t?.gross, prev?.gross, fmtMoney),
               ]}
             />

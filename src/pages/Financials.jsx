@@ -9,7 +9,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily } from '../data/live.js'
-import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, sumBy } from '../data/financials.js'
+import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, sumBy } from '../data/financials.js'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -57,6 +57,9 @@ export default function Financials() {
   const [billModal, setBillModal] = useState(null) // bill row or null
   const [payrollMonths, setPayrollMonths] = useState([]) // rpc: { month, tips, salaried_monthly }
   const [billDraft, setBillDraft] = useState({ name: '', category_id: '', due_day: '', expected: '', loc: '' })
+  const [valetRange, setValetRange] = useState([]) // selected range, worksheet
+  const [valetYear, setValetYear] = useState([]) // full year, P&L
+  const [valetDraft, setValetDraft] = useState({ loc: '', date: '', cash: '', cashapp: '', clover: '', workers: '', other: '', notes: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
@@ -84,11 +87,13 @@ export default function Financials() {
           fetchBillPayments(year),
           fetchCategories(),
           fetchPayrollMonths(year, id),
+          fetchValetDays(id, range.start, range.end),
+          fetchValetDays(id, `${year}-01-01`, `${year}-12-31`),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [q, inv, yInv, yMet, b, p, cats, pay] = res
+        const [q, inv, yInv, yMet, b, p, cats, pay, vRange, vYear] = res
         setQueue(q)
         setInvoices(inv)
         setYearInvoices(yInv)
@@ -97,6 +102,8 @@ export default function Financials() {
         setPayments(p)
         setCategories(cats)
         setPayrollMonths(pay)
+        setValetRange(vRange)
+        setValetYear(vYear)
         setError('')
         setLoading(false)
       })
@@ -151,6 +158,11 @@ export default function Financials() {
       if (i.expense_categories?.grp === 'Inventory & COGS') cogs[m] += Number(i.amount) || 0
     }
     for (const p of scopedPayments) exp[Number(p.month.slice(5, 7)) - 1] += Number(p.amount) || 0
+    for (const v of valetYear) {
+      const m = Number(v.business_date.slice(5, 7)) - 1
+      rev[m] += Number(v.total_revenue) || 0 // valet is real revenue…
+      exp[m] += (Number(v.workers_paid) || 0) + (Number(v.other_expenses) || 0) // …and valet staff a real cost
+    }
     for (const pm of payrollMonths) {
       const m = Number(pm.month.slice(5, 7)) - 1
       payroll[m] += Number(pm.tips) || 0
@@ -167,7 +179,7 @@ export default function Financials() {
         has: rev[m] > 0 || total > 0,
       }
     })
-  }, [yearMetrics, yearInvoices, scopedPayments, payrollMonths, year])
+  }, [yearMetrics, yearInvoices, scopedPayments, payrollMonths, valetYear, year])
   const ytd = pnl.reduce((a, m) => ({ rev: a.rev + m.rev, exp: a.exp + m.exp }), { rev: 0, exp: 0 })
 
   /* ---- category drill (selected range) ---- */
@@ -224,6 +236,73 @@ export default function Financials() {
     [bills, payMap, billMonth, year],
   )
   const billsYtdTotal = billRows.reduce((a, b) => a + b.ytd, 0)
+
+  /* ---- valet worksheet (nightly cash/CashApp/Clover, staff paid out) ---- */
+  const valetTotals = useMemo(
+    () =>
+      valetRange.reduce(
+        (a, v) => ({
+          rev: a.rev + (Number(v.total_revenue) || 0),
+          cost: a.cost + (Number(v.workers_paid) || 0) + (Number(v.other_expenses) || 0),
+          net: a.net + (Number(v.net) || 0),
+        }),
+        { rev: 0, cost: 0, net: 0 },
+      ),
+    [valetRange],
+  )
+  const vNum = (x) => {
+    const v = parseFloat(String(x ?? '').replace(/[$,]/g, ''))
+    return Number.isNaN(v) ? 0 : v
+  }
+  const valetDraftTotal = vNum(valetDraft.cash) + vNum(valetDraft.cashapp) + vNum(valetDraft.clover)
+  const valetDraftNet = valetDraftTotal - vNum(valetDraft.workers) - vNum(valetDraft.other)
+  const saveValetDraft = async () => {
+    const locId = loc === 'all' ? locByCode[valetDraft.loc]?.id : scopeId
+    if (!locId || !valetDraft.date) {
+      setError('A valet night needs a location and a date.')
+      return
+    }
+    try {
+      await saveValetDay({
+        location_id: locId,
+        business_date: valetDraft.date,
+        cash: vNum(valetDraft.cash),
+        cashapp: vNum(valetDraft.cashapp),
+        clover: vNum(valetDraft.clover),
+        total_revenue: valetDraftTotal,
+        workers_paid: vNum(valetDraft.workers),
+        other_expenses: vNum(valetDraft.other),
+        net: valetDraftNet,
+        notes: valetDraft.notes.trim() || null,
+      })
+      setValetDraft({ loc: valetDraft.loc, date: '', cash: '', cashapp: '', clover: '', workers: '', other: '', notes: '' })
+      setError('')
+      setReload((k) => k + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+  const editValetDay = (v) => {
+    setValetDraft({
+      loc: locations.find((l) => l.id === v.location_id)?.code?.toLowerCase() ?? '',
+      date: v.business_date,
+      cash: String(v.cash ?? ''),
+      cashapp: String(v.cashapp ?? ''),
+      clover: String(v.clover ?? ''),
+      workers: String(v.workers_paid ?? ''),
+      other: String(v.other_expenses ?? ''),
+      notes: v.notes ?? '',
+    })
+  }
+  const handleRemoveValet = async (v) => {
+    if (!window.confirm(`Remove the valet entry for ${v.business_date}?`)) return
+    try {
+      await removeValetDay(v.id)
+      setReload((k) => k + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   const savePayment = async (billId, monthIso, raw) => {
     const cleaned = String(raw ?? '').replace(/[$,]/g, '').trim()
@@ -326,8 +405,8 @@ export default function Financials() {
           min={190}
           style={{ marginBottom: 22 }}
           items={[
-            { label: `Revenue (${year} YTD)`, value: fmtK(ytd.rev), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>Toast net sales</span> },
-            { label: `Expenses (${year} YTD)`, value: fmtK(ytd.exp), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>approved invoices</span> },
+            { label: `Revenue (${year} YTD)`, value: fmtK(ytd.rev), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>Toast net sales + valet</span> },
+            { label: `Expenses (${year} YTD)`, value: fmtK(ytd.exp), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>invoices · bills · payroll · valet</span> },
             {
               label: `Net (${year} YTD)`, value: fmtK(ytd.rev - ytd.exp),
               valueColor: ytd.rev - ytd.exp >= 0 ? colors.greenDark : colors.red,
@@ -399,7 +478,7 @@ export default function Financials() {
         </div>
 
         {/* ===== MONTHLY P&L ===== */}
-        <SectionHeader title={`Monthly P&L · ${year}`} sub={loc === 'all' ? 'all locations' : locByCode[loc]?.name} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Revenue = Toast net sales · Expenses = invoices + bills + payroll from the Payroll tab (wages + tips + salaries)</span>} />
+        <SectionHeader title={`Monthly P&L · ${year}`} sub={loc === 'all' ? 'all locations' : locByCode[loc]?.name} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Revenue = Toast net sales + valet · Expenses = invoices + bills + valet costs + payroll from the Payroll tab</span>} />
         <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
           <div style={{ overflowX: 'auto' }}>
             <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
@@ -608,6 +687,107 @@ export default function Financials() {
           Entered payments count as expenses on the 1st of their month (Payroll-category bills stay out of the expense
           tiles — labor comes from Toast). Costs from invoices land on the invoice date; flagged and declined invoices
           never count. The nightly rollup re-syncs everything after review decisions.
+        </div>
+
+        {/* ===== VALET WORKSHEET ===== */}
+        <SectionHeader
+          style={{ marginTop: 30 }}
+          title="Valet"
+          sub={fmtRange(range.start, range.end)}
+          right={
+            <span className="tnum" style={{ fontSize: 12, color: colors.muted2 }}>
+              Revenue <b>{fmt2(valetTotals.rev)}</b> · Staff &amp; costs <b>{fmt2(valetTotals.cost)}</b> · Net{' '}
+              <b style={{ color: valetTotals.net >= 0 ? colors.greenDark : colors.red }}>{fmt2(valetTotals.net)}</b>
+            </span>
+          }
+        />
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 860 }}>
+              <thead>
+                <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
+                  <th style={{ ...thL, padding: '11px 18px' }}>Night</th>
+                  {loc === 'all' && <th style={thL}>Location</th>}
+                  <th style={th}>Cash</th>
+                  <th style={th}>CashApp</th>
+                  <th style={th}>Clover</th>
+                  <th style={th}>Revenue</th>
+                  <th style={th}>Staff paid</th>
+                  <th style={th}>Other</th>
+                  <th style={th}>Net</th>
+                  <th style={thL}>Notes</th>
+                  <th style={{ width: 34 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {/* entry row: pick the date (an existing night loads for edit via its row) */}
+                <tr style={{ background: '#FAFBFC' }}>
+                  <td style={{ padding: '10px 18px', whiteSpace: 'nowrap' }}>
+                    <input type="date" value={valetDraft.date} onChange={(e) => setValetDraft({ ...valetDraft, date: e.target.value })} style={{ padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit' }} />
+                  </td>
+                  {loc === 'all' && (
+                    <td style={{ padding: '10px 12px' }}>
+                      <select value={valetDraft.loc} onChange={(e) => setValetDraft({ ...valetDraft, loc: e.target.value })} style={{ width: '100%', minWidth: 110, padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit', background: '#fff' }}>
+                        <option value="">Location…</option>
+                        {active.map((l) => <option key={l.id} value={l.code.toLowerCase()}>{l.name}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {['cash', 'cashapp', 'clover', 'workers', 'other'].map((k) => (
+                    <td key={k} style={{ padding: k === 'clover' ? '10px 12px 10px 6px' : '10px 6px' }}>
+                      <input value={valetDraft[k]} onChange={(e) => setValetDraft({ ...valetDraft, [k]: e.target.value })} placeholder="$" style={{ width: 74, padding: '8px 9px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit', textAlign: 'right' }} />
+                    </td>
+                  ))}
+                  <td style={{ ...td, color: colors.muted3 }}>{valetDraft.date ? fmt2(valetDraftTotal) : '—'}</td>
+                  <td style={{ ...td, fontWeight: 700, color: valetDraftNet >= 0 ? colors.greenDark : colors.red }}>{valetDraft.date ? fmt2(valetDraftNet) : '—'}</td>
+                  <td style={{ padding: '10px 6px' }}>
+                    <input value={valetDraft.notes} onChange={(e) => setValetDraft({ ...valetDraft, notes: e.target.value })} placeholder="Notes" style={{ width: '100%', minWidth: 110, padding: '8px 9px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit' }} />
+                  </td>
+                  <td style={{ padding: '10px 14px 10px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span onClick={saveValetDraft} style={{ display: 'inline-flex', padding: '8px 14px', background: colors.brand, color: '#fff', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Save</span>
+                  </td>
+                </tr>
+                {valetRange.slice(0, 45).map((v) => (
+                  <tr key={v.id} className="row-hover" style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }} onClick={() => editValetDay(v)} title="Click to load into the entry row">
+                    <td style={{ ...tdL, padding: '11px 18px', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtRange(v.business_date, v.business_date)}</td>
+                    {loc === 'all' && <td style={tdL}>{locations.find((l) => l.id === v.location_id)?.name ?? ''}</td>}
+                    <td style={td}>{fmt2(v.cash)}</td>
+                    <td style={td}>{fmt2(v.cashapp)}</td>
+                    <td style={td}>{fmt2(v.clover)}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{fmt2(v.total_revenue)}</td>
+                    <td style={td}>{fmt2(v.workers_paid)}</td>
+                    <td style={td}>{fmt2(v.other_expenses)}</td>
+                    <td style={{ ...td, fontWeight: 700, color: Number(v.net) >= 0 ? colors.greenDark : colors.red }}>{fmt2(v.net)}</td>
+                    <td style={{ ...tdL, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: colors.muted2 }} title={v.notes ?? ''}>{v.notes ?? ''}</td>
+                    <td
+                      onClick={(e) => { e.stopPropagation(); if (canAct) handleRemoveValet(v) }}
+                      title="Remove this night"
+                      style={{ padding: '11px 14px 11px 0', textAlign: 'center', color: '#C4C9D1', cursor: canAct ? 'pointer' : 'default', fontSize: 13 }}
+                    >
+                      {canAct ? '✕' : ''}
+                    </td>
+                  </tr>
+                ))}
+                {valetRange.length === 0 && (
+                  <tr style={{ borderTop: `1px solid ${colors.pageBg}` }}>
+                    <td colSpan={loc === 'all' ? 11 : 10} style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>
+                      No valet nights recorded in this range — enter one above. Cash + CashApp + Clover make the night's revenue; staff paid and other costs come out of it.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {valetRange.length > 45 && (
+            <div style={{ padding: '10px 18px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
+              Showing the latest 45 of {valetRange.length} nights in this range — narrow the date range to see the rest.
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
+          Valet history through Nov 2025 was imported from the workbook's Valet Detail tab. Valet revenue counts in the
+          P&L revenue line and on the overview headline; valet staff and costs count as expenses. Click a night to load
+          it into the entry row and save corrections.
         </div>
       </div>
 

@@ -200,6 +200,44 @@ export async function submitInvoice({ locationId, vendorName, invoiceDate, amoun
   return data
 }
 
+/* ---- valet (workbooks' "Valet Detail" tab, migration 30) ----
+   Per-night operation: Cash/CashApp/Clover in, valet staff + incidentals
+   out. total_revenue is authoritative (event nights can exceed the three
+   payment columns). Managers record their own venue's nights (RLS). */
+
+export async function fetchValetDays(locationId, start, end) {
+  let q = supabase
+    .from('valet_days')
+    .select('id, location_id, business_date, cash, cashapp, clover, total_revenue, workers_paid, other_expenses, net, notes')
+    .gte('business_date', start)
+    .lte('business_date', end)
+    .order('business_date', { ascending: false })
+    .limit(2000)
+  if (locationId) q = q.eq('location_id', locationId)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** Insert or update one valet night (unique per location+date). */
+export async function saveValetDay(day) {
+  const { error } = await supabase
+    .from('valet_days')
+    .upsert({ ...day, updated_at: new Date().toISOString() }, { onConflict: 'location_id,business_date' })
+  if (error) throw new Error(error.message)
+}
+
+export async function removeValetDay(id) {
+  const { error } = await supabase.from('valet_days').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Sum a valet window for headline tiles; null (→ "—") when nothing tracked. */
+export function sumValet(rows) {
+  if (!rows?.length) return null
+  return rows.reduce((a, r) => a + (Number(r.total_revenue) || 0), 0)
+}
+
 /** Mobile intake links (admin-only via RLS) — shown on the desktop intake
     page so admins can share the no-login /submit?k=… URL with managers. */
 export async function fetchIntakeLinks() {
