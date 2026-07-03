@@ -90,6 +90,7 @@ export default function Payroll() {
   const [exportView, setExportView] = useState(null) // {csv, subtitle, live} | null
   const [draft, setDraft] = useState({ name: '', loc: 'atl', role: '', salary: '' })
   const [reloadKey, setReloadKey] = useState(0)
+  const [sort, setSort] = useState({ key: 'check', dir: 'desc' })
 
   const period = useMemo(() => payPeriod(offset), [offset])
 
@@ -118,10 +119,31 @@ export default function Payroll() {
   )
 
   const scopeId = loc === 'all' ? null : locByCode[loc]?.id
+  const sortVal = (r) =>
+    sort.key === 'name' ? r.name.toLowerCase()
+    : sort.key === 'role' ? (r.role || '').toLowerCase()
+    : sort.key === 'tips' ? (r.tips ?? -1)
+    : r[sort.key]
   const hourly = run.rows
     .filter((r) => (scopeId ? r.loc === scopeId : true))
-    .sort((a, b) => (locById[a.loc]?.name ?? '').localeCompare(locById[b.loc]?.name ?? '') || b.check - a.check)
+    .sort((a, b) => {
+      const va = sortVal(a)
+      const vb = sortVal(b)
+      const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb
+      return (sort.dir === 'asc' ? c : -c) || b.check - a.check
+    })
     .map((r) => ({ ...r, coCode: coCode(locById[r.loc]) }))
+
+  // Sortable header cell: click to sort, click again to flip direction.
+  const Th = ({ k, left, wide, children }) => (
+    <th
+      onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? (s.dir === 'asc' ? 'desc' : 'asc') : k === 'name' || k === 'role' ? 'asc' : 'desc' }))}
+      style={{ ...(left ? thLeft : thRight), ...(wide ? { padding: '12px 18px' } : {}), cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      {children}
+      <span style={{ color: colors.brand }}>{sort.key === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
   const salaried = (data.salaried ?? [])
     .filter((s) => (scopeId ? s.location_id === scopeId : true))
     .map((s) => ({ ...s, coCode: coCode(locById[s.location_id]) }))
@@ -424,30 +446,29 @@ export default function Payroll() {
                   <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
-                        <th style={{ ...thLeft, padding: '12px 18px' }}>Employee</th>
-                        <th style={thRight}>Hours</th>
-                        <th style={thRight}>of which OT</th>
-                        <th style={thRight}>Rate</th>
-                        <th style={thRight}>Hourly Pay</th>
-                        <th style={thRight}>Tips Owed</th>
+                        <Th k="name" left wide>Employee</Th>
+                        <Th k="role" left>Role</Th>
+                        <Th k="hours">Hours</Th>
+                        <Th k="ot">of which OT</Th>
+                        <Th k="rate">Rate</Th>
+                        <Th k="wages">Hourly Pay</Th>
+                        <Th k="tips">Tips Owed</Th>
                         <th style={thRight}>Match</th>
-                        <th style={{ ...thRight, padding: '12px 18px' }}>Check Total</th>
+                        <Th k="check" wide>Check Total</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {hourly.length === 0 && (
                         <tr>
-                          <td colSpan={8} style={{ padding: '18px', color: colors.muted3, fontSize: 12 }}>
+                          <td colSpan={9} style={{ padding: '18px', color: colors.muted3, fontSize: 12 }}>
                             No Toast hours for this location in {periodLabel} — run the Toast backfill for this range first.
                           </td>
                         </tr>
                       )}
                       {hourly.map((r) => (
                         <tr key={r.guid} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right' }}>
-                          <td style={{ textAlign: 'left', padding: '12px 18px' }}>
-                            <span style={{ fontWeight: 700 }}>{r.name}</span>{' '}
-                            <span style={{ color: colors.muted3, fontSize: 11 }}>· {r.role || '—'}</span>
-                          </td>
+                          <td style={{ textAlign: 'left', padding: '12px 18px', fontWeight: 700 }}>{r.name}</td>
+                          <td style={{ textAlign: 'left', padding: 12, color: colors.muted2 }}>{r.role || '—'}</td>
                           <td style={{ padding: 12 }}>{r.hours.toFixed(2)}</td>
                           <td style={{ padding: 12, color: colors.muted3 }}>{r.ot > 0 ? r.ot.toFixed(2) : '—'}</td>
                           <td style={{ padding: 12 }}>{fmt(r.rate)}</td>
@@ -473,6 +494,7 @@ export default function Payroll() {
                       {hourly.length > 0 && (
                         <tr style={{ borderTop: `2px solid ${colors.border}`, textAlign: 'right', background: colors.panelGray }}>
                           <td style={{ textAlign: 'left', padding: '13px 18px', fontWeight: 700 }}>Totals</td>
+                          <td />
                           <td style={{ padding: '13px 12px', fontWeight: 700 }}>{sumHours.toFixed(2)}</td>
                           <td style={{ padding: '13px 12px', color: colors.muted3 }}>{sumOT > 0 ? sumOT.toFixed(2) : '—'}</td>
                           <td />
