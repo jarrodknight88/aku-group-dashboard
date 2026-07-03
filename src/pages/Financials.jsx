@@ -8,7 +8,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily } from '../data/live.js'
-import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchRecurringVendors, sumBy } from '../data/financials.js'
+import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, sumBy } from '../data/financials.js'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -47,7 +47,11 @@ export default function Financials() {
   const [invoices, setInvoices] = useState([]) // selected range, drill + categories
   const [yearInvoices, setYearInvoices] = useState([]) // full year, P&L + recurring
   const [yearMetrics, setYearMetrics] = useState([]) // full year revenue
-  const [recurring, setRecurring] = useState([])
+  const [bills, setBills] = useState([])
+  const [payments, setPayments] = useState([]) // { bill_id, month, amount } for the year
+  const [categories, setCategories] = useState([])
+  const [billModal, setBillModal] = useState(null) // bill row or null
+  const [billDraft, setBillDraft] = useState({ name: '', category_id: '', due_day: '', expected: '', loc: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
@@ -71,17 +75,21 @@ export default function Financials() {
           fetchInvoices(id, range.start, range.end),
           fetchInvoices(id, `${year}-01-01`, `${year}-12-31`),
           fetchDaily(id, `${year}-01-01`, `${year}-12-31`),
-          fetchRecurringVendors(),
+          fetchBills(id),
+          fetchBillPayments(year),
+          fetchCategories(),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [q, inv, yInv, yMet, rec] = res
+        const [q, inv, yInv, yMet, b, p, cats] = res
         setQueue(q)
         setInvoices(inv)
         setYearInvoices(yInv)
         setYearMetrics(yMet)
-        setRecurring(rec)
+        setBills(b)
+        setPayments(p)
+        setCategories(cats)
         setError('')
         setLoading(false)
       })
@@ -104,7 +112,9 @@ export default function Financials() {
     setActing(null)
   }
 
-  /* ---- monthly P&L ---- */
+  /* ---- monthly P&L (expenses = approved invoices + manual bill payments) ---- */
+  const billIds = useMemo(() => new Set(bills.map((b) => b.id)), [bills])
+  const scopedPayments = useMemo(() => payments.filter((p) => billIds.has(p.bill_id)), [payments, billIds])
   const pnl = useMemo(() => {
     const rev = new Array(12).fill(0)
     const exp = new Array(12).fill(0)
@@ -115,6 +125,7 @@ export default function Financials() {
       exp[m] += Number(i.amount) || 0
       if (i.expense_categories?.grp === 'Inventory & COGS') cogs[m] += Number(i.amount) || 0
     }
+    for (const p of scopedPayments) exp[Number(p.month.slice(5, 7)) - 1] += Number(p.amount) || 0
     return MO.map((label, m) => {
       const net = rev[m] - exp[m]
       return {
@@ -125,7 +136,7 @@ export default function Financials() {
         has: rev[m] > 0 || exp[m] > 0,
       }
     })
-  }, [yearMetrics, yearInvoices, year])
+  }, [yearMetrics, yearInvoices, scopedPayments, year])
   const ytd = pnl.reduce((a, m) => ({ rev: a.rev + m.rev, exp: a.exp + m.exp }), { rev: 0, exp: 0 })
 
   /* ---- category drill (selected range) ---- */
@@ -150,24 +161,90 @@ export default function Financials() {
     return { median, band: median * 2.5, n: amounts.length }
   }, [vendorInvoices])
 
-  /* ---- recurring bills grid (current month of range end) ---- */
-  const billMonth = range.end.slice(0, 7)
-  const bills = useMemo(() => {
-    const actual = new Map()
+  /* ---- recurring bills worksheet ---- */
+  const billMonth = range.end.slice(0, 7) // YYYY-MM of the range's end
+  // payment lookup: `${bill_id}|${YYYY-MM}` → amount
+  const payMap = useMemo(() => {
+    const m = new Map()
+    for (const p of payments) m.set(`${p.bill_id}|${p.month.slice(0, 7)}`, Number(p.amount))
+    return m
+  }, [payments])
+  // invoiced actuals per (vendor, month) — shown in the modal so a bill that
+  // also comes through invoice intake isn't entered twice
+  const invoicedByVendorMonth = useMemo(() => {
+    const m = new Map()
     for (const i of yearInvoices) {
-      if (i.invoice_date.slice(0, 7) !== billMonth) continue
-      const name = i.vendors?.name
-      if (name) actual.set(name, (actual.get(name) ?? 0) + Number(i.amount))
+      if (!i.vendor_id) continue
+      const k = `${i.location_id}|${i.vendor_id}|${i.invoice_date.slice(0, 7)}`
+      m.set(k, (m.get(k) ?? 0) + Number(i.amount))
     }
-    return recurring
-      .filter((v) => v.expected_amount)
-      .map((v) => {
-        const monthlyExpected = v.expected_frequency === 'weekly' ? Number(v.expected_amount) * 4.33 : Number(v.expected_amount)
-        const act = actual.get(v.name) ?? 0
-        const variance = monthlyExpected > 0 ? ((act - monthlyExpected) / monthlyExpected) * 100 : null
-        return { ...v, monthlyExpected, actual: act, variance }
+    return m
+  }, [yearInvoices])
+  const billRows = useMemo(
+    () =>
+      bills.map((b) => {
+        const monthly = b.frequency === 'weekly' && b.expected_amount ? Number(b.expected_amount) * 4.33 : Number(b.expected_amount) || null
+        const entered = payMap.get(`${b.id}|${billMonth}`) ?? null
+        let ytd = 0
+        for (let m = 1; m <= 12; m++) ytd += payMap.get(`${b.id}|${year}-${String(m).padStart(2, '0')}`) ?? 0
+        const variance = monthly && entered != null ? ((entered - monthly) / monthly) * 100 : null
+        return { ...b, monthly, entered, ytd, variance }
+      }),
+    [bills, payMap, billMonth, year],
+  )
+  const billsYtdTotal = billRows.reduce((a, b) => a + b.ytd, 0)
+
+  const savePayment = async (billId, monthIso, raw) => {
+    const cleaned = String(raw ?? '').replace(/[$,]/g, '').trim()
+    const val = cleaned === '' ? null : parseFloat(cleaned)
+    if (val != null && (Number.isNaN(val) || val < 0)) return
+    const key = `${billId}|${monthIso.slice(0, 7)}`
+    const prev = payMap.get(key) ?? null
+    if (prev === val || (prev == null && val == null)) return
+    try {
+      await saveBillPayment(billId, monthIso, val)
+      setPayments((ps) => {
+        const rest = ps.filter((p) => !(p.bill_id === billId && p.month.slice(0, 7) === monthIso.slice(0, 7)))
+        return val == null ? rest : [...rest, { bill_id: billId, month: monthIso, amount: val }]
       })
-  }, [recurring, yearInvoices, billMonth])
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const handleAddBill = async () => {
+    const locId = loc === 'all' ? locByCode[billDraft.loc]?.id : scopeId
+    if (!billDraft.name.trim()) return
+    if (!locId) {
+      setError('Pick a location for the new bill.')
+      return
+    }
+    setError('')
+    try {
+      await addBill({
+        location_id: locId,
+        name: billDraft.name,
+        category_id: billDraft.category_id || null,
+        due_day: billDraft.due_day,
+        expected_amount: parseFloat(String(billDraft.expected).replace(/[$,]/g, '')) || null,
+      })
+      setBillDraft({ name: '', category_id: '', due_day: '', expected: '', loc: billDraft.loc })
+      setReload((k) => k + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const handleRemoveBill = async (b) => {
+    if (!window.confirm(`Remove "${b.name}" and its entered payments?`)) return
+    try {
+      await removeBill(b.id)
+      setBillModal(null)
+      setReload((k) => k + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   const th = { padding: '11px 12px', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }
   const thL = { ...th, textAlign: 'left' }
@@ -407,48 +484,173 @@ export default function Financials() {
           </>
         )}
 
-        {/* ===== RECURRING BILLS ===== */}
-        <SectionHeader title="Recurring Bills" sub={billMonth} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Actual vs expected for the month of the selected range's end · ±25% tolerance</span>} />
+        {/* ===== RECURRING BILLS WORKSHEET ===== */}
+        <SectionHeader
+          title={`Recurring Bills · ${year}`}
+          sub={`${fmtMoney(billsYtdTotal)} entered YTD`}
+          right={<span style={{ fontSize: 12, color: colors.muted3 }}>Bills without invoices — click a row to enter what was paid each month</span>}
+        />
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
+            <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
               <thead>
                 <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
-                  <th style={{ ...thL, padding: '11px 18px' }}>Vendor</th>
+                  <th style={{ ...thL, padding: '11px 18px' }}>Bill</th>
+                  {loc === 'all' && <th style={thL}>Location</th>}
                   <th style={thL}>Category</th>
+                  <th style={thL}>Due</th>
                   <th style={th}>Expected / mo</th>
-                  <th style={th}>Actual</th>
-                  <th style={{ ...th, padding: '11px 18px' }}>Variance</th>
+                  <th style={th}>{MO[Number(billMonth.slice(5, 7)) - 1]} entered</th>
+                  <th style={th}>YTD entered</th>
+                  <th style={{ width: 34 }} />
                 </tr>
               </thead>
               <tbody>
-                {bills.map((b) => {
-                  const off = b.variance != null && Math.abs(b.variance) > 25 && b.actual > 0
-                  const missing = b.actual === 0
+                {billRows.map((b) => {
+                  const off = b.variance != null && Math.abs(b.variance) > 25
                   return (
-                    <tr key={b.id} style={{ borderTop: `1px solid ${colors.pageBg}` }}>
-                      <td style={{ ...tdL, padding: '11px 18px', fontWeight: 700 }}>{b.name}</td>
+                    <tr key={b.id} className="row-hover" style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }} onClick={() => setBillModal(b)}>
+                      <td style={{ ...tdL, padding: '11px 18px', fontWeight: 700, color: colors.brand }}>{b.name}</td>
+                      {loc === 'all' && <td style={tdL}>{locations.find((l) => l.id === b.location_id)?.name ?? ''}</td>}
                       <td style={tdL}>{b.expense_categories?.name ?? '—'}</td>
-                      <td style={td}>{fmt2(b.monthlyExpected)}{b.expected_frequency === 'weekly' ? <span style={{ color: colors.muted3 }}> (wk×4.33)</span> : ''}</td>
-                      <td style={{ ...td, color: missing ? colors.muted3 : 'inherit' }}>{missing ? 'not yet billed' : fmt2(b.actual)}</td>
-                      <td style={{ ...td, padding: '11px 18px', fontWeight: 700, color: missing ? colors.muted3 : off ? colors.red : colors.greenDark, background: off ? colors.redBg : 'transparent' }}>
-                        {missing || b.variance == null ? '—' : `${b.variance > 0 ? '+' : ''}${b.variance.toFixed(0)}%`}
+                      <td style={tdL}>{b.due_day || 'Varies'}</td>
+                      <td style={td}>{b.monthly ? fmt2(b.monthly) : '—'}{b.frequency === 'weekly' ? <span style={{ color: colors.muted3 }}> (wk×4.33)</span> : ''}</td>
+                      <td style={{ ...td, fontWeight: 700, color: b.entered == null ? colors.muted3 : off ? colors.red : 'inherit', background: off && b.entered != null ? colors.redBg : 'transparent' }}>
+                        {b.entered == null ? '—' : fmt2(b.entered)}
+                      </td>
+                      <td style={td}>{b.ytd > 0 ? fmt2(b.ytd) : '—'}</td>
+                      <td
+                        onClick={(e) => { e.stopPropagation(); if (canAct) handleRemoveBill(b) }}
+                        title="Remove this bill"
+                        style={{ padding: '11px 14px 11px 0', textAlign: 'center', color: '#C4C9D1', cursor: canAct ? 'pointer' : 'default', fontSize: 13 }}
+                      >
+                        {canAct ? '✕' : ''}
                       </td>
                     </tr>
                   )
                 })}
-                {bills.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>No recurring vendors configured.</td></tr>
+                {billRows.length === 0 && (
+                  <tr><td colSpan={loc === 'all' ? 8 : 7} style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>No bills yet — add one below.</td></tr>
+                )}
+                {canAct && (
+                  <tr style={{ borderTop: `1px solid ${colors.pageBg}`, background: '#FAFBFC' }}>
+                    <td style={{ padding: '10px 18px' }}>
+                      <input value={billDraft.name} onChange={(e) => setBillDraft({ ...billDraft, name: e.target.value })} placeholder="Bill / vendor name" style={{ width: '100%', padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit' }} />
+                    </td>
+                    {loc === 'all' && (
+                      <td style={{ padding: '10px 12px' }}>
+                        <select value={billDraft.loc} onChange={(e) => setBillDraft({ ...billDraft, loc: e.target.value })} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit', background: '#fff' }}>
+                          <option value="">Location…</option>
+                          {active.map((l) => <option key={l.id} value={l.code.toLowerCase()}>{l.name}</option>)}
+                        </select>
+                      </td>
+                    )}
+                    <td style={{ padding: '10px 12px' }}>
+                      <select value={billDraft.category_id} onChange={(e) => setBillDraft({ ...billDraft, category_id: e.target.value })} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit', background: '#fff' }}>
+                        <option value="">Category…</option>
+                        {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <input value={billDraft.due_day} onChange={(e) => setBillDraft({ ...billDraft, due_day: e.target.value })} placeholder="1st / 20th" style={{ width: 80, padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit' }} />
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <input value={billDraft.expected} onChange={(e) => setBillDraft({ ...billDraft, expected: e.target.value })} placeholder="$ / mo" style={{ width: 90, padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit', textAlign: 'right' }} />
+                    </td>
+                    <td colSpan={3} style={{ padding: '10px 18px', textAlign: 'right' }}>
+                      <span onClick={handleAddBill} style={{ display: 'inline-flex', padding: '8px 16px', background: colors.brand, color: '#fff', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Add Bill</span>
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
         <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
-          Costs land on the invoice date. Flagged (needs-review) and declined invoices never count toward spend or the
-          dashboard cost tiles; the nightly rollup re-syncs the trailing 45 days after each review decision.
+          Entered payments count as expenses on the 1st of their month (Payroll-category bills stay out of the expense
+          tiles — labor comes from Toast). Costs from invoices land on the invoice date; flagged and declined invoices
+          never count. The nightly rollup re-syncs everything after review decisions.
         </div>
       </div>
+
+      {/* ===== MONTHLY PAYMENT MODAL ===== */}
+      {billModal && (
+        <div onClick={() => setBillModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,44,88,0.45)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 15, width: 720, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 26 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div>
+                <div style={{ fontFamily: fonts.serif, fontSize: 20, fontWeight: 600 }}>{billModal.name} · {year}</div>
+                <div style={{ fontSize: 12, color: colors.muted3, marginTop: 3 }}>
+                  {billModal.expense_categories?.name ?? 'Uncategorized'} · due {billModal.due_day || 'varies'}
+                  {billModal.monthly ? ` · expected ${fmt2(billModal.monthly)}/mo` : ''} · {locations.find((l) => l.id === billModal.location_id)?.name ?? ''}
+                </div>
+              </div>
+              <span onClick={() => setBillModal(null)} style={{ fontSize: 16, color: colors.muted3, cursor: 'pointer', padding: 4 }}>✕</span>
+            </div>
+            <div style={{ fontSize: 11, color: colors.muted3, marginBottom: 16 }}>
+              Enter what was paid each month — saves when you leave the field. Clear a field to remove the entry.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+              {MO.map((label, m) => {
+                const monthIso = `${year}-${String(m + 1).padStart(2, '0')}-01`
+                const key = `${billModal.id}|${monthIso.slice(0, 7)}`
+                const saved = payMap.get(key)
+                const invoiced = billModal.vendor_id
+                  ? invoicedByVendorMonth.get(`${billModal.location_id}|${billModal.vendor_id}|${monthIso.slice(0, 7)}`)
+                  : null
+                return (
+                  <div key={label} style={{ border: `1px solid ${colors.border}`, borderRadius: 9, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.muted3, fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                    <input
+                      key={`${key}|${saved ?? ''}`}
+                      defaultValue={saved != null ? saved : ''}
+                      placeholder={billModal.monthly ? String(Math.round(billModal.monthly)) : '—'}
+                      disabled={!canAct}
+                      onBlur={(e) => savePayment(billModal.id, monthIso, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                      className="tnum"
+                      style={{ width: '100%', padding: '7px 9px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 13, fontWeight: 700, fontFamily: 'inherit', textAlign: 'right', background: canAct ? '#fff' : colors.panelGray }}
+                    />
+                    <div style={{ fontSize: 10, color: invoiced ? '#8A6D1A' : colors.muted4, marginTop: 5, minHeight: 13 }}>
+                      {invoiced ? `invoiced ${fmt2(invoiced)}` : ''}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18 }}>
+              <span className="tnum" style={{ fontSize: 13, fontWeight: 700 }}>
+                YTD entered: {fmt2(MO.reduce((a, _, m) => a + (payMap.get(`${billModal.id}|${year}-${String(m + 1).padStart(2, '0')}`) ?? 0), 0))}
+              </span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {canAct && (
+                  <span onClick={() => handleRemoveBill(billModal)} style={{ padding: '9px 16px', border: `1px solid ${colors.redBorder}`, color: colors.red, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    Remove Bill
+                  </span>
+                )}
+                <span onClick={() => setBillModal(null)} style={{ padding: '9px 16px', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  Done
+                </span>
+              </div>
+            </div>
+            {invoicedNoteNeeded(billModal, invoicedByVendorMonth, year) && (
+              <div style={{ fontSize: 11, color: '#8A6D1A', background: '#FBF3DC', padding: '8px 12px', borderRadius: 8, marginTop: 14 }}>
+                This vendor also comes through invoice intake — amounts marked "invoiced" are already counted as
+                expenses. Only enter months paid outside the invoice flow, or you'll double-count.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+/** Show the double-count warning only when the bill's vendor actually has invoices this year. */
+function invoicedNoteNeeded(bill, invoicedByVendorMonth, year) {
+  if (!bill.vendor_id) return false
+  for (let m = 1; m <= 12; m++) {
+    if (invoicedByVendorMonth.get(`${bill.location_id}|${bill.vendor_id}|${year}-${String(m).padStart(2, '0')}`)) return true
+  }
+  return false
 }
