@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { colors, fonts } from '../theme.js'
+import { fmtMoney } from '../lib/format.js'
+import { fromStr } from '../lib/dates.js'
 
 /* Shared card building blocks, ported from the Claude Design handoff.
    Used by Company Glance and Location Report (and later levels). */
@@ -123,11 +125,12 @@ export function Within() {
   return <span style={{ color: colors.greenDark, fontWeight: 600 }}>within</span>
 }
 
-/** Single ranked row: serif rank numeral, name, bold value. */
-export function RankRow({ n, name, val }) {
+/** Single ranked row: serif rank numeral, name, bold value.
+    `rankColor` overrides the numeral color (muted on Bottom lists). */
+export function RankRow({ n, name, val, rankColor = colors.brand }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontFamily: fonts.serif, fontSize: 14, color: colors.brand, width: 16 }}>{n}</span>
+      <span style={{ fontFamily: fonts.serif, fontSize: 14, color: rankColor, width: 16 }}>{n}</span>
       <span style={{ flex: 1, fontSize: 12 }}>{name}</span>
       <span className="tnum" style={{ fontSize: 12, fontWeight: 700 }}>
         {val}
@@ -169,11 +172,34 @@ export function BarList({ items, gap = 12 }) {
   )
 }
 
+export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+/**
+ * Aggregate daily rows into Mon–Sun bars for DayBarsCard. Each bar carries a
+ * hover tip like `Fri · $460 voided — peak` (`— peak` on the max day only);
+ * `peakColor` optionally recolors the peak bar (red spike on Company voids).
+ */
+export function weekdayBars(rows, field, verb, peakColor) {
+  const sums = [0, 0, 0, 0, 0, 0, 0]
+  for (const r of rows) sums[(fromStr(r.business_date).getDay() + 6) % 7] += Number(r[field]) || 0
+  const max = Math.max(...sums)
+  return DAY_LABELS.map((day, i) => {
+    const peak = max > 0 && sums[i] === max
+    return {
+      h: max > 0 ? Math.max(4, (sums[i] / max) * 100) : 0,
+      tip: `${day} · ${fmtMoney(sums[i])} ${verb}${peak ? ' — peak' : ''}`,
+      color: peak ? peakColor : undefined,
+    }
+  })
+}
+
 /**
  * By-day sparkline card (Voids by Day / Discounts by Day).
- * `bars` = [{h, color?}] — per-bar color override lets a spike day read red.
+ * `bars` = [{h, color?, tip?}] — per-bar color override lets a spike day read
+ * red; `tip` feeds the shared hover tooltip. `labels` renders the x-axis
+ * (Mon–Sun) plus the `Day of week` caption under the bars.
  */
-export function DayBarsCard({ title, bars, color }) {
+export function DayBarsCard({ title, bars, color, labels }) {
   return (
     <div style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column' }}>
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{title}</div>
@@ -181,10 +207,75 @@ export function DayBarsCard({ title, bars, color }) {
         {bars.map((b, i) => (
           <div
             key={i}
+            data-tip={b.tip}
             style={{ flex: 1, height: `${b.h ?? b}%`, background: b.color ?? color, borderRadius: 2 }}
           />
         ))}
       </div>
+      {labels && (
+        <>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            {labels.map((l) => (
+              <span key={l} style={{ flex: 1, textAlign: 'center', fontSize: 10, color: colors.muted3 }}>
+                {l}
+              </span>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', fontSize: 10, color: colors.muted4, marginTop: 4 }}>Day of week</div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * SVG donut ring — each segment is its own hover target via `data-tip`
+ * (replaces the conic-gradient donuts). `segments` = [{value, color, tip}];
+ * `center` renders an absolutely-centered overlay inside the hole
+ * (pointer-events: none so it never blocks segment hovers).
+ */
+export function DonutRing({ segments, center, size = 108 }) {
+  const C = 2 * Math.PI * 50 // circumference at r=50 in the 120×120 viewBox ≈ 314.16
+  const total = segments.reduce((s, x) => s + x.value, 0)
+  let acc = 0
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg viewBox="0 0 120 120" style={{ width: size, height: size, transform: 'rotate(-90deg)' }}>
+        {segments.map((s, i) => {
+          const len = total > 0 ? (s.value / total) * C : 0
+          const off = acc
+          acc += len
+          return (
+            <circle
+              key={i}
+              data-tip={s.tip}
+              cx="60"
+              cy="60"
+              r="50"
+              fill="none"
+              stroke={s.color}
+              strokeWidth="20"
+              strokeDasharray={`${len} ${C}`}
+              strokeDashoffset={-off}
+            />
+          )
+        })}
+      </svg>
+      {center && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          {center}
+        </div>
+      )}
     </div>
   )
 }
@@ -243,8 +334,9 @@ export function ExceptionTile({ count, to }) {
   )
 }
 
-/** Top-by-$ / Top-by-Qty segmented toggle. Static (visual) when no onChange. */
-export function ModeToggle({ mode = 'dollar', onChange }) {
+/** $ / Qty segmented toggle. Static (visual) when no onChange.
+    `labels` swaps the captions (e.g. Bottom by $ / Bottom by Qty). */
+export function ModeToggle({ mode = 'dollar', onChange, labels = ['Top by $', 'Top by Qty'] }) {
   const tab = (active) => ({
     padding: '5px 12px',
     borderRadius: 5,
@@ -257,10 +349,10 @@ export function ModeToggle({ mode = 'dollar', onChange }) {
   return (
     <div style={{ display: 'flex', gap: 3, background: '#fff', border: `1px solid ${colors.border}`, padding: 3, borderRadius: 7 }}>
       <div onClick={onChange ? () => onChange('dollar') : undefined} style={tab(mode === 'dollar')}>
-        Top by $
+        {labels[0]}
       </div>
       <div onClick={onChange ? () => onChange('qty') : undefined} style={tab(mode === 'qty')}>
-        Top by Qty
+        {labels[1]}
       </div>
     </div>
   )

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { card, StatTile, KpiTile, Within, RankRow, DayBarsCard, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
+import { card, StatTile, KpiTile, Within, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
+import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
@@ -15,6 +16,9 @@ import { fromStr } from '../lib/dates.js'
 
 const LOC_COLORS = [colors.brand, colors.brandTint1, colors.brandTint3, colors.brandTint4]
 const STREAM_COLORS = [colors.brand, colors.brandTint1, colors.brandTint2, colors.brandTint3, colors.brandTint4, colors.brandTint5]
+
+/** Short venue label for chart tooltips: "Teranga ATL" → "ATL". */
+const shortName = (name) => (name || '').replace(/^Teranga\s+/, '')
 
 function HeadTile({ label, cur, prev, fmt }) {
   const d = deltaPct(cur, prev)
@@ -41,11 +45,19 @@ function DailyByLocationCard({ rows, locations }) {
       const m = bmap.get(b)
       m.set(r.location_id, (m.get(r.location_id) || 0) + Number(r.net_sales))
     }
-    const buckets = [...bmap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, m]) => ({
-      key: k,
-      label: weekly ? k.slice(5).replace('-', '/') : String(fromStr(k).getDate()),
-      values: withData.map((l) => m.get(l.id) || 0),
-    }))
+    const buckets = [...bmap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, m]) => {
+      const dt = fromStr(k)
+      return {
+        key: k,
+        label: weekly ? k.slice(5).replace('-', '/') : String(dt.getDate()),
+        tipDay: weekly
+          ? `wk ${k.slice(5).replace('-', '/')}`
+          : keys.length <= 14
+            ? DAY_LABELS[(dt.getDay() + 6) % 7]
+            : `${dt.getMonth() + 1}/${dt.getDate()}`,
+        values: withData.map((l) => m.get(l.id) || 0),
+      }
+    })
     return { buckets, series: withData }
   }, [rows, locations])
 
@@ -71,10 +83,10 @@ function DailyByLocationCard({ rows, locations }) {
       ) : (
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, height: 150 }}>
           {buckets.map((b) => (
-            <div key={b.key} title={`${b.key}: ${fmtMoney(b.values.reduce((s, v) => s + v, 0))}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+            <div key={b.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 124 }}>
                 {b.values.map((v, i) => (
-                  <div key={i} style={{ width: Math.max(4, 12 - series.length * 2), height: Math.max(2, (v / max) * 124), background: LOC_COLORS[i % LOC_COLORS.length], borderRadius: '2px 2px 0 0' }} />
+                  <div key={i} data-tip={`${shortName(series[i].name)} · ${b.tipDay} · ${fmtK(v)}`} style={{ width: Math.max(4, 12 - series.length * 2), height: Math.max(2, (v / max) * 124), background: LOC_COLORS[i % LOC_COLORS.length], borderRadius: '2px 2px 0 0' }} />
                 ))}
               </div>
               <div style={{ fontSize: 9, color: colors.muted3, whiteSpace: 'nowrap' }}>{b.label}</div>
@@ -94,12 +106,8 @@ function RevenueMixCard({ rows, locations, totalNet }) {
     return withData
   }, [rows, locations])
   const total = shares.reduce((s, l) => s + l.net, 0)
-  let acc = 0
-  const segs = shares.map((l, i) => {
-    const from = (acc / Math.max(1, total)) * 100
-    acc += l.net
-    return `${LOC_COLORS[i % LOC_COLORS.length]} ${from}% ${(acc / Math.max(1, total)) * 100}%`
-  })
+  const pct = (net) => (total ? Math.round((net / total) * 100) : 0)
+  const tipFor = (l) => `${l.name} · ${fmtMoney(l.net)} · ${pct(l.net)}%`
   return (
     <div style={card}>
       <div style={{ fontSize: 14, fontWeight: 700 }}>Revenue Mix</div>
@@ -108,20 +116,23 @@ function RevenueMixCard({ rows, locations, totalNet }) {
         <div style={{ color: colors.muted3, fontSize: 12 }}>No data in range</div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <div style={{ width: 108, height: 108, borderRadius: '50%', background: `conic-gradient(${segs.join(', ')})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <div style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontFamily: fonts.serif, fontSize: 15, fontWeight: 600 }}>{fmtK(totalNet)}</div>
-              <div style={{ fontSize: 9, color: colors.muted3 }}>net</div>
-            </div>
-          </div>
+          <DonutRing
+            segments={shares.map((l, i) => ({ value: l.net, color: LOC_COLORS[i % LOC_COLORS.length], tip: tipFor(l) }))}
+            center={
+              <>
+                <div style={{ fontFamily: fonts.serif, fontSize: 14, fontWeight: 600, lineHeight: 1 }}>{fmtK(totalNet)}</div>
+                <div style={{ fontSize: 9, color: colors.muted3, marginTop: 2 }}>net</div>
+              </>
+            }
+          />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {shares.map((l, i) => (
-              <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+              <div key={l.id} data-tip={tipFor(l)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 9, height: 9, borderRadius: 2, background: LOC_COLORS[i % LOC_COLORS.length] }} />
                   {l.name}
                 </span>
-                <span style={{ fontWeight: 700 }}>{total ? Math.round((l.net / total) * 100) : 0}%</span>
+                <span style={{ fontWeight: 700 }}>{pct(l.net)}%</span>
               </div>
             ))}
           </div>
@@ -141,8 +152,13 @@ function StreamsByLocationCard({ cats, locations }) {
         const total = mine.reduce((s, r) => s + Number(r.net_sales), 0)
         if (total <= 0) return null
         const parts = topCats.map((c) => mine.filter((r) => r.category === c).reduce((s, r) => s + Number(r.net_sales), 0))
-        const other = total - parts.reduce((s, v) => s + v, 0)
-        return { name: l.name, widths: [...parts, Math.max(0, other)].map((v) => (v / total) * 100) }
+        const other = Math.max(0, total - parts.reduce((s, v) => s + v, 0))
+        const segs = [...parts, other].map((v, i) => ({
+          cat: i < topCats.length ? topCats[i] : 'Other',
+          val: v,
+          w: (v / total) * 100,
+        }))
+        return { name: l.name, segs }
       })
       .filter(Boolean)
     return { rowsByLoc, topCats }
@@ -160,9 +176,15 @@ function StreamsByLocationCard({ cats, locations }) {
             <div key={l.name}>
               <div style={{ fontSize: 11, color: colors.muted2, marginBottom: 5 }}>{l.name}</div>
               <div style={{ display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden' }}>
-                {l.widths.map((w, i) => (
-                  <div key={i} style={{ width: `${w}%`, background: STREAM_COLORS[i % STREAM_COLORS.length] }} />
-                ))}
+                {l.segs.map((s, i) =>
+                  s.w > 0 ? (
+                    <div
+                      key={i}
+                      data-tip={`${shortName(l.name)} · ${s.cat} · ${Math.round(s.w)}% (${fmtK(s.val)})`}
+                      style={{ width: `${s.w}%`, background: STREAM_COLORS[i % STREAM_COLORS.length] }}
+                    />
+                  ) : null,
+                )}
               </div>
             </div>
           ))}
@@ -180,17 +202,11 @@ function StreamsByLocationCard({ cats, locations }) {
   )
 }
 
-function dayHeights(rows, field) {
-  const byDate = new Map()
-  for (const r of rows) byDate.set(r.business_date, (byDate.get(r.business_date) || 0) + Number(r[field] || 0))
-  const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-14)
-  const max = Math.max(1, ...days.map(([, v]) => v))
-  return days.map(([, v]) => Math.max(4, (v / max) * 100))
-}
-
 export default function CompanyGlance() {
   const [locations, setLocations] = useState(null)
   const [mode, setMode] = useState('dollar')
+  const [bottomMode, setBottomMode] = useState('dollar')
+  const hoverTip = useHoverTip()
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -211,8 +227,9 @@ export default function CompanyGlance() {
   }, [data.items, mode])
 
   const catPerf = useMemo(() => {
-    if (!data.cats) return []
-    return groupSum(data.cats, (r) => r.category, ['net_sales']).sort((a, b) => b.net_sales - a.net_sales).slice(0, 5)
+    if (!data.cats) return { list: [], total: 0 }
+    const all = groupSum(data.cats, (r) => r.category, ['net_sales']).sort((a, b) => b.net_sales - a.net_sales)
+    return { list: all.slice(0, 5), total: all.reduce((s, g) => s + g.net_sales, 0) }
   }, [data.cats])
 
   const cb = useMemo(() => {
@@ -229,9 +246,14 @@ export default function CompanyGlance() {
   const discStatus = t?.discountPct == null ? 'neutral' : t.discountPct < (targets.discount_pct ?? 3) ? 'good' : 'bad'
 
   const topList = (cat) => (itemsByCat[cat] ?? []).slice(0, 5)
+  const bottomList = (cat) =>
+    [...(itemsByCat[cat] ?? [])]
+      .sort((a, b) => (bottomMode === 'dollar' ? a.net_sales - b.net_sales : a.quantity - b.quantity))
+      .slice(0, 5)
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
+    <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }} {...hoverTip.bind}>
+      {hoverTip.tip}
       <AppHeader active="company" />
 
       <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '28px 26px 48px' }}>
@@ -265,7 +287,7 @@ export default function CompanyGlance() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Labor Cost %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
-              <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} />
+              <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} status={t?.liquorPct == null ? 'neutral' : t.liquorPct < (targets.liquor_pct ?? 24) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Total Expenses" value={t?.expenses ? fmtMoney(t.expenses) : '—'} sub="Awaiting invoice intake" />
             </div>
 
@@ -274,11 +296,11 @@ export default function CompanyGlance() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Void % of Sales" value={fmtPct(t?.voidPct)} status={voidStatus} size={30} padding={18}
                 sub={t?.voidPct == null ? 'No sales in range' : (<>Target &lt; {targets.void_pct ?? 1}% · {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}</>)} />
-              <DayBarsCard title="Voids by Day" bars={dayHeights(data.cur ?? [], 'voids_amount')} color={colors.muted3} />
+              <DayBarsCard title="Voids by Day" bars={weekdayBars(data.cur ?? [], 'voids_amount', 'voided', colors.redBright)} color={colors.muted3} labels={DAY_LABELS} />
               <ChargebacksCard won={cb.won} inProgress={cb.in_progress} lost={cb.lost} />
               <KpiTile label="Discount % of Sales" value={fmtPct(t?.discountPct)} status={discStatus} size={30} padding={18}
                 sub={t?.discountPct == null ? 'No sales in range' : (<>Target &lt; {targets.discount_pct ?? 3}% · {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}</>)} />
-              <DayBarsCard title="Discounts by Day" bars={dayHeights(data.cur ?? [], 'discounts_amount')} color={colors.brandTint1} />
+              <DayBarsCard title="Discounts by Day" bars={weekdayBars(data.cur ?? [], 'discounts_amount', 'discounted')} color={colors.brandTint1} labels={DAY_LABELS} />
               <ExceptionTile count={data.exceptionCount ?? 0} to="/exceptions" />
             </div>
 
@@ -301,24 +323,47 @@ export default function CompanyGlance() {
               ))}
               <div style={{ ...card, padding: 18 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Category Performance</div>
-                {catPerf.length === 0 ? (
+                {catPerf.list.length === 0 ? (
                   <div style={{ color: colors.muted3, fontSize: 12 }}>No data in range</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {catPerf.map((g, i) => (
-                      <div key={g.key}>
+                    {catPerf.list.map((g, i) => (
+                      <div key={g.key} data-tip={`${g.key} · ${fmtK(g.net_sales)} · ${catPerf.total ? Math.round((g.net_sales / catPerf.total) * 100) : 0}% of revenue`}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
                           <span>{g.key}</span>
                           <span style={{ fontWeight: 700 }}>{fmtK(g.net_sales)}</span>
                         </div>
                         <div style={{ height: 8, background: colors.pageBg, borderRadius: 4 }}>
-                          <div style={{ width: `${(g.net_sales / Math.max(1, catPerf[0].net_sales)) * 100}%`, height: '100%', background: STREAM_COLORS[i % STREAM_COLORS.length], borderRadius: 4 }} />
+                          <div style={{ width: `${(g.net_sales / Math.max(1, catPerf.list[0].net_sales)) * 100}%`, height: '100%', background: STREAM_COLORS[i % STREAM_COLORS.length], borderRadius: 4 }} />
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* ===== BOTTOM SELLERS ===== */}
+            <SectionHeader
+              title="Bottom Sellers"
+              sub="org-wide · lowest movers first"
+              right={<ModeToggle mode={bottomMode} onChange={setBottomMode} labels={['Bottom by $', 'Bottom by Qty']} />}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
+              {[['Bottom Food', 'Food'], ['Bottom Liquor', 'Liquor'], ['Bottom Hookah Flavor', 'Hookah']].map(([title, c]) => (
+                <div key={c} style={{ ...card, padding: 18 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>
+                  {bottomList(c).length === 0 ? (
+                    <div style={{ color: colors.muted3, fontSize: 12 }}>No items in range</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                      {bottomList(c).map((r, i) => (
+                        <RankRow key={r.key} n={i + 1} rankColor={colors.muted3} name={r.item_name} val={bottomMode === 'dollar' ? fmtMoney(r.net_sales) : `${fmtInt(r.quantity)} sold`} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* ===== LOCATION COMPARISON ===== */}
@@ -339,6 +384,7 @@ export default function CompanyGlance() {
                     const has = mine.days > 0
                     const voidBad = mine.voidPct != null && mine.voidPct >= (targets.void_pct ?? 1)
                     const discBad = mine.discountPct != null && mine.discountPct >= (targets.discount_pct ?? 3)
+                    const liqBad = mine.liquorPct != null && mine.liquorPct >= (targets.liquor_pct ?? 24)
                     const pctCell = (v, bad) => ({
                       padding: '13px 12px',
                       color: v == null ? colors.muted3 : bad ? colors.red : colors.greenDark,
@@ -359,7 +405,7 @@ export default function CompanyGlance() {
                         <td style={pctCell(has ? mine.discountPct : null, discBad)}>{has ? fmtPct(mine.discountPct) : '—'}</td>
                         <td style={{ padding: '13px 12px', color: colors.muted3 }}>{fmtPct(mine.foodPct)}</td>
                         <td style={{ padding: '13px 12px', color: colors.muted3 }}>{fmtPct(mine.laborPct)}</td>
-                        <td style={{ padding: '13px 18px', color: colors.muted3 }}>{fmtPct(mine.liquorPct)}</td>
+                        <td style={{ ...pctCell(has ? mine.liquorPct : null, liqBad), padding: '13px 18px' }}>{fmtPct(mine.liquorPct)}</td>
                       </tr>
                     )
                   })}
