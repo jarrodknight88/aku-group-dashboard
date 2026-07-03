@@ -63,8 +63,11 @@ Deno.serve(async (req) => {
     const all = locs.data ?? []
     return reply({
       label: link.label,
+      // the link's home venue (null for an org-wide link) — the form's default
       location: link.location_id ? all.find((l) => l.id === link.location_id) ?? null : null,
-      locations: link.location_id ? undefined : all,
+      // always list every active venue: traveling stakeholders can switch
+      // from the header chip without hunting for another link
+      locations: all,
       vendors: vendors.data ?? [],
       aliases: aliases.data ?? [],
       categories: cats.data ?? [],
@@ -97,12 +100,15 @@ Deno.serve(async (req) => {
     const vendorName = String(body?.vendor_name ?? '').trim()
     const amount = Number(body?.amount)
     const invoiceDate = String(body?.invoice_date ?? '')
-    // location comes from the link; an org-wide link may pass one of the active locations
-    let locationId = link.location_id as string | null
-    if (!locationId) {
-      const { data: l } = await db.from('locations').select('id').eq('id', String(body?.location_id ?? '')).eq('status', 'active').maybeSingle()
+    // the link's venue is the default, but an explicit choice of any ACTIVE
+    // venue wins — senior stakeholders travel between locations and use
+    // whichever link they have handy
+    let locationId: string | null = null
+    if (body?.location_id) {
+      const { data: l } = await db.from('locations').select('id').eq('id', String(body.location_id)).eq('status', 'active').maybeSingle()
       locationId = l?.id ?? null
     }
+    if (!locationId) locationId = link.location_id
     if (!locationId) return reply({ error: 'Pick a location.' }, 400)
     if (!vendorName || vendorName.length > 200) return reply({ error: 'Enter the vendor name.' }, 400)
     if (!(amount > 0) || amount > 1_000_000) return reply({ error: 'Enter the invoice amount.' }, 400)
