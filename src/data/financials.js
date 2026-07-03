@@ -232,6 +232,14 @@ export async function removeValetDay(id) {
   if (error) throw new Error(error.message)
 }
 
+/** Pull the per-location parking sheets right now (admin; also runs nightly
+    via cron). Returns [{ location_code, nights }]. */
+export async function syncValetSheets() {
+  const { data, error } = await supabase.rpc('sync_valet_sheets')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
 /** Sum a valet window for headline tiles; null (→ "—") when nothing tracked. */
 export function sumValet(rows) {
   if (!rows?.length) return null
