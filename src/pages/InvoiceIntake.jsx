@@ -6,7 +6,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fetchLocations } from '../data/live.js'
 import {
-  fetchVendors, fetchVendorAliases, fetchCategories, findLikelyDuplicates,
+  fetchVendors, fetchVendorAliases, fetchCategories, fetchIntakeLinks, findLikelyDuplicates,
   normalizeVendorName, submitInvoice, uploadInvoiceFile,
 } from '../data/financials.js'
 import { fmtRange } from '../lib/dates.js'
@@ -43,6 +43,8 @@ export default function InvoiceIntake() {
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState(null)
   const [dupes, setDupes] = useState([])
+  const [intakeLinks, setIntakeLinks] = useState([]) // admin-only (RLS): mobile /submit?k=… links
+  const [copied, setCopied] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null) // { status, flag_reasons, vendor }
   const fileRef = useRef(null)
@@ -59,6 +61,7 @@ export default function InvoiceIntake() {
         if (active.length === 1) setLocationId(active[0].id)
       })
       .catch((e) => setError(e.message))
+    fetchIntakeLinks().then(setIntakeLinks).catch(() => {})
     return () => clearTimeout(vendorBlurTimer.current)
   }, [])
 
@@ -324,6 +327,34 @@ export default function InvoiceIntake() {
             </ul>
             <p style={{ margin: '0 0 10px' }}>Flagged ones land in the <b>Review Queue</b> on the Financials page for an admin to approve or decline.</p>
             <p style={{ margin: 0 }}>Your login is recorded as the submitter, so there's no name field to fill in.</p>
+
+            {intakeLinks.length > 0 && (
+              <>
+                <div style={{ height: 1, background: colors.border, margin: '16px 0' }} />
+                <div style={{ fontFamily: fonts.serif, fontSize: 16, fontWeight: 600, color: colors.ink, marginBottom: 8 }}>Phone links for managers</div>
+                <p style={{ margin: '0 0 10px' }}>
+                  No login needed — managers open their location's link, snap the invoice, done. Text it to them once and they can keep it on their home screen.
+                </p>
+                {intakeLinks.map((l) => {
+                  const url = `${window.location.origin}/submit?k=${l.token}`
+                  return (
+                    <div key={l.token} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 0' }}>
+                      <span style={{ fontWeight: 700, color: colors.ink }}>{l.label}</span>
+                      <span
+                        onClick={() => {
+                          navigator.clipboard?.writeText(url)
+                          setCopied(l.token)
+                          setTimeout(() => setCopied(''), 1500)
+                        }}
+                        style={{ padding: '5px 12px', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: copied === l.token ? colors.greenBg : colors.brand, color: copied === l.token ? colors.greenDark : '#fff', whiteSpace: 'nowrap' }}
+                      >
+                        {copied === l.token ? 'Copied ✓' : 'Copy link'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </>
+            )}
           </div>
         </div>
       </div>

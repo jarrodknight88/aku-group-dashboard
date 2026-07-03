@@ -11,6 +11,7 @@ import VoidDiscountDetail from './pages/VoidDiscountDetail.jsx'
 import Payroll from './pages/Payroll.jsx'
 import Financials from './pages/Financials.jsx'
 import InvoiceIntake from './pages/InvoiceIntake.jsx'
+import MobileIntake from './pages/MobileIntake.jsx'
 import Settings from './pages/Settings.jsx'
 import { colors } from './theme.js'
 
@@ -43,6 +44,8 @@ export default function App() {
       <RangeProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* public, no-login mobile intake — the ?k= token is the credential */}
+        <Route path="/submit" element={<MobileIntake />} />
         <Route path="/" element={<RequireAuth><CompanyGlance /></RequireAuth>} />
         <Route path="/locations" element={<RequireAuth><ByLocation /></RequireAuth>} />
         {/* Location Report — the fully-built Level 2 screen. Scoped by code. */}
