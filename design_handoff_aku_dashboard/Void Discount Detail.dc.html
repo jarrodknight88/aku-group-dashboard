@@ -15,151 +15,225 @@
   * { box-sizing: border-box; }
   body { margin: 0; background:#EEF0F3; }
   a { text-decoration:none; color:inherit; }
+  input { font-family:inherit; outline:none; }
+  ::-webkit-scrollbar { height:6px; width:6px; }
+  ::-webkit-scrollbar-thumb { background:#D6DBE2; border-radius:3px; }
 </style>
 </helmet>
 
-<div data-screen-label="L3 Void & Discount Detail" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+<div data-screen-label="L3 Voids & Discounts" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
 
   <!-- ===== HEADER ===== -->
   <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
-    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
-      <div style="display:flex; align-items:center; gap:30px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:18px;">T</div>
           <div style="line-height:1.08;">
-            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
-            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:17px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:10px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS</div>
           </div>
         </div>
-        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
-          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
-          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
-          <a href="Payroll.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Payroll</a>
-          <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
+        <div style="display:flex; gap:3px; background:#F4F6F8; padding:3px; border-radius:8px; overflow-x:auto; max-width:100%;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">By Location</a>
+          <a href="Payroll.dc.html" style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">Payroll</a>
+          <a href="Settings.dc.html" style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">Settings</a>
         </div>
       </div>
-      <div style="text-align:right;">
-        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
-          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
-        </div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid #D6DBE2; border-radius:8px; background:#fff; font-size:12px; font-weight:600; white-space:nowrap;">This Week <span style="color:#9AA1AC;">▾</span></div>
+        <div style="font-size:11px; color:#9AA1AC; white-space:nowrap;">vs <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
       </div>
     </div>
   </div>
 
-  <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
+  <div style="max-width:1480px; margin:0 auto; padding:16px 20px 44px;">
 
-    <a href="{{ backHref }}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">{{ backLabel }}</a>
+    <!-- ===== BREADCRUMB + TITLE ===== -->
+    <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#9AA1AC; margin-bottom:10px; flex-wrap:wrap;">
+      <a href="{{ backHref }}" style="color:#6B7280; font-weight:600;">{{ crumbRoot }}</a>
+      <span>/</span>
+      <span>Money Protected</span>
+      <span>/</span>
+      <span style="color:#1A2230; font-weight:600;">Voids &amp; Discounts</span>
+    </div>
 
-    <!-- ===== PAGE TITLE ===== -->
-    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
       <div>
-        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Void &amp; Discount Detail</div>
-        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">The "why" behind the numbers · Sep 15–21 · {{ scopeLabel }}</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Voids &amp; Discounts</div>
+        <div style="font-size:12px; color:#9AA1AC; margin-top:5px;">Sep 15–21, 2025 · {{ scopeLabel }} · <span style="color:#6B7280;">Last synced Sep 21, 11:42 PM · Toast VoidDetails + nightly recon</span></div>
       </div>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:4px; border-radius:9px;">
-          <div onClick="{{ goVoids }}" style="{{ tabVoids }}">Voids</div>
-          <div onClick="{{ goDiscounts }}" style="{{ tabDiscounts }}">Discounts</div>
-        </div>
-        <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;">
-          <div onClick="{{ byDollar }}" style="{{ tabDollar }}">By $</div>
-          <div onClick="{{ byQty }}" style="{{ tabQty }}">By Qty</div>
-        </div>
+      <div onClick="{{ exportCsv }}" style="display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border:1px solid #D6DBE2; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#3A4150; cursor:pointer;" style-hover="border-color:#184080; color:#184080;">Export CSV</div>
+    </div>
+
+    <!-- ===== CONTROL BAR ===== -->
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #E4E7EC; border-radius:10px; padding:8px 10px; margin-bottom:16px;">
+      <div style="display:flex; gap:3px; background:#F4F6F8; padding:3px; border-radius:7px;">
+        <div onClick="{{ goVoids }}" style="{{ tabVoids }}">Voids</div>
+        <div onClick="{{ goDiscounts }}" style="{{ tabDiscounts }}">Discounts</div>
+      </div>
+      <div style="width:1px; height:22px; background:#E4E7EC;"></div>
+      <div style="display:flex; gap:3px; background:#F4F6F8; padding:3px; border-radius:7px;">
+        <div onClick="{{ byDollar }}" style="{{ tabDollar }}">By $</div>
+        <div onClick="{{ byQty }}" style="{{ tabQty }}">By Qty</div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="font-size:11px; color:#9AA1AC; white-space:nowrap;">{{ recordNote }}</div>
+    </div>
+
+    <!-- ===== KPI STRIP ===== -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:1px; background:#E4E7EC; border:1px solid #E4E7EC; border-radius:12px; overflow:hidden; margin-bottom:16px;">
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">{{ sumLabel }}</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums;">{{ sumTotal }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">{{ sumSub }}</div>
+      </div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">% of Sales</div><span style="width:7px; height:7px; border-radius:50%; background:{{ pctDot }};"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; color:{{ pctColor }}; font-variant-numeric:tabular-nums;">{{ pctVal }}</div>
+        <div style="font-size:11px; color:{{ pctSubColor }}; margin-top:2px; font-weight:600;">{{ pctSub }}</div>
+      </div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Peak Day</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px;">{{ peakDay }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">{{ peakSub }}</div>
+      </div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Staff Over Target</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; color:{{ overColor }}; font-variant-numeric:tabular-nums;">{{ overCount }}</div>
+        <div style="font-size:11px; color:{{ overSubColor }}; margin-top:2px; font-weight:600;">{{ overSub }}</div>
       </div>
     </div>
 
-    <!-- ===== SUMMARY STRIP ===== -->
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
-      <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">{{ sumLabel }}</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums;">{{ sumTotal }}</div>
-        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">{{ sumSub }}</div>
-      </div>
-      <div style="background:#fff; border:1px solid {{ pctBorder }}; border-radius:13px; padding:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">% of Sales</div><span style="width:8px; height:8px; border-radius:50%; background:{{ pctDot }};"></span></div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:{{ pctColor }}; font-variant-numeric:tabular-nums;">{{ pctVal }}</div>
-        <div style="font-size:11px; color:{{ pctSubColor }}; margin-top:4px; font-weight:600;">{{ pctSub }}</div>
-      </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Peak Day</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px;">{{ peakDay }}</div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">{{ peakSub }}</div>
-      </div>
-      <div style="background:#fff; border:1px solid #F0C4BE; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Employees Over Target</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#C0392B; font-variant-numeric:tabular-nums;">{{ overCount }}</div>
-        <div style="font-size:11px; color:#C0392B; margin-top:4px; font-weight:600;">{{ overSub }}</div>
-      </div>
-    </div>
-
-    <!-- ===== BREAKDOWN + TOP ITEMS ===== -->
-    <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:24px;">
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:16px;">{{ reasonTitle }}</div>
-        <div style="display:flex; flex-direction:column; gap:13px;">
+    <!-- ===== BREAKDOWN + ITEMS ===== -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:16px; margin-bottom:16px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:12px; padding:16px 18px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;">
+          <div style="font-size:13px; font-weight:700;">{{ reasonTitle }}</div>
+          <div style="font-size:10px; color:#9AA1AC; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">{{ modeLabel }}</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
           <sc-for list="{{ reasons }}" as="rr" hint-placeholder-count="6">
-            <div style="display:flex; align-items:center; gap:14px;">
-              <span style="width:210px; font-size:12px; color:#3A4150;">{{ rr.label }}</span>
-              <div style="flex:1; height:10px; background:#EEF0F3; border-radius:5px;"><div style="width:{{ rr.pct }}; height:100%; background:{{ rr.color }}; border-radius:5px;"></div></div>
-              <span style="width:70px; text-align:right; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ rr.val }}</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="width:172px; min-width:120px; font-size:12px; color:#3A4150; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ rr.label }}</span>
+              <div style="flex:1; height:8px; background:#EEF0F3; border-radius:4px;"><div style="width:{{ rr.pct }}; height:100%; background:{{ rr.color }}; border-radius:4px;"></div></div>
+              <span style="width:64px; text-align:right; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ rr.val }}</span>
+              <span style="width:38px; text-align:right; font-size:11px; color:#9AA1AC; font-variant-numeric:tabular-nums;">{{ rr.share }}</span>
             </div>
           </sc-for>
         </div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">{{ reasonNote }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:13px; padding-top:11px; border-top:1px solid #F0F2F5;">{{ reasonNote }}</div>
       </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">{{ itemsTitle }}</div>
-        <div style="display:flex; flex-direction:column; gap:11px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:12px; padding:16px 18px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px;">
+          <div style="font-size:13px; font-weight:700;">{{ itemsTitle }}</div>
+          <div style="font-size:10px; color:#9AA1AC; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">Top 5</div>
+        </div>
+        <div style="display:flex; flex-direction:column;">
           <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
-            <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">{{ it.rank }}</span><span style="flex:1; font-size:12px;">{{ it.name }}</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F0F2F5;">
+              <span style="font-size:11px; color:#9AA1AC; width:14px; font-variant-numeric:tabular-nums;">{{ it.rank }}</span>
+              <span style="flex:1; font-size:12px;">{{ it.name }}</span>
+              <span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span>
+            </div>
           </sc-for>
         </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:13px;">Ranked by the active measure. Cross-check high-void items against 86 logs before coaching.</div>
       </div>
     </div>
 
     <!-- ===== BY EMPLOYEE ===== -->
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">{{ empTitle }}</div>
-      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
-      <div style="font-size:12px; color:#9AA1AC;">Target: {{ empTargetNote }}</div>
-    </div>
-    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
-      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
-        <thead>
-          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
-            <th style="text-align:left; padding:12px 18px; font-weight:600;">Employee</th>
-            <th style="text-align:left; padding:12px 12px; font-weight:600;">Role</th>
-            <th style="text-align:left; padding:12px 12px; font-weight:600;">Location</th>
-            <th style="padding:12px 12px; font-weight:600;">{{ colAmount }}</th>
-            <th style="padding:12px 12px; font-weight:600;">{{ colCount }}</th>
-            <th style="padding:12px 12px; font-weight:600;">% of Own Sales</th>
-            <th style="padding:12px 18px; font-weight:600;">Status</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:12px; overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #E4E7EC; flex-wrap:wrap;">
+        <div style="font-size:13px; font-weight:700;">{{ empTitle }}</div>
+        <span style="font-size:11px; font-weight:600; color:#6B7280; background:#F4F6F8; padding:3px 8px; border-radius:5px;">{{ empCount }}</span>
+        <div style="flex:1;"></div>
+        <input value="{{ query }}" onInput="{{ onQuery }}" placeholder="Filter by name or role…" style="width:200px; max-width:100%; padding:7px 11px; border:1px solid #D6DBE2; border-radius:7px; font-size:12px; color:#1A2230; background:#FAFBFC;" />
+      </div>
+
+      <!-- desktop table -->
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; min-width:720px;">
+            <thead>
+              <tr style="background:#F8F9FB; color:#6B7280; text-align:right;">
+                <th style="text-align:left; padding:10px 16px; font-weight:600; font-size:11px;">Employee</th>
+                <th style="text-align:left; padding:10px 10px; font-weight:600; font-size:11px;">Role</th>
+                <th style="text-align:left; padding:10px 10px; font-weight:600; font-size:11px;">Location</th>
+                <th onClick="{{ sortAmt }}" style="padding:10px 10px; font-weight:600; font-size:11px; cursor:pointer; white-space:nowrap;">{{ colAmount }} {{ arrowAmt }}</th>
+                <th onClick="{{ sortCnt }}" style="padding:10px 10px; font-weight:600; font-size:11px; cursor:pointer; white-space:nowrap;">{{ colCount }} {{ arrowCnt }}</th>
+                <th onClick="{{ sortPct }}" style="padding:10px 10px; font-weight:600; font-size:11px; cursor:pointer; white-space:nowrap;">% of Own Sales {{ arrowPct }}</th>
+                <th style="padding:10px 16px; font-weight:600; font-size:11px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ empRows }}" as="e" hint-placeholder-count="6">
+                <tr style="border-top:1px solid #F0F2F5; text-align:right;" style-hover="background:#F8FAFC;">
+                  <td style="text-align:left; padding:10px 16px; font-weight:600;">{{ e.name }}</td>
+                  <td style="text-align:left; padding:10px 10px; color:#6B7280;">{{ e.role }}</td>
+                  <td style="text-align:left; padding:10px 10px; color:#6B7280;">{{ e.locName }}</td>
+                  <td style="padding:10px 10px; font-weight:700;">{{ e.amt }}</td>
+                  <td style="padding:10px 10px;">{{ e.cnt }}</td>
+                  <td style="padding:10px 10px; font-weight:700; color:{{ e.pctColor }};">{{ e.pct }}</td>
+                  <td style="padding:10px 16px; white-space:nowrap;"><span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:{{ e.stColor }};"><span style="width:6px; height:6px; border-radius:50%; background:{{ e.stDot }};"></span>{{ e.status }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+            <tbody>
+              <tr style="border-top:2px solid #E4E7EC; text-align:right; background:#F8F9FB;">
+                <td style="text-align:left; padding:10px 16px; font-weight:700;">Total</td>
+                <td></td><td></td>
+                <td style="padding:10px 10px; font-weight:700;">{{ totAmt }}</td>
+                <td style="padding:10px 10px; font-weight:700;">{{ totCnt }}</td>
+                <td style="padding:10px 10px;"></td>
+                <td style="padding:10px 16px;"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+
+      <!-- mobile cards -->
+      <sc-if value="{{ showCards }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column;">
           <sc-for list="{{ empRows }}" as="e" hint-placeholder-count="6">
-            <tr style="border-top:1px solid #EEF0F3; text-align:right;">
-              <td style="text-align:left; padding:13px 18px; font-weight:600;">{{ e.name }}</td>
-              <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ e.role }}</td>
-              <td style="text-align:left; padding:13px 12px;">{{ e.locName }}</td>
-              <td style="padding:13px 12px; font-weight:700;">{{ e.amt }}</td>
-              <td style="padding:13px 12px;">{{ e.cnt }}</td>
-              <td style="padding:13px 12px; font-weight:700; color:{{ e.pctColor }}; background:{{ e.pctBg }};">{{ e.pct }}</td>
-              <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:{{ e.stColor }}; background:{{ e.stBg }}; padding:3px 9px; border-radius:5px;">{{ e.status }}</span></td>
-            </tr>
+            <div style="padding:12px 16px; border-top:1px solid #F0F2F5;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div style="font-size:13px; font-weight:700;">{{ e.name }}</div>
+                <div style="font-size:13px; font-weight:700; font-variant-numeric:tabular-nums;">{{ e.amt }}</div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:3px;">
+                <div style="font-size:11px; color:#6B7280;">{{ e.role }} · {{ e.locName }}</div>
+                <div style="font-size:11px; color:#6B7280; font-variant-numeric:tabular-nums;">{{ e.cnt }} {{ cntNoun }}</div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:7px;">
+                <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:{{ e.stColor }};"><span style="width:6px; height:6px; border-radius:50%; background:{{ e.stDot }};"></span>{{ e.status }}</span>
+                <span style="font-size:12px; font-weight:700; color:{{ e.pctColor }}; font-variant-numeric:tabular-nums;">{{ e.pct }} of own sales</span>
+              </div>
+            </div>
           </sc-for>
-        </tbody>
-      </table>
+        </div>
+      </sc-if>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 16px; border-top:1px solid #E4E7EC; background:#FAFBFC; flex-wrap:wrap;">
+        <div style="font-size:11px; color:#9AA1AC;">{{ footCount }} · sorted by {{ sortLabel }}</div>
+        <div style="font-size:11px; color:#9AA1AC;">Personal target: {{ empTargetNote }} · check-level detail in <a href="{{ excHref }}" style="color:#184080; font-weight:600;">Exceptions</a></div>
+      </div>
     </div>
-    <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">{{ footNote }}</div>
 
   </div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { tab: null, mode: "dollar" };
+  state = { tab: null, mode: "dollar", sortKey: "amt", sortDir: -1, query: "", w: (typeof window !== "undefined" ? window.innerWidth : 1200) };
+
+  componentDidMount() {
+    this._onR = () => this.setState({ w: window.innerWidth });
+    window.addEventListener("resize", this._onR);
+  }
+  componentWillUnmount() { window.removeEventListener("resize", this._onR); }
 
   NAMES = { atl: "Teranga ATL", clt: "Teranga CLT", afro: "Afro District" };
 
@@ -209,7 +283,6 @@ class Component extends DCLogic {
     { name: "A. Sow", role: "Server", loc: "atl", d: 1510, q: 35, pct: 2.9 },
     { name: "R. Bah", role: "Bartender", loc: "clt", d: 1360, q: 30, pct: 2.4 },
   ];
-  // per-scope % of sales + peak day [void, disc]
   SCOPE = {
     all:  { vPct: 0.8, dPct: 3.4, vPeak: ["Fri", "$460 voided"], dPeak: ["Fri", "$2,300 discounted"] },
     atl:  { vPct: 0.7, dPct: 2.8, vPeak: ["Fri", "$225 voided"], dPeak: ["Fri", "$785 discounted"] },
@@ -233,6 +306,7 @@ class Component extends DCLogic {
     const mode = this.state.mode;
     const isVoid = tab === "void";
     const sc = this.SCOPE[scope];
+    const isMobile = this.state.w < 720;
 
     const inScope = (arr) => loc ? arr.filter(r => r.loc === loc) : arr;
     const emps = inScope(isVoid ? this.VOID_EMP : this.DISC_EMP);
@@ -240,7 +314,6 @@ class Component extends DCLogic {
 
     const empTotal = { d: emps.reduce((a, r) => a + r.d, 0), q: emps.reduce((a, r) => a + r.q, 0) };
 
-    // reasons scaled to scope share of org totals
     const RE = isVoid ? this.VOID_REASONS : this.DISC_TYPES;
     const orgEmpAll = isVoid ? this.VOID_EMP : this.DISC_EMP;
     const orgTotal = { d: orgEmpAll.reduce((a, r) => a + r.d, 0), q: orgEmpAll.reduce((a, r) => a + r.q, 0) };
@@ -253,9 +326,15 @@ class Component extends DCLogic {
       color: palette[i],
     }));
     const maxV = Math.max(...scaled.map(r => mode === "dollar" ? r.dv : r.qv), 1);
+    const sumMode = scaled.reduce((a, r) => a + (mode === "dollar" ? r.dv : r.qv), 0) || 1;
     const reasons = scaled.map(r => {
       const v = mode === "dollar" ? r.dv : r.qv;
-      return { label: r.label, color: r.color, pct: Math.round((v / maxV) * 100) + "%", val: mode === "dollar" ? this.fmt(v) : v + (isVoid ? " items" : " checks") };
+      return {
+        label: r.label, color: r.color,
+        pct: Math.round((v / maxV) * 100) + "%",
+        val: mode === "dollar" ? this.fmt(v) : String(v),
+        share: Math.round((v / sumMode) * 100) + "%",
+      };
     });
 
     const ITEMS = (isVoid ? this.VOID_ITEMS : this.DISC_ITEMS)
@@ -263,37 +342,56 @@ class Component extends DCLogic {
       .sort((a, b) => b.v - a.v)
       .map((it, i) => ({ ...it, rank: i + 1 }));
 
-    const sorted = emps.slice().sort((a, b) => mode === "dollar" ? b.d - a.d : b.q - a.q);
+    const q = this.state.query.trim().toLowerCase();
+    const filteredEmps = q ? emps.filter(e => (e.name + " " + e.role).toLowerCase().includes(q)) : emps;
+    const sk = this.state.sortKey, sd = this.state.sortDir;
+    const keyFn = { amt: (e) => e.d, cnt: (e) => e.q, pct: (e) => e.pct }[sk];
+    const sorted = filteredEmps.slice().sort((a, b) => (keyFn(a) - keyFn(b)) * sd);
+
     const empRows = sorted.map(e => {
       const over = e.pct > target;
       return {
         name: e.name, role: e.role, locName: this.NAMES[e.loc],
         amt: this.fmt(e.d), cnt: e.q,
         pct: e.pct.toFixed(1) + "%",
-        pctColor: over ? "#C0392B" : "#1A7F4B",
-        pctBg: over ? "#FBEAE8" : "transparent",
-        status: over ? "● Over target" : "✓ Within",
+        pctColor: over ? "#C0392B" : "#1A2230",
+        status: over ? "Over target" : "Within target",
         stColor: over ? "#C0392B" : "#1A7F4B",
-        stBg: over ? "#FBEAE8" : "#E6F4EC",
+        stDot: over ? "#E04A38" : "#22A55F",
       };
     });
     const overCount = emps.filter(e => e.pct > target).length;
 
     const pctVal = isVoid ? sc.vPct : sc.dPct;
     const overTarget = pctVal > target;
-    const peak = isVoid ? (loc ? this.SCOPE[scope].vPeak : sc.vPeak) : (loc ? this.SCOPE[scope].dPeak : sc.dPeak);
+    const peak = isVoid ? sc.vPeak : sc.dPeak;
 
-    const tabA = "padding:7px 16px; border-radius:6px; background:#184080; color:#fff; font-size:12px; font-weight:600; cursor:pointer;";
-    const tabI = "padding:7px 16px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; cursor:pointer;";
-    const togA = "padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff; cursor:pointer;";
-    const togI = "padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC; cursor:pointer;";
+    const tabA = "padding:6px 14px; border-radius:5px; background:#184080; color:#fff; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;";
+    const tabI = "padding:6px 14px; border-radius:5px; color:#5A626E; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;";
 
     const noun = isVoid ? "Voided" : "Discounted";
+    const cntNoun = isVoid ? "items" : "checks";
+    const sortLabels = { amt: noun.toLowerCase() + " $", cnt: cntNoun, pct: "% of own sales" };
+    const arrow = (k) => sk === k ? (sd === -1 ? "↓" : "↑") : "";
+    const doSort = (k) => () => this.setState(this.state.sortKey === k ? { sortDir: -this.state.sortDir } : { sortKey: k, sortDir: -1 });
+
+    const exportCsv = () => {
+      const head = ["Employee", "Role", "Location", noun + " $", cntNoun, "% of own sales", "Status"];
+      const lines = [head.join(",")].concat(sorted.map(e => [e.name, e.role, this.NAMES[e.loc], e.d, e.q, e.pct + "%", e.pct > target ? "Over target" : "Within target"].join(",")));
+      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = (isVoid ? "voids" : "discounts") + "-by-employee-sep15-21.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
 
     return {
-      scopeLabel: loc ? this.NAMES[loc] : "org-wide",
+      scopeLabel: loc ? this.NAMES[loc] : "All locations",
+      crumbRoot: loc ? this.NAMES[loc] : "Company",
       backHref: loc ? "Location%20Report.dc.html" : "Company%20Glance%20v2.dc.html",
-      backLabel: loc ? "← Back to " + this.NAMES[loc] : "← Back to Company",
+      excHref: loc ? "Exception%20Detail.dc.html?loc=" + loc : "Exception%20Detail.dc.html",
+      exportCsv,
 
       goVoids: () => this.setState({ tab: "void" }),
       goDiscounts: () => this.setState({ tab: "discount" }),
@@ -301,38 +399,52 @@ class Component extends DCLogic {
       tabDiscounts: !isVoid ? tabA : tabI,
       byDollar: () => this.setState({ mode: "dollar" }),
       byQty: () => this.setState({ mode: "qty" }),
-      tabDollar: mode === "dollar" ? togA : togI,
-      tabQty: mode === "qty" ? togA : togI,
+      tabDollar: mode === "dollar" ? tabA : tabI,
+      tabQty: mode === "qty" ? tabA : tabI,
+      recordNote: emps.length + " employees · " + empTotal.q + " " + cntNoun + " · updated nightly",
 
       sumLabel: "Total " + noun,
       sumTotal: mode === "dollar" ? this.fmt(empTotal.d) : String(empTotal.q),
-      sumSub: mode === "dollar" ? empTotal.q + (isVoid ? " voided items" : " discounted checks") : (isVoid ? "items voided · " : "checks discounted · ") + this.fmt(empTotal.d),
+      sumSub: mode === "dollar" ? empTotal.q + " " + cntNoun : this.fmt(empTotal.d) + " total",
 
       pctVal: pctVal.toFixed(1) + "%",
       pctColor: overTarget ? "#C0392B" : "#1A7F4B",
       pctDot: overTarget ? "#E04A38" : "#22A55F",
-      pctBorder: overTarget ? "#F0C4BE" : "#C8E6D4",
       pctSub: "Target < " + target + "% · " + (overTarget ? "over" : "within"),
       pctSubColor: overTarget ? "#C0392B" : "#9AA1AC",
 
       peakDay: peak[0],
-      peakSub: peak[1] + " — highest of the week",
+      peakSub: peak[1] + " — week high",
 
       overCount,
+      overColor: overCount > 0 ? "#C0392B" : "#1A2230",
       overSub: overCount > 0 ? "vs " + target + "% personal target" : "All within target",
+      overSubColor: overCount > 0 ? "#C0392B" : "#9AA1AC",
 
       reasonTitle: isVoid ? "Voids by Reason" : "Discounts by Type",
+      modeLabel: mode === "dollar" ? "By dollars" : "By quantity",
       reasons,
-      reasonNote: isVoid ? "Reasons come from the Toast void-reason field at entry." : "Types come from the discount buttons configured in Toast.",
+      reasonNote: isVoid ? "Reasons from the Toast void-reason field at entry." : "Types from the discount buttons configured in Toast.",
       itemsTitle: isVoid ? "Most Voided Items" : "Most Discounted Items",
       items: ITEMS,
 
       empTitle: (isVoid ? "Voids" : "Discounts") + " by Employee",
-      empTargetNote: "< " + target + "% of own sales",
+      empCount: filteredEmps.length + " of " + emps.length,
+      query: this.state.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      showTable: !isMobile,
+      showCards: isMobile,
+      cntNoun,
       colAmount: noun + " $",
       colCount: isVoid ? "Items" : "Checks",
+      arrowAmt: arrow("amt"), arrowCnt: arrow("cnt"), arrowPct: arrow("pct"),
+      sortAmt: doSort("amt"), sortCnt: doSort("cnt"), sortPct: doSort("pct"),
       empRows,
-      footNote: "% of own sales = " + noun.toLowerCase() + " dollars ÷ that employee's net sales for the period. Rows over the personal target are tinted; investigate via the exception list for check-level detail.",
+      totAmt: this.fmt(sorted.reduce((a, e) => a + e.d, 0)),
+      totCnt: sorted.reduce((a, e) => a + e.q, 0),
+      footCount: "Showing " + empRows.length + " of " + emps.length + " employees",
+      sortLabel: sortLabels[sk] + (sd === -1 ? " (desc)" : " (asc)"),
+      empTargetNote: "< " + target + "% of own sales",
     };
   }
 }

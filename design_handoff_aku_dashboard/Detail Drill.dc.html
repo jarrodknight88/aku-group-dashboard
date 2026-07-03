@@ -34,12 +34,13 @@
         <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
           <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
           <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">By Location</a>
+          <a href="Payroll.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Payroll</a>
           <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
         </div>
       </div>
       <div style="text-align:right;">
         <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
-          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+          This Week <span style="color:#9AA1AC;">▾</span>
         </div>
         <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
       </div>
@@ -48,13 +49,19 @@
 
   <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
 
-    <a href="Location%20Report.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">← Back to Teranga ATL</a>
+    <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#9AA1AC; margin-bottom:10px; flex-wrap:wrap;">
+      <a href="Company%20Glance%20v2.dc.html" style="color:#6B7280; font-weight:600;">Company</a>
+      <span>/</span>
+      <a href="Location%20Report.dc.html" style="color:#6B7280; font-weight:600;">Teranga ATL</a>
+      <span>/</span>
+      <span style="color:#1A2230; font-weight:600;">Detail Drill</span>
+    </div>
 
     <!-- ===== PAGE TITLE ===== -->
     <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
       <div>
-        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Detail Drill <span style="font-family:'Hanken Grotesk'; font-size:15px; color:#9AA1AC; font-weight:600;">· Teranga ATL</span></div>
-        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">The transaction-level "why" behind this location · Sep 15–21</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Detail Drill <span style="font-family:'Hanken Grotesk'; font-size:14px; color:#9AA1AC; font-weight:600;">· Teranga ATL</span></div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">The transaction-level "why" behind this location · Sep 15–21 · <span style="color:#6B7280;">Last synced Sep 21, 11:42 PM</span></div>
       </div>
     </div>
 
@@ -67,7 +74,7 @@
         <div onClick="{{ byQty }}" style="{{ tabQtyStyle }}">Top by Qty</div>
       </div>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
         <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Food</div>
         <div style="display:flex; flex-direction:column; gap:11px;">
@@ -95,7 +102,7 @@
     </div>
 
     <!-- ===== PAYMENT METHODS + EXCEPTIONS ===== -->
-    <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px;">
           <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Payment Methods</div>

@@ -34,12 +34,13 @@
         <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
           <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
           <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
-          <div style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</div>
+          <a href="Payroll.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Payroll</a>
+          <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
         </div>
       </div>
       <div style="text-align:right;">
         <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
-          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+          This Week <span style="color:#9AA1AC;">▾</span>
         </div>
         <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
       </div>
@@ -48,41 +49,47 @@
 
   <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
 
-    <a href="{{ backHref }}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">{{ backLabel }}</a>
+    <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:#9AA1AC; margin-bottom:10px; flex-wrap:wrap;">
+      <a href="{{ backHref }}" style="color:#6B7280; font-weight:600;">{{ crumbRoot }}</a>
+      <span>/</span>
+      <span>Money Protected</span>
+      <span>/</span>
+      <span style="color:#1A2230; font-weight:600;">Exception Flags</span>
+    </div>
 
     <!-- ===== PAGE TITLE ===== -->
     <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
       <div>
-        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Exception Flags</div>
-        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Transactions tripping audit rules · Sep 15–21 · {{ scopeLabel }}</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Exception Flags</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Transactions tripping audit rules · Sep 15–21 · {{ scopeLabel }} · <span style="color:#6B7280;">Last synced Sep 21, 11:42 PM</span></div>
       </div>
       <div style="display:flex; gap:10px;">
-        <div style="display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150;">⤓ Export CSV</div>
+        <div style="display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150;">Export CSV</div>
         <div style="display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150;">+ Manual entry</div>
       </div>
     </div>
 
     <!-- ===== SUMMARY STRIP ===== -->
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
-      <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Total Flags</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:600; margin-top:6px;">{{ totalFlags }}</div>
-        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">{{ totalSub }}</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:1px; background:#E4E7EC; border:1px solid #E4E7EC; border-radius:12px; overflow:hidden; margin-bottom:20px;">
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Total Flags</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px;">{{ totalFlags }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">{{ totalSub }}</div>
       </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">$ at Risk</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ atRisk }}</div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Open + held exposure</div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">$ at Risk</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums;">{{ atRisk }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">Open + held exposure</div>
       </div>
-      <div style="background:#fff; border:1px solid #F0C4BE; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Open / Unreviewed</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#C0392B; font-variant-numeric:tabular-nums;">{{ openCount }}</div>
-        <div style="font-size:11px; color:#C0392B; margin-top:4px; font-weight:600;">Needs attention</div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Open / Unreviewed</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; color:#C0392B; font-variant-numeric:tabular-nums;">{{ openCount }}</div>
+        <div style="font-size:11px; color:#C0392B; margin-top:2px; font-weight:600;">Needs attention</div>
       </div>
-      <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Cleared</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#1A7F4B; font-variant-numeric:tabular-nums;">{{ clearedCount }}</div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Reviewed &amp; resolved</div>
+      <div style="background:#fff; padding:14px 16px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Cleared</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; margin-top:4px; color:#1A7F4B; font-variant-numeric:tabular-nums;">{{ clearedCount }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">Reviewed &amp; resolved</div>
       </div>
     </div>
 
@@ -119,7 +126,8 @@
 
     <!-- ===== EXCEPTION TABLE ===== -->
     <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <div style="overflow-x:auto;">
+      <table style="width:100%; min-width:880px; border-collapse:collapse; font-size:12px;">
         <thead>
           <tr style="background:#F4F6F8; color:#6B7280; text-align:left;">
             <th style="padding:12px 18px; font-weight:600;">Date / Time</th>
@@ -147,6 +155,7 @@
           </sc-for>
         </tbody>
       </table>
+      </div>
     </div>
 
   </div>
@@ -239,13 +248,13 @@ class Component extends DCLogic {
     const fmtM = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 });
     const STATUS = {
       open:     { text: "● Open",     color: "#C0392B" },
-      held:     { text: "⏳ Held",     color: "#184080" },
+      held:     { text: "● Held",     color: "#184080" },
       released: { text: "✓ Released", color: "#1A7F4B" },
       cleared:  { text: "✓ Approved", color: "#1A7F4B" },
       denied:   { text: "✕ Denied",   color: "#C0392B" },
     };
     const statusTextFor = (r) => {
-      if (r.st === "held" && r.tip) return "⏳ Held · rel " + r.tip.rel;
+      if (r.st === "held" && r.tip) return "● Held · rel " + r.tip.rel;
       if (r.st === "released" && r.tip) return "✓ Released " + r.tip.rel;
       if (r.st === "cleared" && r.tip) return "✓ Releases " + r.tip.rel;
       return STATUS[r.st].text;
@@ -342,7 +351,7 @@ class Component extends DCLogic {
       denyFlag: () => { const s = this.state.selected; if (s) this.setState({ statusOv: { ...this.state.statusOv, [s]: "denied" }, selected: null }); },
       closeDetail: () => this.setState({ selected: null }),
       backHref: loc ? "Location%20Report.dc.html" : "Company%20Glance%20v2.dc.html",
-      backLabel: loc ? "← Back to " + names[loc] : "← Back to Company",
+      crumbRoot: loc ? names[loc] : "Company",
     };
   }
 }

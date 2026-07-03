@@ -47,17 +47,17 @@
     <!-- ===== PAGE TITLE + PERIOD + EXPORT ===== -->
     <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
       <div>
-        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Payroll Run</div>
-        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time</div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Payroll Run</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time · <span style="color:#6B7280;">Last synced Sep 21, 11:42 PM</span></div>
       </div>
       <div style="display:flex; align-items:flex-start; gap:12px;">
         <div style="text-align:right;">
           <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
-            <span style="color:#6B7280;">📅</span> Pay Period: Sep 15 – Sep 28 <span style="color:#9AA1AC;">▾</span>
+            Pay Period: Sep 15 – Sep 28 <span style="color:#9AA1AC;">▾</span>
           </div>
           <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">Biweekly · 14 days · checks dated Oct 3</div>
         </div>
-        <div onClick="{{ openExport }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">⤓ Export to ADP</div>
+        <div onClick="{{ openExport }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">Export to ADP</div>
       </div>
     </div>
 
@@ -71,13 +71,13 @@
       <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1A7F4B; background:#E6F4EC; padding:6px 12px; border-radius:7px;">✓ Toast hours imported · 14 days</span>
       <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1A7F4B; background:#E6F4EC; padding:6px 12px; border-radius:7px;">✓ Tips sheet matched · 14 nights</span>
       <sc-if value="{{ hasHeld }}" hint-placeholder-val="{{ false }}">
-        <a href="Exception%20Detail.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#184080; background:#E8EEF6; padding:6px 12px; border-radius:7px;">⏳ {{ heldChip }}</a>
+        <a href="Exception%20Detail.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#184080; background:#E8EEF6; padding:6px 12px; border-radius:7px;">{{ heldChip }}</a>
       </sc-if>
       <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#C0392B; background:#FBEAE8; padding:6px 12px; border-radius:7px;">● {{ reviewCount }} needs review</span>
     </div>
 
     <!-- ===== SUMMARY TILES ===== -->
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-bottom:28px;">
       <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
         <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Total Payroll</div>
         <div style="font-family:'Newsreader',serif; font-size:34px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums;">{{ totalPayroll }}</div>
@@ -180,7 +180,7 @@
               <td style="padding:13px 12px;">{{ totalSalaries }}</td>
               <td style="padding:13px 12px; font-weight:700;">{{ totalPayroll }}</td>
               <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#5A626E; background:#EEF0F3; padding:3px 9px; border-radius:5px;">In progress</span></td>
-              <td style="padding:13px 18px;"><span onClick="{{ openExport }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+              <td style="padding:13px 18px;"><span onClick="{{ openExport }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">View</span></td>
             </tr>
             <sc-for list="{{ prevRuns }}" as="p" hint-placeholder-count="6">
               <tr style="border-top:1px solid #EEF0F3; text-align:right;">
@@ -192,7 +192,7 @@
                 <td style="padding:13px 12px;">{{ p.salaries }}</td>
                 <td style="padding:13px 12px; font-weight:700;">{{ p.total }}</td>
                 <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:3px 9px; border-radius:5px;">{{ p.status }}</span> <span style="font-size:11px; color:#9AA1AC; margin-left:6px;">{{ p.batch }}</span></td>
-                <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+                <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">View</span></td>
               </tr>
             </sc-for>
           </tbody>
@@ -330,7 +330,7 @@
               <td style="padding:13px 12px;">{{ p.salaries }}</td>
               <td style="padding:13px 12px; font-weight:700;">{{ p.total }}</td>
               <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:3px 9px; border-radius:5px;">{{ p.status }}</span> <span style="font-size:11px; color:#9AA1AC; margin-left:6px;">{{ p.batch }}</span></td>
-              <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+              <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">View</span></td>
             </tr>
           </sc-for>
         </tbody>
@@ -358,7 +358,7 @@
           <div style="font-size:11px; color:#9AA1AC;">Column template is configurable to your ADP company codes &amp; earnings codes before wiring.</div>
           <div style="display:flex; gap:10px;">
             <div onClick="{{ closeExport }}" style="padding:10px 16px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150; cursor:pointer;">Cancel</div>
-            <div style="padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">⤓ Download .csv</div>
+            <div style="padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">Download .csv</div>
           </div>
         </div>
       </div>

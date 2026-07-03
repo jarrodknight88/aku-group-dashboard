@@ -35,6 +35,7 @@
         <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
           <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
           <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <a href="Payroll.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Payroll</a>
           <div style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">Settings</div>
         </div>
       </div>
@@ -43,14 +44,21 @@
 
   <div style="max-width:1200px; margin:0 auto; padding:28px 26px 48px;">
 
-    <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; margin-bottom:6px;">Settings</div>
-    <div style="font-size:13px; color:#9AA1AC; margin-bottom:22px;">Configure targets, history, and expense mapping for the whole group</div>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; margin-bottom:6px;">Settings</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-bottom:22px;">Group configuration and your account · <span style="color:#6B7280;">signed in as {{ acctEmail }}</span></div>
+      </div>
+      <div style="display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border:1px solid #D6DBE2; border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:#C0392B; cursor:pointer;" style-hover="border-color:#F0C4BE; background:#FBEAE8;">Sign out</div>
+    </div>
 
     <!-- ===== TAB BAR ===== -->
-    <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:5px; border-radius:11px; margin-bottom:24px; width:fit-content;">
+    <div style="display:flex; flex-wrap:wrap; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:5px; border-radius:11px; margin-bottom:24px; width:fit-content; max-width:100%;">
       <div onClick="{{ goTargets }}" style="{{ tabTargets }}">KPI Targets</div>
       <div onClick="{{ goHistory }}" style="{{ tabHistory }}">Period History</div>
       <div onClick="{{ goMapping }}" style="{{ tabMapping }}">Expense Category Mapping</div>
+      <div style="width:1px; background:#E4E7EC; margin:4px 2px;"></div>
+      <div onClick="{{ goAccount }}" style="{{ tabAccount }}">Account</div>
     </div>
 
     <!-- ===== KPI TARGETS ===== -->
@@ -58,7 +66,7 @@
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">KPI Targets</div>
-          <div onClick="{{ resetTargets }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer; padding:8px 14px; border:1px solid #C4D2E6; border-radius:8px;">↺ Reset to Defaults</div>
+          <div onClick="{{ resetTargets }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer; padding:8px 14px; border:1px solid #C4D2E6; border-radius:8px;">Reset to defaults</div>
         </div>
         <div style="font-size:12px; color:#9AA1AC; margin-bottom:20px;">Cells and tiles across the dashboard color green when within target, red when out. Liquor cost is shown without a fixed target.</div>
         <div style="display:flex; flex-direction:column; gap:2px;">
@@ -126,7 +134,7 @@
 
     <!-- ===== EXPENSE MAPPING ===== -->
     <sc-if value="{{ showMapping }}" hint-placeholder-val="{{ false }}">
-      <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:16px; align-items:start;">
         <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
           <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600; margin-bottom:4px;">Vendor → Category Mapping</div>
           <div style="font-size:12px; color:#9AA1AC; margin-bottom:18px;">Keyword-based, case-insensitive. The most specific (longest) matching keyword wins.</div>
@@ -180,9 +188,57 @@
           <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
               <div style="font-size:14px; font-weight:700;">JSON Export</div>
-              <div style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ Copy</div>
+              <div style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">Copy</div>
             </div>
             <pre style="margin:0; max-height:200px; overflow:auto; background:#102C58; color:#C4D6EC; padding:14px; border-radius:9px; font-size:11px; line-height:1.5; white-space:pre-wrap;">{{ jsonExport }}</pre>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ACCOUNT ===== -->
+    <sc-if value="{{ showAccount }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; align-items:start;">
+        <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600; margin-bottom:4px;">Profile</div>
+          <div style="font-size:12px; color:#9AA1AC; margin-bottom:18px;">Your sign-in details for this dashboard.</div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Full name</div>
+              <input value="{{ acctName }}" onInput="{{ onAcctName }}" style="width:100%; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            </div>
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Email</div>
+              <input value="{{ acctEmail }}" onInput="{{ onAcctEmail }}" style="width:100%; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            </div>
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Role</div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="font-size:12px; font-weight:700; color:#184080; background:#E8EEF6; padding:4px 10px; border-radius:6px;">Owner · all locations</span><span style="font-size:11px; color:#9AA1AC;">Location managers see only their venue and Account settings</span></div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+            <div style="font-size:13px; font-weight:700; color:#fff; background:#184080; padding:9px 18px; border-radius:8px; cursor:pointer;">Save profile</div>
+          </div>
+        </div>
+        <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600; margin-bottom:4px;">Password</div>
+          <div style="font-size:12px; color:#9AA1AC; margin-bottom:18px;">Use at least 8 characters. Changing your password signs you out on other devices.</div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Current password</div>
+              <input type="password" placeholder="••••••••" style="width:100%; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            </div>
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">New password</div>
+              <input type="password" placeholder="At least 8 characters" style="width:100%; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            </div>
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Confirm new password</div>
+              <input type="password" placeholder="Repeat new password" style="width:100%; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+            <div style="font-size:13px; font-weight:700; color:#fff; background:#184080; padding:9px 18px; border-radius:8px; cursor:pointer;">Update password</div>
           </div>
         </div>
       </div>
@@ -196,7 +252,7 @@ class Component extends DCLogic {
   DEFAULTS = { void: 1, discount: 3, food: 30, labor: 28, liquor: 24 };
 
   state = {
-    tab: "targets",
+    tab: (function () { try { const t = new URLSearchParams(window.location.search).get("tab"); return ["targets", "history", "mapping", "account"].indexOf(t) >= 0 ? t : "targets"; } catch (e) { return "targets"; } })(),
     targets: { void: 1, discount: 3, food: 30, labor: 28, liquor: 24 },
     testValue: "Sysco Atlanta LLC",
   };
@@ -264,12 +320,19 @@ class Component extends DCLogic {
       goTargets: () => this.setState({ tab: "targets" }),
       goHistory: () => this.setState({ tab: "history" }),
       goMapping: () => this.setState({ tab: "mapping" }),
+      goAccount: () => this.setState({ tab: "account" }),
       tabTargets: tab === "targets" ? tabActive : tabIdle,
       tabHistory: tab === "history" ? tabActive : tabIdle,
       tabMapping: tab === "mapping" ? tabActive : tabIdle,
+      tabAccount: tab === "account" ? tabActive : tabIdle,
       showTargets: tab === "targets",
       showHistory: tab === "history",
       showMapping: tab === "mapping",
+      showAccount: tab === "account",
+      acctName: (this.state.acct && this.state.acct.name) || "Jarrod Knight",
+      acctEmail: (this.state.acct && this.state.acct.email) || "owner@terangagroup.com",
+      onAcctName: (e) => this.setState({ acct: { ...(this.state.acct || {}), name: e.target.value } }),
+      onAcctEmail: (e) => this.setState({ acct: { ...(this.state.acct || {}), email: e.target.value } }),
 
       targets: targetRows,
       resetTargets: () => this.setState({ targets: { ...this.DEFAULTS } }),

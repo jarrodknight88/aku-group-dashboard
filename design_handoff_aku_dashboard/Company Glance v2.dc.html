@@ -24,64 +24,137 @@
 
   <!-- ===== HEADER ===== -->
   <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
-    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
-      <div style="display:flex; align-items:center; gap:30px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
-          <div style="line-height:1.08;">
-            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
-            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
-          </div>
-        </div>
-        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
-          <div style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">Company</div>
-          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
-          <div style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</div>
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px 16px; padding:12px 26px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:11px;">
+        <div style="width:32px; height:32px; border-radius:8px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:18px;">T</div>
+        <div style="line-height:1.08;">
+          <div style="font-family:'Newsreader',serif; font-weight:600; font-size:17px; letter-spacing:-0.01em;">Teranga Group</div>
+          <div style="font-size:10px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS</div>
         </div>
       </div>
-      <div style="text-align:right;">
-        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
-          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+      <div style="display:flex; flex-wrap:wrap; gap:3px; background:#F4F6F8; padding:3px; border-radius:8px; max-width:100%;">
+        <div style="padding:7px 14px; border-radius:6px; background:#184080; color:#fff; font-size:12px; font-weight:700; white-space:nowrap;">Company</div>
+        <div style="position:relative;" onMouseEnter="{{ navLocEnter }}" onMouseLeave="{{ navLocLeave }}">
+          <a href="By%20Location.dc.html" style="display:flex; align-items:center; gap:5px; padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">By Location <span style="font-size:9px; color:#9AA1AC;">▾</span></a>
+          <sc-if value="{{ navLocOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; top:100%; margin-top:4px; z-index:70; min-width:200px; background:#fff; border:1px solid #E4E7EC; border-radius:10px; box-shadow:0 12px 32px rgba(16,44,88,0.16); padding:6px; display:flex; flex-direction:column;">
+              <a href="By%20Location.dc.html" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:700; color:#1A2230;" style-hover="background:#F4F6F8;">All locations</a>
+              <div style="height:1px; background:#F0F2F5; margin:4px 6px;"></div>
+              <a href="Location%20Report.dc.html" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:600; color:#3A4150;" style-hover="background:#F4F6F8;">Teranga ATL</a>
+              <a href="Location%20Report.dc.html" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:600; color:#3A4150;" style-hover="background:#F4F6F8;">Teranga CLT</a>
+              <a href="Location%20Report.dc.html" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:600; color:#3A4150;" style-hover="background:#F4F6F8;">Afro District</a>
+              <div style="padding:8px 12px; font-size:12px; font-weight:600; color:#B6BCC6;">R Thomas · coming soon</div>
+            </div>
+          </sc-if>
         </div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+        <a href="Payroll.dc.html" style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">Payroll</a>
+        <div style="position:relative;" onMouseEnter="{{ navSetEnter }}" onMouseLeave="{{ navSetLeave }}">
+          <a href="Settings.dc.html" style="display:flex; align-items:center; gap:5px; padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; white-space:nowrap;">Settings <span style="font-size:9px; color:#9AA1AC;">▾</span></a>
+          <sc-if value="{{ navSetOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; right:0; top:100%; margin-top:4px; z-index:70; min-width:180px; background:#fff; border:1px solid #E4E7EC; border-radius:10px; box-shadow:0 12px 32px rgba(16,44,88,0.16); padding:6px; display:flex; flex-direction:column;">
+              <a href="Settings.dc.html" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:600; color:#3A4150;" style-hover="background:#F4F6F8;">Config</a>
+              <a href="Settings.dc.html?tab=account" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:600; color:#3A4150;" style-hover="background:#F4F6F8;">Account</a>
+              <div style="height:1px; background:#F0F2F5; margin:4px 6px;"></div>
+              <a href="#" style="padding:8px 12px; border-radius:7px; font-size:12px; font-weight:700; color:#C0392B;" style-hover="background:#FBEAE8;">Log out</a>
+            </div>
+          </sc-if>
+        </div>
       </div>
     </div>
   </div>
 
-  <div style="max-width:1480px; margin:0 auto; padding:28px 26px 48px;">
+  <div style="max-width:1480px; margin:0 auto; padding:20px 26px 48px;">
+
+    <!-- ===== TITLE + DATE RANGE ===== -->
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:26px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Company Overview</div>
+        <div style="font-size:12px; color:#9AA1AC; margin-top:5px;">All locations · <span style="color:#6B7280;">Last synced Sep 21, 11:42 PM · Toast + invoice sheet</span></div>
+      </div>
+      <div style="position:relative;">
+        <div onClick="{{ dpToggle }}" style="display:inline-flex; align-items:center; gap:9px; padding:9px 14px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;" style-hover="border-color:#184080;">
+          <span>{{ dpLabel }}</span>
+          <span style="color:#9AA1AC; font-weight:500;">{{ dpRangeText }}</span>
+          <span style="color:#9AA1AC;">▾</span>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:6px; text-align:right;">Compared to: <span style="color:#5A626E; font-weight:600;">{{ dpCompareText }}</span></div>
+        <sc-if value="{{ dpOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; right:0; top:44px; z-index:60; width:680px; max-width:calc(100vw - 48px); background:#fff; border:1px solid #E4E7EC; border-radius:12px; box-shadow:0 16px 40px rgba(16,44,88,0.18); overflow:hidden;">
+            <div style="display:flex; flex-wrap:wrap;">
+              <div style="flex:1 0 150px; max-width:190px; border-right:1px solid #F0F2F5; padding:8px; display:flex; flex-direction:column; gap:2px;">
+                <sc-for list="{{ dpPresets }}" as="p" hint-placeholder-count="8">
+                  <div onClick="{{ p.onPick }}" style="{{ p.style }}">{{ p.label }}</div>
+                </sc-for>
+              </div>
+              <div style="flex:2 1 320px; padding:14px; position:relative;">
+                <div onClick="{{ dpPrevMonth }}" style="position:absolute; left:14px; top:12px; width:24px; height:24px; border-radius:6px; border:1px solid #E4E7EC; background:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; color:#5A626E; cursor:pointer; z-index:1;">‹</div>
+                <div onClick="{{ dpNextMonth }}" style="position:absolute; right:14px; top:12px; width:24px; height:24px; border-radius:6px; border:1px solid #E4E7EC; background:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; color:#5A626E; cursor:pointer; z-index:1;">›</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+                <sc-for list="{{ dpMonths }}" as="m" hint-placeholder-count="2">
+                  <div>
+                    <div style="text-align:center; font-size:12px; font-weight:700; margin-bottom:8px;">{{ m.label }}</div>
+                    <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px;">
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">S</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">M</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">T</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">W</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">T</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">F</div>
+                      <div style="text-align:center; font-size:10px; color:#9AA1AC;">S</div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px;">
+                      <sc-for list="{{ m.cells }}" as="d" hint-placeholder-count="35">
+                        <div onClick="{{ d.onPick }}" style="{{ d.style }}">{{ d.n }}</div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid #E4E7EC; background:#FAFBFC; flex-wrap:wrap;">
+              <div style="font-size:11px; color:#9AA1AC;">Compared to: <span style="color:#5A626E; font-weight:600;">{{ dpDraftCompareText }}</span> · preceding period of equal length</div>
+              <div style="flex:1;"></div>
+              <div onClick="{{ dpCancel }}" style="padding:8px 14px; border:1px solid #D6DBE2; border-radius:8px; background:#fff; font-size:12px; font-weight:600; cursor:pointer;">Cancel</div>
+              <div onClick="{{ dpApply }}" style="padding:8px 16px; background:#184080; color:#fff; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Apply</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
 
     <!-- ===== HEADLINE STRIP ===== -->
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Total Net Sales</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$317,300</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1px; background:#E4E7EC; border:1px solid #E4E7EC; border-radius:12px; overflow:hidden; margin-bottom:28px;">
+      <div style="background:#fff; padding:16px 18px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Total Net Sales</div>
+        <div style="font-family:'Newsreader',serif; font-size:28px; font-weight:600; letter-spacing:-0.01em; margin-top:5px; font-variant-numeric:tabular-nums;">$317,300</div>
         <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
           <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 6.2%</span>
-          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs prior period</span>
         </div>
       </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Total Covers</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">7,650</div>
+      <div style="background:#fff; padding:16px 18px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Total Covers</div>
+        <div style="font-family:'Newsreader',serif; font-size:28px; font-weight:600; letter-spacing:-0.01em; margin-top:5px; font-variant-numeric:tabular-nums;">7,650</div>
         <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
           <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 3.1%</span>
-          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs prior period</span>
         </div>
       </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Avg Check Size</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$41.48</div>
+      <div style="background:#fff; padding:16px 18px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Avg Check Size</div>
+        <div style="font-family:'Newsreader',serif; font-size:28px; font-weight:600; letter-spacing:-0.01em; margin-top:5px; font-variant-numeric:tabular-nums;">$41.48</div>
         <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
           <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 2.9%</span>
-          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs prior period</span>
         </div>
       </div>
-      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
-        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Valet Revenue</div>
-        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$16,700</div>
+      <div style="background:#fff; padding:16px 18px;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:#6B7280; font-weight:700;">Valet Revenue</div>
+        <div style="font-family:'Newsreader',serif; font-size:28px; font-weight:600; letter-spacing:-0.01em; margin-top:5px; font-variant-numeric:tabular-nums;">$16,700</div>
         <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
           <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 1.8%</span>
-          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs prior period</span>
         </div>
       </div>
     </div>
@@ -91,7 +164,7 @@
       <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money In</div>
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
     </div>
-    <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr; gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline;">
           <div style="font-size:14px; font-weight:700;">Daily Sales by Location</div>
@@ -153,7 +226,7 @@
       <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money Saved</div>
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Food Cost %</div><span style="width:8px; height:8px; border-radius:50%; background:#22A55F;"></span></div>
         <div style="font-family:'Newsreader',serif; font-size:32px; font-weight:500; margin-top:6px; color:#1A7F4B; font-variant-numeric:tabular-nums;">29.6%</div>
@@ -181,7 +254,7 @@
       <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money Protected</div>
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
     </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr; grid-auto-rows:1fr; gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); grid-auto-rows:1fr; gap:16px; margin-bottom:30px;">
       <!-- Row 1 -->
       <a href="Void%20Discount%20Detail.dc.html?tab=void" style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:18px; display:flex; flex-direction:column; cursor:pointer;">
         <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Void % of Sales</div><span style="width:8px; height:8px; border-radius:50%; background:#22A55F;"></span></div>
@@ -226,7 +299,7 @@
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
       <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;"><div style="padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff;">Top by $</div><div style="padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC;">Top by Qty</div></div>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
         <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Food</div>
         <div style="display:flex; flex-direction:column; gap:11px;">
@@ -274,7 +347,7 @@
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
       <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;"><div style="padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff;">Bottom by $</div><div style="padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC;">Bottom by Qty</div></div>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:30px;">
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
         <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Bottom Food</div>
         <div style="display:flex; flex-direction:column; gap:11px;">
@@ -313,7 +386,8 @@
       <div style="flex:1; height:1px; background:#DFE3E8;"></div>
     </div>
     <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
-      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+      <div style="overflow-x:auto;">
+      <table style="width:100%; min-width:900px; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
         <thead>
           <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
             <th style="text-align:left; padding:12px 18px; font-weight:600;">Location</th>
@@ -335,6 +409,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
   </div>
@@ -343,6 +418,115 @@
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   state = { tip: null };
+
+  DP_TODAY = new Date(2025, 8, 21);
+
+  dpPresetRange(key) {
+    const t = this.DP_TODAY;
+    const D = (y, m, d) => new Date(y, m, d);
+    const addD = (dt, n) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + n);
+    switch (key) {
+      case "this_week": return [D(2025, 8, 15), D(2025, 8, 21)];
+      case "last_week": return [D(2025, 8, 8), D(2025, 8, 14)];
+      case "this_month": return [D(2025, 8, 1), t];
+      case "last_month": return [D(2025, 7, 1), D(2025, 7, 31)];
+      case "7d": return [addD(t, -6), t];
+      case "30d": return [addD(t, -29), t];
+      case "90d": return [addD(t, -89), t];
+      default: return null;
+    }
+  }
+
+  dpVals() {
+    const st = this.state;
+    const committed = st.dpCommitted || { preset: "this_week", s: new Date(2025, 8, 15).getTime(), e: new Date(2025, 8, 21).getTime() };
+    const draft = st.dpDraft || committed;
+    const open = !!st.dpOpen;
+    const S = new Date(draft.s), E = new Date(draft.e);
+    const CS = new Date(committed.s), CE = new Date(committed.e);
+
+    const MS = 86400000;
+    const dayCount = (a, b) => Math.round((b - a) / MS) + 1;
+    const addD = (dt, n) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + n);
+    const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const fmtRange = (a, b) => {
+      if (a.getTime() === b.getTime())
+        return MO[a.getMonth()] + " " + a.getDate() + ", " + a.getFullYear();
+      if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear())
+        return MO[a.getMonth()] + " " + a.getDate() + " – " + b.getDate() + ", " + b.getFullYear();
+      return MO[a.getMonth()] + " " + a.getDate() + " – " + MO[b.getMonth()] + " " + b.getDate() + ", " + b.getFullYear();
+    };
+
+    const names = { this_week: "This Week", last_week: "Last Week", this_month: "This Month", last_month: "Last Month", "7d": "Last 7 Days", "30d": "Last 30 Days", "90d": "Last 90 Days", custom: "Custom Range" };
+
+    const cLen = dayCount(CS, CE);
+    const cCmpS = addD(CS, -cLen), cCmpE = addD(CS, -1);
+    const dLen = dayCount(S, E);
+    const dCmpS = addD(S, -dLen), dCmpE = addD(S, -1);
+
+    const setDraft = (d) => this.setState({ dpDraft: d });
+
+    const anchorFor = (a, b) => {
+      const eM = new Date(b.getFullYear(), b.getMonth(), 1);
+      return new Date(eM.getFullYear(), eM.getMonth() - 1, 1).getTime();
+    };
+    const anchorT = draft.mAnchor !== undefined ? draft.mAnchor : anchorFor(S, E);
+
+    const presets = ["this_week", "last_week", "this_month", "last_month", "7d", "30d", "90d", "custom"].map(k => ({
+      label: names[k],
+      style: "padding:8px 12px; border-radius:7px; font-size:12px; cursor:pointer; " + (draft.preset === k ? "background:#184080; color:#fff; font-weight:700;" : "color:#3A4150; font-weight:600;"),
+      onPick: () => {
+        if (k === "custom") { setDraft({ preset: "custom", s: draft.s, e: draft.e, picking: 0, mAnchor: anchorT }); return; }
+        const r = this.dpPresetRange(k);
+        setDraft({ preset: k, s: r[0].getTime(), e: r[1].getTime(), mAnchor: anchorFor(r[0], r[1]) });
+      },
+    }));
+
+    const m1 = new Date(anchorT);
+    const m2 = new Date(m1.getFullYear(), m1.getMonth() + 1, 1);
+
+    const buildMonth = (mo) => {
+      const first = new Date(mo.getFullYear(), mo.getMonth(), 1);
+      const startPad = first.getDay();
+      const dim = new Date(mo.getFullYear(), mo.getMonth() + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startPad; i++) cells.push({ n: "", style: "padding:6px 0;", onPick: null });
+      for (let d = 1; d <= dim; d++) {
+        const t = new Date(mo.getFullYear(), mo.getMonth(), d).getTime();
+        const isEnd = t === S.getTime() || t === E.getTime();
+        const inR = t > S.getTime() && t < E.getTime();
+        let sty = "text-align:center; padding:6px 0; font-size:11px; border-radius:6px; cursor:pointer; font-variant-numeric:tabular-nums;";
+        if (isEnd) sty += " background:#184080; color:#fff; font-weight:700;";
+        else if (inR) sty += " background:#E8EEF6; color:#184080;";
+        cells.push({
+          n: String(d),
+          style: sty,
+          onPick: () => {
+            const dr = this.state.dpDraft || committed;
+            const keepA = dr.mAnchor !== undefined ? dr.mAnchor : anchorT;
+            if (dr.picking === 1 && t >= dr.s) setDraft({ preset: "custom", s: dr.s, e: t, picking: 0, mAnchor: keepA });
+            else setDraft({ preset: "custom", s: t, e: t, picking: 1, mAnchor: keepA });
+          },
+        });
+      }
+      return { label: MO[mo.getMonth()] + " " + mo.getFullYear(), cells };
+    };
+
+    return {
+      dpOpen: open,
+      dpToggle: () => this.setState({ dpOpen: !open, dpDraft: open ? null : { preset: committed.preset, s: committed.s, e: committed.e, mAnchor: anchorFor(CS, CE) } }),
+      dpCancel: () => this.setState({ dpOpen: false, dpDraft: null }),
+      dpApply: () => this.setState({ dpOpen: false, dpCommitted: { preset: draft.preset, s: draft.s, e: draft.e }, dpDraft: null }),
+      dpPrevMonth: () => setDraft({ preset: draft.preset, s: draft.s, e: draft.e, picking: draft.picking, mAnchor: new Date(m1.getFullYear(), m1.getMonth() - 1, 1).getTime() }),
+      dpNextMonth: () => setDraft({ preset: draft.preset, s: draft.s, e: draft.e, picking: draft.picking, mAnchor: new Date(m1.getFullYear(), m1.getMonth() + 1, 1).getTime() }),
+      dpLabel: names[committed.preset] || "Custom Range",
+      dpRangeText: fmtRange(CS, CE),
+      dpCompareText: fmtRange(cCmpS, cCmpE),
+      dpDraftCompareText: fmtRange(dCmpS, dCmpE),
+      dpPresets: presets,
+      dpMonths: [buildMonth(m1), buildMonth(m2)],
+    };
+  }
 
   renderVals() {
     const tip = this.state.tip;
@@ -366,6 +550,13 @@ class Component extends DCLogic {
         ? { position: "fixed", left: (tip.x + 14) + "px", top: (tip.y - 34) + "px", background: "#102C58", color: "#fff", padding: "6px 10px", borderRadius: "7px", fontSize: "12px", fontWeight: 600, pointerEvents: "none", zIndex: 1000, whiteSpace: "nowrap", boxShadow: "0 4px 12px rgba(16,44,88,0.3)" }
         : { display: "none" },
       tipText: tip ? tip.text : "",
+      navLocOpen: !!this.state.navLoc,
+      navLocEnter: () => this.setState({ navLoc: true }),
+      navLocLeave: () => this.setState({ navLoc: false }),
+      navSetOpen: !!this.state.navSet,
+      navSetEnter: () => this.setState({ navSet: true }),
+      navSetLeave: () => this.setState({ navSet: false }),
+      ...this.dpVals(),
     };
   }
 }
