@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import DateRangePicker from '../components/DateRangePicker.jsx'
@@ -297,7 +297,12 @@ export default function Financials() {
           meta={<>Revenue from Toast · costs from approved invoices · {loading ? 'Loading…' : `${invoices.length} invoices in range`}</>}
           right={
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-              <DateRangePicker />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Link to="/financials/submit" style={{ padding: '9px 16px', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  ＋ Submit invoice
+                </Link>
+                <DateRangePicker />
+              </div>
               <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9 }}>
                 {[['all', 'All locations'], ...active.map((l) => [l.code.toLowerCase(), l.name])].map(([code, label]) => (
                   <div key={code} onClick={() => { setLoc(code); setDrill({}) }} style={{ padding: '7px 14px', borderRadius: 6, background: code === loc ? colors.brand : 'transparent', color: code === loc ? '#fff' : colors.muted1, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>

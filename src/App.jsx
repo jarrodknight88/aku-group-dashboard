@@ -10,6 +10,7 @@ import ExceptionDetail from './pages/ExceptionDetail.jsx'
 import VoidDiscountDetail from './pages/VoidDiscountDetail.jsx'
 import Payroll from './pages/Payroll.jsx'
 import Financials from './pages/Financials.jsx'
+import InvoiceIntake from './pages/InvoiceIntake.jsx'
 import Settings from './pages/Settings.jsx'
 import { colors } from './theme.js'
 
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/void-discount" element={<RequireAuth><VoidDiscountDetail /></RequireAuth>} />
         <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
         <Route path="/financials" element={<RequireAuth><Financials /></RequireAuth>} />
+        <Route path="/financials/submit" element={<RequireAuth><InvoiceIntake /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
