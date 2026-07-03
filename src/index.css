@@ -42,6 +42,25 @@ a {
   background: #f8fafc;
 }
 
+/* Mobile invoice intake (/submit) — input focus ring + press feedback.
+   16px+ font sizes there keep iOS from zooming; these carry the states
+   inline styles can't express. */
+.mi-input {
+  transition: border-color 0.12s, box-shadow 0.12s;
+  outline: none;
+}
+.mi-input:focus {
+  border-color: #4a7bc8 !important;
+  box-shadow: 0 0 0 3px rgba(24, 64, 128, 0.1);
+}
+.mi-press {
+  transition: opacity 0.1s, transform 0.1s;
+}
+.mi-press:active {
+  transform: scale(0.985);
+  opacity: 0.92;
+}
+
 /* By Location hub cards — hover lift from the handoff design */
 .loc-card {
   transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
