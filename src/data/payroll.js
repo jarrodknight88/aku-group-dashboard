@@ -22,15 +22,16 @@ export function payPeriod(offset = 0) {
 }
 
 export async function fetchPayrollData(start, end) {
-  const [labor, tips, aliases, salaried, holds, runs] = await Promise.all([
+  const [labor, tips, aliases, salaried, holds, runs, rates] = await Promise.all([
     supabase.from('daily_labor').select('*').gte('business_date', start).lte('business_date', end),
     supabase.from('daily_tips').select('*').gte('business_date', start).lte('business_date', end),
     supabase.from('employee_aliases').select('*'),
     supabase.from('salaried_employees').select('*').eq('active', true),
     supabase.from('tip_holds').select('*'),
     supabase.from('payroll_runs').select('*').order('period_start', { ascending: false }).limit(12),
+    supabase.from('employee_rates').select('*'),
   ])
-  const firstError = [labor, tips, aliases, salaried, holds, runs].find((r) => r.error)
+  const firstError = [labor, tips, aliases, salaried, holds, runs, rates].find((r) => r.error)
   if (firstError) throw new Error(firstError.error.message)
   return {
     labor: labor.data ?? [],
@@ -39,7 +40,25 @@ export async function fetchPayrollData(start, end) {
     salaried: salaried.data ?? [],
     holds: holds.data ?? [],
     runs: runs.data ?? [],
+    rates: rates.data ?? [],
   }
+}
+
+/** Set (or clear, with rate == null) an employee's dashboard hourly rate.
+    One rate per employee; it applies to every period until changed. */
+export async function saveEmployeeRate(locationId, guid, name, rate) {
+  if (rate == null) {
+    const { error } = await supabase.from('employee_rates').delete().eq('employee_guid', guid)
+    if (error) throw new Error(error.message)
+    return
+  }
+  const { error } = await supabase
+    .from('employee_rates')
+    .upsert(
+      { location_id: locationId, employee_guid: guid, employee_name: name, rate, updated_at: new Date().toISOString() },
+      { onConflict: 'employee_guid' },
+    )
+  if (error) throw new Error(error.message)
 }
 
 export const normName = (s) =>
@@ -76,7 +95,7 @@ function fuzzyCandidates(sheetNorm, employees) {
  * sheet tips, hold/release notations, and weekly-OT split (informational —
  * everything pays at straight time). Returns unmatched sheet names too.
  */
-export function buildRun({ labor, tips, aliases, holds }, periodStart, periodEnd) {
+export function buildRun({ labor, tips, aliases, holds, rates }, periodStart, periodEnd) {
   // --- roll up Toast labor per employee ---
   const byEmp = new Map()
   const startDate = fromStr(periodStart)
@@ -95,14 +114,23 @@ export function buildRun({ labor, tips, aliases, holds }, periodStart, periodEnd
     const week = Math.floor((fromStr(r.business_date) - startDate) / 86_400_000 / 7)
     e.weeks[week] = (e.weeks[week] || 0) + hours
   }
-  const employees = [...byEmp.values()].map((e) => ({
-    ...e,
-    normName: normName(e.name),
-    role: Object.entries(e.jobs).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
-    ot: Object.values(e.weeks).reduce((s, h) => s + Math.max(0, h - 40), 0),
-    rate: e.hours > 0 ? e.wagesC / 100 / e.hours : 0,
-    wages: e.wagesC / 100,
-  }))
+  // Dashboard rates override Toast wages: Toast time entries rarely carry a
+  // wage, so the entered rate × Toast hours is the wages source of truth.
+  const rateMap = new Map((rates ?? []).map((r) => [r.employee_guid, Number(r.rate)]))
+  const employees = [...byEmp.values()].map((e) => {
+    const dashRate = rateMap.get(e.guid)
+    const rate = dashRate ?? (e.hours > 0 ? e.wagesC / 100 / e.hours : 0)
+    const wages = dashRate != null ? Math.round(e.hours * dashRate * 100) / 100 : e.wagesC / 100
+    return {
+      ...e,
+      normName: normName(e.name),
+      role: Object.entries(e.jobs).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+      ot: Object.values(e.weeks).reduce((s, h) => s + Math.max(0, h - 40), 0),
+      rate,
+      wages,
+      rateSource: dashRate != null ? 'dashboard' : rate > 0 ? 'toast' : 'none',
+    }
+  })
 
   // --- roll up sheet tips per (location, name) ---
   const tipTotals = new Map()
