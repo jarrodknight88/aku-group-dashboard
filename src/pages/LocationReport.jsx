@@ -6,7 +6,7 @@ import {
   card,
   StatTile,
   KpiTile,
-  Within,
+  DetailsTail,
   RankRow,
   DayBarsCard,
   DAY_LABELS,
@@ -421,11 +421,11 @@ export default function LocationReport() {
                 status={voidStatus}
                 size={30}
                 padding={18}
+                to={`/void-discount?tab=void&loc=${(location?.code ?? '').toLowerCase()}`}
                 sub={
                   t?.voidPct == null ? 'No sales in range' : (
                     <>
-                      {fmtMoney(t.voids)} · Target &lt; {targets.void_pct ?? 1}% ·{' '}
-                      {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}
+                      {fmtMoney(t.voids)} · Target &lt; {targets.void_pct ?? 1}% · <DetailsTail />
                     </>
                   )
                 }
@@ -438,11 +438,11 @@ export default function LocationReport() {
                 status={discStatus}
                 size={30}
                 padding={18}
+                to={`/void-discount?tab=discount&loc=${(location?.code ?? '').toLowerCase()}`}
                 sub={
                   t?.discountPct == null ? 'No sales in range' : (
                     <>
-                      {fmtMoney(t.discounts)} · Target &lt; {targets.discount_pct ?? 3}% ·{' '}
-                      {discStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>}
+                      {fmtMoney(t.discounts)} · Target &lt; {targets.discount_pct ?? 3}% · <DetailsTail />
                     </>
                   )
                 }

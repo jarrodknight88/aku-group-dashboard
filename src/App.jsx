@@ -7,6 +7,8 @@ import ByLocation from './pages/ByLocation.jsx'
 import LocationReport from './pages/LocationReport.jsx'
 import DetailDrill from './pages/DetailDrill.jsx'
 import ExceptionDetail from './pages/ExceptionDetail.jsx'
+import VoidDiscountDetail from './pages/VoidDiscountDetail.jsx'
+import Payroll from './pages/Payroll.jsx'
 import Settings from './pages/Settings.jsx'
 import { colors } from './theme.js'
 
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="/locations/:loc" element={<RequireAuth><LocationReport /></RequireAuth>} />
         <Route path="/detail-drill" element={<RequireAuth><DetailDrill /></RequireAuth>} />
         <Route path="/exceptions" element={<RequireAuth><ExceptionDetail /></RequireAuth>} />
+        <Route path="/void-discount" element={<RequireAuth><VoidDiscountDetail /></RequireAuth>} />
+        <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
