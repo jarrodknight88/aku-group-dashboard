@@ -7,6 +7,7 @@ import {
   fetchChargebackTotals,
   fetchExceptionCount,
 } from './live.js'
+import { fetchValetDays } from './financials.js'
 
 /**
  * One-stop range-scoped bundle for a location (uuid) or the whole org (null).
@@ -23,7 +24,7 @@ export function useDashboardData(locationId) {
     setState({ loading: true })
     ;(async () => {
       try {
-        const [cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount] = await Promise.all([
+        const [cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount, valet, valetPrev] = await Promise.all([
           fetchDaily(locationId, range.start, range.end),
           fetchDaily(locationId, compare.start, compare.end),
           fetchDim('daily_sales_categories', locationId, range.start, range.end),
@@ -34,8 +35,10 @@ export function useDashboardData(locationId) {
           fetchOrgTargets(),
           fetchChargebackTotals(locationId ?? null, range.start, range.end),
           fetchExceptionCount(locationId, range.start, range.end),
+          fetchValetDays(locationId, range.start, range.end),
+          fetchValetDays(locationId, compare.start, compare.end),
         ])
-        if (live) setState({ loading: false, cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount })
+        if (live) setState({ loading: false, cur, prev, cats, items, pays, servers, serverCats, targets, chargebacks, exceptionCount, valet, valetPrev })
       } catch (err) {
         if (live) setState({ loading: false, error: err.message })
       }

@@ -24,6 +24,7 @@ import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum, hourLabel } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
+import { sumValet } from '../data/financials.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
 import { useRange } from '../state/RangeContext.jsx'
@@ -431,6 +432,7 @@ export default function LocationReport() {
                 statItem('Net Sales', t?.net, prevTotals?.net, fmtMoney),
                 statItem('Covers', t?.covers, prevTotals?.covers, fmtInt),
                 statItem('Avg Check', t?.avgCheck, prevTotals?.avgCheck, fmtMoneyC),
+                statItem('Valet Revenue', sumValet(data.valet), sumValet(data.valetPrev), fmtMoney),
                 statItem('Gross Sales', t?.gross, prevTotals?.gross, fmtMoney),
               ]}
             />
