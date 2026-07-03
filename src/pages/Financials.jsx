@@ -9,7 +9,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily } from '../data/live.js'
-import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, sumBy } from '../data/financials.js'
+import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, syncValetSheets, sumBy } from '../data/financials.js'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -293,6 +293,19 @@ export default function Financials() {
       other: String(v.other_expenses ?? ''),
       notes: v.notes ?? '',
     })
+  }
+  const [valetSyncing, setValetSyncing] = useState(false)
+  const handleValetSync = async () => {
+    if (valetSyncing) return
+    setValetSyncing(true)
+    try {
+      await syncValetSheets()
+      setError('')
+      setReload((k) => k + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+    setValetSyncing(false)
   }
   const handleRemoveValet = async (v) => {
     if (!window.confirm(`Remove the valet entry for ${v.business_date}?`)) return
@@ -695,9 +708,16 @@ export default function Financials() {
           title="Valet"
           sub={fmtRange(range.start, range.end)}
           right={
-            <span className="tnum" style={{ fontSize: 12, color: colors.muted2 }}>
-              Revenue <b>{fmt2(valetTotals.rev)}</b> · Staff &amp; costs <b>{fmt2(valetTotals.cost)}</b> · Net{' '}
-              <b style={{ color: valetTotals.net >= 0 ? colors.greenDark : colors.red }}>{fmt2(valetTotals.net)}</b>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="tnum" style={{ fontSize: 12, color: colors.muted2 }}>
+                Revenue <b>{fmt2(valetTotals.rev)}</b> · Staff &amp; costs <b>{fmt2(valetTotals.cost)}</b> · Net{' '}
+                <b style={{ color: valetTotals.net >= 0 ? colors.greenDark : colors.red }}>{fmt2(valetTotals.net)}</b>
+              </span>
+              {canAct && (
+                <span onClick={handleValetSync} style={{ padding: '6px 13px', background: valetSyncing ? colors.brandTint4 : colors.brand, color: '#fff', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {valetSyncing ? 'Syncing…' : '⟳ Sync from sheet'}
+                </span>
+              )}
             </span>
           }
         />
@@ -785,9 +805,11 @@ export default function Financials() {
           )}
         </div>
         <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
-          Valet history through Nov 2025 was imported from the workbook's Valet Detail tab. Valet revenue counts in the
-          P&L revenue line and on the overview headline; valet staff and costs count as expenses. Click a night to load
-          it into the entry row and save corrections.
+          Nights sync automatically from each location's parking sheet every morning (Teranga ATL is connected; other
+          venues plug in as their sheets exist) — week-level costs like the lot fee and card fees land on the week's
+          last night so months add up. 2025 history came from the workbook. Valet revenue counts in the P&L revenue
+          line and the overview headline; staff and costs count as expenses. Click a night to correct it — but nights
+          that come from the sheet get overwritten by the next sync, so fix those in the sheet itself.
         </div>
       </div>
 
