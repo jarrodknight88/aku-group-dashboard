@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="L3 Detail Drill — Teranga ATL" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">By Location</a>
+          <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
+          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
+
+    <a href="Location%20Report.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">← Back to Teranga ATL</a>
+
+    <!-- ===== PAGE TITLE ===== -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Detail Drill <span style="font-family:'Hanken Grotesk'; font-size:15px; color:#9AA1AC; font-weight:600;">· Teranga ATL</span></div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">The transaction-level "why" behind this location · Sep 15–21</div>
+      </div>
+    </div>
+
+    <!-- ===== TOP SELLERS ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Top Sellers</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;">
+        <div onClick="{{ byDollar }}" style="{{ tabDollarStyle }}">Top by $</div>
+        <div onClick="{{ byQty }}" style="{{ tabQtyStyle }}">Top by Qty</div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Food</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ food }}" as="it" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">{{ it.rank }}</span><span style="flex:1; font-size:12px;">{{ it.name }}</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Liquor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ liquor }}" as="it" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">{{ it.rank }}</span><span style="flex:1; font-size:12px;">{{ it.name }}</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Hookah Flavor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ hookah }}" as="it" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">{{ it.rank }}</span><span style="flex:1; font-size:12px;">{{ it.name }}</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAYMENT METHODS + EXCEPTIONS ===== -->
+    <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Payment Methods</div>
+          <div style="font-size:11px; color:#9AA1AC;">3,180 transactions · $142,300</div>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+          <thead>
+            <tr style="color:#6B7280; text-align:right; border-bottom:1px solid #EEF0F3;">
+              <th style="text-align:left; padding:9px 6px; font-weight:600;">Method</th>
+              <th style="padding:9px 6px; font-weight:600;">Txns</th>
+              <th style="padding:9px 6px; font-weight:600;">Volume</th>
+              <th style="padding:9px 6px; font-weight:600;">Avg Tx</th>
+              <th style="padding:9px 6px; font-weight:600;">Tips</th>
+              <th style="padding:9px 6px; font-weight:600;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #F4F6F8; text-align:right;"><td style="text-align:left; padding:11px 6px; font-weight:600;">Visa / MC</td><td style="padding:11px 6px;">2,070</td><td style="padding:11px 6px;">$101,033</td><td style="padding:11px 6px;">$48.81</td><td style="padding:11px 6px;">$18,490</td><td style="padding:11px 6px; font-weight:700;">71%</td></tr>
+            <tr style="border-bottom:1px solid #F4F6F8; text-align:right;"><td style="text-align:left; padding:11px 6px; font-weight:600;">Amex</td><td style="padding:11px 6px;">352</td><td style="padding:11px 6px;">$17,076</td><td style="padding:11px 6px;">$48.51</td><td style="padding:11px 6px;">$3,420</td><td style="padding:11px 6px; font-weight:700;">12%</td></tr>
+            <tr style="border-bottom:1px solid #F4F6F8; text-align:right;"><td style="text-align:left; padding:11px 6px; font-weight:600;">Cash</td><td style="padding:11px 6px;">414</td><td style="padding:11px 6px;">$15,653</td><td style="padding:11px 6px;">$37.81</td><td style="padding:11px 6px;">$1,205</td><td style="padding:11px 6px; font-weight:700;">11%</td></tr>
+            <tr style="border-bottom:1px solid #F4F6F8; text-align:right;"><td style="text-align:left; padding:11px 6px; font-weight:600;">Gift Card</td><td style="padding:11px 6px;">242</td><td style="padding:11px 6px;">$5,692</td><td style="padding:11px 6px;">$23.52</td><td style="padding:11px 6px;">$310</td><td style="padding:11px 6px; font-weight:700;">4%</td></tr>
+            <tr style="text-align:right;"><td style="text-align:left; padding:11px 6px; font-weight:600;">Comp / Other</td><td style="padding:11px 6px;">102</td><td style="padding:11px 6px;">$2,846</td><td style="padding:11px 6px;">$27.90</td><td style="padding:11px 6px;">$0</td><td style="padding:11px 6px; font-weight:700;">2%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <a href="Exception%20Detail.dc.html?loc=atl" style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Void / Exception Detail</div>
+          <div style="font-size:12px; color:#184080; font-weight:700;">Open full list →</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px; flex:1;">
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#FBEAE8; border-radius:9px;"><span style="font-size:11px; font-weight:700; color:#C0392B;">● Open</span><span style="flex:1; font-size:12px;">#48217 · Void after payment</span><span style="font-size:12px; font-weight:700;">$184.00</span></div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#FBEAE8; border-radius:9px;"><span style="font-size:11px; font-weight:700; color:#C0392B;">● Open</span><span style="flex:1; font-size:12px;">#47903 · Discount &gt; 50%</span><span style="font-size:12px; font-weight:700;">$210.00</span></div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F4F6F8; border-radius:9px;"><span style="font-size:11px; font-weight:700; color:#5A626E;">● Open</span><span style="flex:1; font-size:12px;">#48056 · Comp &gt; $100</span><span style="font-size:12px; font-weight:700;">$126.00</span></div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F4F6F8; border-radius:9px;"><span style="font-size:11px; font-weight:700; color:#5A626E;">● Open</span><span style="flex:1; font-size:12px;">#47788 · Void after payment</span><span style="font-size:12px; font-weight:700;">$88.50</span></div>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">6 flags this period · $844.50 at risk · 4 open</div>
+      </a>
+    </div>
+
+    <!-- ===== MONTHLY P&L ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Monthly P&amp;L Summary</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="font-size:11px; color:#9AA1AC;">September 2025 · month-to-date</div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums;">
+        <tbody>
+          <tr style="background:#F4F6F8;"><td style="padding:12px 20px; font-weight:700; color:#184080; text-transform:uppercase; letter-spacing:0.04em; font-size:11px;" colspan="2">Revenue</td><td style="padding:12px 20px; text-align:right; font-weight:700; color:#184080; text-transform:uppercase; letter-spacing:0.04em; font-size:11px;">% of Net Sales</td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Food Sales</td><td style="padding:11px 20px; text-align:right;">$358,200 <span style="color:#9AA1AC;">· 58.0%</span></td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Drink Sales</td><td style="padding:11px 20px; text-align:right;">$148,300 <span style="color:#9AA1AC;">· 24.0%</span></td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Hookah</td><td style="padding:11px 20px; text-align:right;">$74,100 <span style="color:#9AA1AC;">· 12.0%</span></td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Valet</td><td style="padding:11px 20px; text-align:right;">$36,500 <span style="color:#9AA1AC;">· 6.0%</span></td></tr>
+          <tr style="border-bottom:2px solid #E4E7EC;"><td style="padding:12px 20px; font-weight:700;" colspan="2">Net Sales</td><td style="padding:12px 20px; text-align:right; font-weight:700;">$617,100</td></tr>
+
+          <tr style="background:#F4F6F8;"><td style="padding:12px 20px; font-weight:700; color:#184080; text-transform:uppercase; letter-spacing:0.04em; font-size:11px;" colspan="3">Cost of Goods &amp; Operating</td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Food Cost <span style="font-size:11px; color:#1A7F4B; font-weight:600;">· 29.4% ✓</span></td><td style="padding:11px 20px; text-align:right;">($181,400)</td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Liquor Cost <span style="font-size:11px; color:#9AA1AC;">· 22.0%</span></td><td style="padding:11px 20px; text-align:right;">($32,600)</td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Labor <span style="font-size:11px; color:#1A7F4B; font-weight:600;">· 26.5% ✓</span></td><td style="padding:11px 20px; text-align:right;">($163,500)</td></tr>
+          <tr style="border-bottom:1px solid #F4F6F8;"><td style="padding:11px 20px;" colspan="2">Operating Expenses <span style="font-size:11px; color:#9AA1AC;">· invoice sheet</span></td><td style="padding:11px 20px; text-align:right;">($107,400)</td></tr>
+          <tr style="border-bottom:2px solid #E4E7EC;"><td style="padding:12px 20px; font-weight:700;" colspan="2">Total Costs</td><td style="padding:12px 20px; text-align:right; font-weight:700;">($484,900)</td></tr>
+
+          <tr style="background:#184080; color:#fff;"><td style="padding:15px 20px; font-weight:700; font-size:15px;" colspan="2">Net Operating Income</td><td style="padding:15px 20px; text-align:right; font-family:'Newsreader',serif; font-weight:600; font-size:22px;">$132,200</td></tr>
+          <tr style="background:#102C58; color:#A9C2E4;"><td style="padding:9px 20px; font-size:11px;" colspan="2">Operating Margin</td><td style="padding:9px 20px; text-align:right; font-size:12px; font-weight:700; color:#fff;">21.4%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { mode: "dollar" };
+
+  renderVals() {
+    const data = {
+      food: {
+        dollar: [["Jollof Rice & Chicken",4180],["Suya Platter",3520],["Grilled Lamb Chops",2910],["Egusi Soup",2300],["Thieboudienne",1960],["Jollof Rice & Fish",1540]],
+        qty:    [["Jollof Rice & Chicken",312],["Suya Platter",264],["Egusi Soup",198],["Thieboudienne",176],["Grilled Lamb Chops",154],["Plantain Side",148]],
+      },
+      liquor: {
+        dollar: [["Hennessy VSOP",3140],["Don Julio 1942",2540],["Casamigos Blanco",1890],["Moët Impérial",1740],["Veuve Clicquot",1400],["Grey Goose",1180]],
+        qty:    [["Hennessy VSOP",118],["Casamigos Blanco",96],["Grey Goose",84],["Don Julio 1942",62],["Moët Impérial",44],["Veuve Clicquot",36]],
+      },
+      hookah: {
+        dollar: [["Double Apple",1540],["Mint",1240],["Blue Mist",960],["Watermelon",760],["Lemon Mint",580],["Grape",420]],
+        qty:    [["Double Apple",88],["Mint",71],["Blue Mist",55],["Watermelon",43],["Lemon Mint",33],["Grape",24]],
+      },
+    };
+
+    const mode = this.state.mode;
+    const fmt = (v) => mode === "dollar"
+      ? "$" + v.toLocaleString("en-US")
+      : v.toLocaleString("en-US") + " sold";
+
+    const build = (cat) => data[cat][mode].map((row, i) => ({ rank: i + 1, name: row[0], val: fmt(row[1]) }));
+
+    const activeTab = "padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff; cursor:pointer;";
+    const idleTab = "padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC; cursor:pointer;";
+
+    return {
+      food: build("food"),
+      liquor: build("liquor"),
+      hookah: build("hookah"),
+      byDollar: () => this.setState({ mode: "dollar" }),
+      byQty: () => this.setState({ mode: "qty" }),
+      tabDollarStyle: mode === "dollar" ? activeTab : idleTab,
+      tabQtyStyle: mode === "qty" ? activeTab : idleTab,
+    };
+  }
+}
+</script>
+</body>
+</html>

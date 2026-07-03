@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="L3 Exception Flags" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <div style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
+          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
+
+    <a href="{{ backHref }}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">{{ backLabel }}</a>
+
+    <!-- ===== PAGE TITLE ===== -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Exception Flags</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Transactions tripping audit rules · Sep 15–21 · {{ scopeLabel }}</div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div style="display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150;">⤓ Export CSV</div>
+        <div style="display:inline-flex; align-items:center; gap:7px; padding:10px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150;">+ Manual entry</div>
+      </div>
+    </div>
+
+    <!-- ===== SUMMARY STRIP ===== -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
+      <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Total Flags</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:600; margin-top:6px;">{{ totalFlags }}</div>
+        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">This period</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">$ at Risk</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ atRisk }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Across flagged transactions</div>
+      </div>
+      <div style="background:#fff; border:1px solid #F0C4BE; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Open / Unreviewed</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#C0392B; font-variant-numeric:tabular-nums;">{{ openCount }}</div>
+        <div style="font-size:11px; color:#C0392B; margin-top:4px; font-weight:600;">Needs attention</div>
+      </div>
+      <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Cleared</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#1A7F4B; font-variant-numeric:tabular-nums;">{{ clearedCount }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Reviewed &amp; resolved</div>
+      </div>
+    </div>
+
+    <!-- ===== RULE BREAKDOWN ===== -->
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px; margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:16px;">Flags by Audit Rule</div>
+      <div style="display:flex; flex-direction:column; gap:13px;">
+        <sc-for list="{{ ruleRows }}" as="rr" hint-placeholder-count="5">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <span style="width:230px; font-size:12px; color:#3A4150;">{{ rr.rule }}</span>
+            <div style="flex:1; height:10px; background:#EEF0F3; border-radius:5px;"><div style="width:{{ rr.pct }}; height:100%; background:{{ rr.color }}; border-radius:5px;"></div></div>
+            <span style="width:28px; text-align:right; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ rr.count }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ===== FILTER BAR ===== -->
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+      <sc-if value="{{ showLocFilter }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:4px; border-radius:9px;">
+          <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="4">
+            <a href="{{ c.href }}" style="padding:7px 14px; border-radius:6px; background:{{ c.bg }}; color:{{ c.fg }}; font-size:12px; font-weight:600;">{{ c.label }}</a>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:4px; border-radius:9px;">
+        <div style="padding:7px 14px; border-radius:6px; background:#184080; color:#fff; font-size:12px; font-weight:600;">All</div>
+        <div style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600;">Open</div>
+        <div style="padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600;">Cleared</div>
+      </div>
+      <div style="margin-left:auto; font-size:12px; color:#9AA1AC;">Showing <span style="color:#3A4150; font-weight:600;">{{ totalFlags }}</span> flagged transactions</div>
+    </div>
+
+    <!-- ===== EXCEPTION TABLE ===== -->
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:left;">
+            <th style="padding:12px 18px; font-weight:600;">Date / Time</th>
+            <th style="padding:12px 12px; font-weight:600;">Location</th>
+            <th style="padding:12px 12px; font-weight:600;">Check #</th>
+            <th style="padding:12px 12px; font-weight:600;">Server</th>
+            <th style="padding:12px 12px; font-weight:600;">Rule Tripped</th>
+            <th style="padding:12px 12px; font-weight:600; text-align:right;">Amount</th>
+            <th style="padding:12px 12px; font-weight:600;">Severity</th>
+            <th style="padding:12px 18px; font-weight:600;">Status</th>
+          </tr>
+        </thead>
+        <tbody style="font-variant-numeric:tabular-nums;">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+            <tr style="border-top:1px solid #EEF0F3;">
+              <td style="padding:13px 18px; color:#3A4150;">{{ r.time }}</td>
+              <td style="padding:13px 12px;">{{ r.locName }}</td>
+              <td style="padding:13px 12px; color:#6B7280;">{{ r.check }}</td>
+              <td style="padding:13px 12px;">{{ r.server }}</td>
+              <td style="padding:13px 12px;">{{ r.rule }}</td>
+              <td style="padding:13px 12px; text-align:right; font-weight:700;">{{ r.amountFmt }}</td>
+              <td style="padding:13px 12px;"><span style="font-size:11px; font-weight:700; color:{{ r.sevColor }}; background:{{ r.sevBg }}; padding:3px 9px; border-radius:5px;">{{ r.sev }}</span></td>
+              <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:{{ r.statusColor }};">{{ r.statusText }}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const all = [
+      { time:"Sep 20 · 11:42p", loc:"atl", check:"#48217", server:"M. Diallo", rule:"Void after payment closed", amount:184.00, sev:"High", status:"open" },
+      { time:"Sep 20 · 10:08p", loc:"clt", check:"#33901", server:"K. Owusu", rule:"Discount over 50% on check", amount:142.50, sev:"High", status:"open" },
+      { time:"Sep 19 · 9:21p", loc:"atl", check:"#48056", server:"A. Sow", rule:"Comp exceeds $100", amount:126.00, sev:"Medium", status:"open" },
+      { time:"Sep 19 · 8:54p", loc:"afro", check:"#21744", server:"J. Mensah", rule:"Void after payment closed", amount:98.00, sev:"Medium", status:"open" },
+      { time:"Sep 19 · 7:30p", loc:"clt", check:"#33812", server:"R. Bah", rule:"Check reopened after close", amount:76.25, sev:"Low", status:"open" },
+      { time:"Sep 18 · 10:47p", loc:"atl", check:"#47903", server:"M. Diallo", rule:"Discount over 50% on check", amount:210.00, sev:"High", status:"open" },
+      { time:"Sep 18 · 9:12p", loc:"afro", check:"#21680", server:"F. Kamara", rule:"Comp exceeds $100", amount:118.00, sev:"Medium", status:"open" },
+      { time:"Sep 18 · 6:38p", loc:"clt", check:"#33704", server:"K. Owusu", rule:"Refund without manager approval", amount:64.00, sev:"High", status:"open" },
+      { time:"Sep 17 · 11:02p", loc:"atl", check:"#47788", server:"A. Sow", rule:"Void after payment closed", amount:88.50, sev:"Medium", status:"open" },
+      { time:"Sep 17 · 8:25p", loc:"afro", check:"#21588", server:"J. Mensah", rule:"Check reopened after close", amount:52.00, sev:"Low", status:"cleared" },
+      { time:"Sep 17 · 7:14p", loc:"clt", check:"#33640", server:"R. Bah", rule:"Discount over 50% on check", amount:96.75, sev:"Medium", status:"cleared" },
+      { time:"Sep 16 · 10:33p", loc:"atl", check:"#47652", server:"M. Diallo", rule:"Comp exceeds $100", amount:104.00, sev:"Medium", status:"cleared" },
+      { time:"Sep 16 · 9:48p", loc:"afro", check:"#21490", server:"F. Kamara", rule:"Void after payment closed", amount:71.00, sev:"Low", status:"cleared" },
+      { time:"Sep 16 · 6:55p", loc:"clt", check:"#33571", server:"K. Owusu", rule:"Refund without manager approval", amount:58.50, sev:"Medium", status:"cleared" },
+      { time:"Sep 15 · 10:19p", loc:"atl", check:"#47511", server:"A. Sow", rule:"Discount over 50% on check", amount:132.00, sev:"High", status:"cleared" },
+      { time:"Sep 15 · 8:07p", loc:"afro", check:"#21402", server:"J. Mensah", rule:"Check reopened after close", amount:44.00, sev:"Low", status:"cleared" },
+      { time:"Sep 15 · 6:41p", loc:"clt", check:"#33498", server:"R. Bah", rule:"Comp exceeds $100", amount:112.50, sev:"Medium", status:"cleared" },
+    ];
+
+    const names = { atl:"Teranga ATL", clt:"Teranga CLT", afro:"Afro District" };
+    const sevStyle = {
+      High:   { color:"#C0392B", bg:"#FBEAE8" },
+      Medium: { color:"#5A626E", bg:"#EEF0F3" },
+      Low:    { color:"#4A7BC8", bg:"#EAF0F8" },
+    };
+
+    let loc = "";
+    try { loc = (new URLSearchParams(window.location.search).get("loc") || "").toLowerCase(); } catch (e) {}
+    if (!names[loc]) loc = "";
+
+    const filtered = loc ? all.filter(r => r.loc === loc) : all;
+
+    const rows = filtered.map(r => {
+      const ss = sevStyle[r.sev];
+      const isOpen = r.status === "open";
+      return {
+        ...r,
+        locName: names[r.loc],
+        amountFmt: "$" + r.amount.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }),
+        sevColor: ss.color, sevBg: ss.bg,
+        statusColor: isOpen ? "#C0392B" : "#1A7F4B",
+        statusText: isOpen ? "● Open" : "✓ Cleared",
+      };
+    });
+
+    // rule breakdown
+    const counts = {};
+    filtered.forEach(r => { counts[r.rule] = (counts[r.rule] || 0) + 1; });
+    const palette = ["#184080", "#4A7BC8", "#7FA3D6", "#A9C2E4", "#C4D6EC"];
+    const ruleArr = Object.keys(counts).map(k => ({ rule:k, count:counts[k] })).sort((a,b) => b.count - a.count);
+    const maxCount = ruleArr.length ? ruleArr[0].count : 1;
+    const ruleRows = ruleArr.slice(0,5).map((x,i) => ({
+      rule: x.rule, count: x.count,
+      pct: Math.round((x.count / maxCount) * 100) + "%",
+      color: palette[i % palette.length],
+    }));
+
+    const atRiskNum = filtered.reduce((s,r) => s + r.amount, 0);
+    const openCount = filtered.filter(r => r.status === "open").length;
+
+    // location switch chips (deep links — manager-distributable)
+    const chipDefs = [
+      { label:"All locations", code:"" },
+      { label:"Teranga ATL", code:"atl" },
+      { label:"Teranga CLT", code:"clt" },
+      { label:"Afro District", code:"afro" },
+    ];
+    const locChips = chipDefs.map(c => {
+      const active = c.code === loc;
+      return {
+        label: c.label,
+        href: c.code ? "Exception%20Detail.dc.html?loc=" + c.code : "Exception%20Detail.dc.html",
+        bg: active ? "#184080" : "transparent",
+        fg: active ? "#fff" : "#5A626E",
+      };
+    });
+
+    return {
+      rows, ruleRows, locChips,
+      showLocFilter: !loc,
+      scopeLabel: loc ? names[loc] : "org-wide",
+      totalFlags: filtered.length,
+      openCount,
+      clearedCount: filtered.length - openCount,
+      atRisk: "$" + atRiskNum.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }),
+      backHref: loc ? "Location%20Report.dc.html" : "Company%20Glance%20v2.dc.html",
+      backLabel: loc ? "← Back to " + names[loc] : "← Back to Company",
+    };
+  }
+}
+</script>
+</body>
+</html>

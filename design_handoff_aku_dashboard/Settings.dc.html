@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+  input { font-family:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="Settings" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <div style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:28px 26px 48px;">
+
+    <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; margin-bottom:6px;">Settings</div>
+    <div style="font-size:13px; color:#9AA1AC; margin-bottom:22px;">Configure targets, history, and expense mapping for the whole group</div>
+
+    <!-- ===== TAB BAR ===== -->
+    <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:5px; border-radius:11px; margin-bottom:24px; width:fit-content;">
+      <div onClick="{{ goTargets }}" style="{{ tabTargets }}">KPI Targets</div>
+      <div onClick="{{ goHistory }}" style="{{ tabHistory }}">Period History</div>
+      <div onClick="{{ goMapping }}" style="{{ tabMapping }}">Expense Category Mapping</div>
+    </div>
+
+    <!-- ===== KPI TARGETS ===== -->
+    <sc-if value="{{ showTargets }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">KPI Targets</div>
+          <div onClick="{{ resetTargets }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer; padding:8px 14px; border:1px solid #C4D2E6; border-radius:8px;">↺ Reset to Defaults</div>
+        </div>
+        <div style="font-size:12px; color:#9AA1AC; margin-bottom:20px;">Cells and tiles across the dashboard color green when within target, red when out. Liquor cost is shown without a fixed target.</div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <sc-for list="{{ targets }}" as="t" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:16px; padding:14px 0; border-bottom:1px solid #F0F2F5;">
+              <div style="flex:1;">
+                <div style="font-size:14px; font-weight:600;">{{ t.label }}</div>
+                <div style="font-size:11px; color:#9AA1AC; margin-top:2px;">{{ t.hint }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:13px; color:#6B7280; font-weight:600;">{{ t.op }}</span>
+                <sc-if value="{{ t.editable }}" hint-placeholder-val="{{ true }}">
+                  <input type="number" value="{{ t.value }}" onInput="{{ t.onInput }}" style="width:78px; padding:8px 10px; border:1px solid #D6DBE2; border-radius:8px; font-size:14px; font-weight:700; text-align:right; color:#184080;" />
+                </sc-if>
+                <sc-if value="{{ t.noTarget }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:13px; color:#B6BCC6; font-weight:600; font-style:italic;">no fixed target</span>
+                </sc-if>
+                <span style="font-size:13px; color:#6B7280; font-weight:600; width:14px;">{{ t.unit }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+          <div style="font-size:13px; font-weight:700; color:#fff; background:#184080; padding:10px 20px; border-radius:9px; cursor:pointer;">Save Targets</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== PERIOD HISTORY ===== -->
+    <sc-if value="{{ showHistory }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Period History</div>
+          <div onClick="{{ clearHistory }}" style="font-size:12px; font-weight:700; color:#C0392B; cursor:pointer; padding:8px 14px; border:1px solid #F0C4BE; border-radius:8px;">Clear All</div>
+        </div>
+        <div style="font-size:12px; color:#9AA1AC; margin-bottom:18px;">Weekly snapshots auto-save in the background for trend &amp; delta history, independent of the displayed range. Keeps the most recent <span style="font-weight:600; color:#5A626E;">24 periods</span> · <span style="font-weight:600; color:#5A626E;">{{ snapCount }} stored</span>.</div>
+        <div style="border:1px solid #EEF0F3; border-radius:11px; overflow:hidden;">
+          <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+            <thead>
+              <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+                <th style="text-align:left; padding:11px 16px; font-weight:600;">Period</th>
+                <th style="padding:11px 12px; font-weight:600;">Net Sales</th>
+                <th style="padding:11px 12px; font-weight:600;">Covers</th>
+                <th style="padding:11px 12px; font-weight:600;">Food %</th>
+                <th style="padding:11px 12px; font-weight:600;">Labor %</th>
+                <th style="padding:11px 16px; font-weight:600;">Saved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ snapshots }}" as="s" hint-placeholder-count="6">
+                <tr style="border-top:1px solid #F4F6F8; text-align:right;">
+                  <td style="text-align:left; padding:11px 16px; font-weight:600;">{{ s.period }}</td>
+                  <td style="padding:11px 12px;">{{ s.sales }}</td>
+                  <td style="padding:11px 12px;">{{ s.covers }}</td>
+                  <td style="padding:11px 12px;">{{ s.food }}</td>
+                  <td style="padding:11px 12px;">{{ s.labor }}</td>
+                  <td style="padding:11px 16px; color:#9AA1AC;">{{ s.saved }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== EXPENSE MAPPING ===== -->
+    <sc-if value="{{ showMapping }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start;">
+        <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:24px;">
+          <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600; margin-bottom:4px;">Vendor → Category Mapping</div>
+          <div style="font-size:12px; color:#9AA1AC; margin-bottom:18px;">Keyword-based, case-insensitive. The most specific (longest) matching keyword wins.</div>
+          <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+              <tr style="color:#6B7280; text-align:left; border-bottom:1px solid #EEF0F3;">
+                <th style="padding:9px 6px; font-weight:600;">Keyword</th>
+                <th style="padding:9px 6px; font-weight:600;">Category</th>
+                <th style="padding:9px 6px; font-weight:600;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ mappings }}" as="m" hint-placeholder-count="8">
+                <tr style="border-bottom:1px solid #F4F6F8;">
+                  <td style="padding:10px 6px; font-weight:600; font-family:monospace; color:#184080;">{{ m.keyword }}</td>
+                  <td style="padding:10px 6px;">{{ m.category }}</td>
+                  <td style="padding:10px 6px; text-align:right; color:#C4C9D1; cursor:pointer;">✕</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div style="display:flex; gap:8px; margin-top:16px;">
+            <input placeholder="keyword (e.g. sysco)" style="flex:1; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            <input placeholder="category" style="flex:1; padding:9px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px;" />
+            <div style="font-size:13px; font-weight:700; color:#fff; background:#184080; padding:9px 16px; border-radius:8px; cursor:pointer; white-space:nowrap;">+ Add</div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Vendor tester -->
+          <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+            <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Vendor-name Tester</div>
+            <div style="font-size:11px; color:#9AA1AC; margin-bottom:14px;">Type a vendor name to see how it maps.</div>
+            <input value="{{ testValue }}" onInput="{{ onTest }}" placeholder="e.g. Sysco Atlanta LLC" style="width:100%; padding:10px 12px; border:1px solid #D6DBE2; border-radius:8px; font-size:13px; margin-bottom:14px;" />
+            <div style="display:flex; align-items:center; gap:10px; padding:14px; background:{{ testBg }}; border-radius:10px;">
+              <span style="font-size:11px; color:#6B7280; font-weight:600;">→ maps to</span>
+              <span style="flex:1; font-size:14px; font-weight:700; color:{{ testColor }};">{{ testResult }}</span>
+            </div>
+            <div style="font-size:11px; color:#9AA1AC; margin-top:10px;">{{ testNote }}</div>
+          </div>
+          <!-- Categories -->
+          <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+            <div style="font-size:14px; font-weight:700; margin-bottom:12px;">Category List</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <sc-for list="{{ categories }}" as="c" hint-placeholder-count="9">
+                <span style="font-size:12px; font-weight:600; color:#3A4150; background:#F4F6F8; padding:6px 11px; border-radius:7px;">{{ c }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <!-- JSON export -->
+          <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div style="font-size:14px; font-weight:700;">JSON Export</div>
+              <div style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ Copy</div>
+            </div>
+            <pre style="margin:0; max-height:200px; overflow:auto; background:#102C58; color:#C4D6EC; padding:14px; border-radius:9px; font-size:11px; line-height:1.5; white-space:pre-wrap;">{{ jsonExport }}</pre>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  DEFAULTS = { void: 1, discount: 3, food: 30, labor: 28, liquor: 24 };
+
+  state = {
+    tab: "targets",
+    targets: { void: 1, discount: 3, food: 30, labor: 28, liquor: 24 },
+    testValue: "Sysco Atlanta LLC",
+  };
+
+  MAPPINGS = [
+    { keyword: "sysco", category: "COGS – Food" },
+    { keyword: "us foods", category: "COGS – Food" },
+    { keyword: "restaurant depot", category: "COGS – Food" },
+    { keyword: "southern glazer", category: "COGS – Liquor" },
+    { keyword: "republic national", category: "COGS – Liquor" },
+    { keyword: "georgia power", category: "Utilities" },
+    { keyword: "comcast", category: "Utilities" },
+    { keyword: "realty", category: "Rent" },
+    { keyword: "google ads", category: "Marketing" },
+    { keyword: "ecolab", category: "Repairs & Maintenance" },
+  ];
+
+  CATEGORIES = ["COGS – Food", "COGS – Liquor", "Utilities", "Rent", "Repairs & Maintenance", "Marketing", "Payroll Services", "Supplies", "Other"];
+
+  SNAPSHOTS = [
+    { period: "Sep 15 – 21, 2025", sales: "$317,300", covers: "7,650", food: "29.6%", labor: "27.2%", saved: "auto" },
+    { period: "Sep 8 – 14, 2025", sales: "$298,700", covers: "7,420", food: "30.1%", labor: "27.8%", saved: "auto" },
+    { period: "Sep 1 – 7, 2025", sales: "$305,100", covers: "7,510", food: "29.2%", labor: "26.9%", saved: "auto" },
+    { period: "Aug 25 – 31, 2025", sales: "$288,400", covers: "7,180", food: "30.4%", labor: "28.3%", saved: "auto" },
+    { period: "Aug 18 – 24, 2025", sales: "$294,900", covers: "7,290", food: "29.8%", labor: "27.5%", saved: "auto" },
+    { period: "Aug 11 – 17, 2025", sales: "$281,600", covers: "7,040", food: "30.7%", labor: "28.1%", saved: "auto" },
+  ];
+
+  setTarget(key, val) {
+    const n = val === "" ? "" : Number(val);
+    this.setState({ targets: { ...this.state.targets, [key]: n } });
+  }
+
+  renderVals() {
+    const t = this.state.targets;
+    const tab = this.state.tab;
+
+    const targetRows = [
+      { key: "void", label: "Void % of Sales", hint: "Flag when voids exceed this share of sales", op: "<", unit: "%", value: t.void, editable: true },
+      { key: "discount", label: "Discount % of Sales", hint: "Flag when discounts exceed this share of sales", op: "<", unit: "%", value: t.discount, editable: true },
+      { key: "food", label: "Food Cost %", hint: "Target ceiling for cost of food vs food sales", op: "<", unit: "%", value: t.food, editable: true },
+      { key: "labor", label: "Labor %", hint: "Target ceiling for labor vs net sales", op: "<", unit: "%", value: t.labor, editable: true },
+      { key: "liquor", label: "Liquor Cost %", hint: "Target ceiling for cost of liquor vs liquor sales", op: "<", unit: "%", value: t.liquor, editable: true },
+    ].map(r => ({
+      ...r,
+      editable: !!r.editable,
+      noTarget: !!r.noTarget,
+      onInput: r.editable ? (e) => this.setTarget(r.key, e.target.value) : null,
+    }));
+
+    // vendor tester — longest matching keyword wins
+    const v = (this.state.testValue || "").toLowerCase();
+    let match = null;
+    this.MAPPINGS.forEach(m => {
+      if (v.includes(m.keyword) && (!match || m.keyword.length > match.keyword.length)) match = m;
+    });
+    const matched = !!match;
+
+    const tabActive = "padding:9px 18px; border-radius:7px; background:#184080; color:#fff; font-size:13px; font-weight:600; cursor:pointer;";
+    const tabIdle = "padding:9px 18px; border-radius:7px; color:#5A626E; font-size:13px; font-weight:600; cursor:pointer;";
+
+    const jsonObj = { categories: this.CATEGORIES, mappings: this.MAPPINGS.reduce((o, m) => { o[m.keyword] = m.category; return o; }, {}) };
+
+    return {
+      goTargets: () => this.setState({ tab: "targets" }),
+      goHistory: () => this.setState({ tab: "history" }),
+      goMapping: () => this.setState({ tab: "mapping" }),
+      tabTargets: tab === "targets" ? tabActive : tabIdle,
+      tabHistory: tab === "history" ? tabActive : tabIdle,
+      tabMapping: tab === "mapping" ? tabActive : tabIdle,
+      showTargets: tab === "targets",
+      showHistory: tab === "history",
+      showMapping: tab === "mapping",
+
+      targets: targetRows,
+      resetTargets: () => this.setState({ targets: { ...this.DEFAULTS } }),
+
+      snapshots: this.SNAPSHOTS,
+      snapCount: this.SNAPSHOTS.length,
+      clearHistory: () => {},
+
+      mappings: this.MAPPINGS,
+      categories: this.CATEGORIES,
+      testValue: this.state.testValue,
+      onTest: (e) => this.setState({ testValue: e.target.value }),
+      testResult: matched ? match.category : "Other (no match)",
+      testColor: matched ? "#1A7F4B" : "#C0392B",
+      testBg: matched ? "#E6F4EC" : "#FBEAE8",
+      testNote: matched ? ("Matched on keyword \u201c" + match.keyword + "\u201d") : "No keyword found — would fall back to \u201cOther\u201d.",
+      jsonExport: JSON.stringify(jsonObj, null, 2),
+    };
+  }
+}
+</script>
+</body>
+</html>

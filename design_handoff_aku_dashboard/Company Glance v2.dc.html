@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="L1 Company" onMouseOver="{{ tipOver }}" onMouseMove="{{ tipMove }}" onMouseLeave="{{ tipHide }}" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <div style="{{ tipStyle }}">{{ tipText }}</div>
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <div style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">Company</div>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <div style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
+          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1480px; margin:0 auto; padding:28px 26px 48px;">
+
+    <!-- ===== HEADLINE STRIP ===== -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Total Net Sales</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$317,300</div>
+        <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
+          <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 6.2%</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Total Covers</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">7,650</div>
+        <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
+          <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 3.1%</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Avg Check Size</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$41.48</div>
+        <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
+          <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 2.9%</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Valet Revenue</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; letter-spacing:-0.01em; margin-top:6px; font-variant-numeric:tabular-nums;">$16,700</div>
+        <div style="display:flex; align-items:center; gap:7px; margin-top:8px;">
+          <span style="font-size:12px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:2px 8px; border-radius:5px;">▲ 1.8%</span>
+          <span style="font-size:12px; color:#9AA1AC;">vs last week</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MONEY IN ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money In</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr; gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+          <div style="font-size:14px; font-weight:700;">Daily Sales by Location</div>
+          <div style="font-size:11px; color:#9AA1AC;">Net sales / day</div>
+        </div>
+        <div style="display:flex; gap:14px; margin:11px 0 16px;">
+          <div style="display:flex; align-items:center; gap:5px; font-size:11px; color:#6B7280;"><span style="width:9px; height:9px; border-radius:2px; background:#184080;"></span>ATL</div>
+          <div style="display:flex; align-items:center; gap:5px; font-size:11px; color:#6B7280;"><span style="width:9px; height:9px; border-radius:2px; background:#4A7BC8;"></span>CLT</div>
+          <div style="display:flex; align-items:center; gap:5px; font-size:11px; color:#6B7280;"><span style="width:9px; height:9px; border-radius:2px; background:#A9C2E4;"></span>Afro District</div>
+        </div>
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; height:150px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Mon · $18.2K" style="width:10px; height:78px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Mon · $12.4K" style="width:10px; height:54px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Mon · $9.2K" style="width:10px; height:40px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Mon</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Tue · $16.4K" style="width:10px; height:70px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Tue · $11.0K" style="width:10px; height:48px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Tue · $8.3K" style="width:10px; height:36px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Tue</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Wed · $20.1K" style="width:10px; height:88px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Wed · $13.8K" style="width:10px; height:60px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Wed · $10.1K" style="width:10px; height:44px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Wed</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Thu · $23.8K" style="width:10px; height:104px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Thu · $16.5K" style="width:10px; height:72px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Thu · $11.9K" style="width:10px; height:52px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Thu</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Fri · $28.6K" style="width:10px; height:122px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Fri · $22.0K" style="width:10px; height:96px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Fri · $16.0K" style="width:10px; height:70px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Fri</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Sat · $29.4K" style="width:10px; height:128px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Sat · $22.9K" style="width:10px; height:100px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Sat · $17.4K" style="width:10px; height:76px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Sat</div></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;"><div style="display:flex; align-items:flex-end; gap:3px; height:130px;"><div data-tip="ATL · Sun · $18.8K" style="width:10px; height:84px; background:#184080; border-radius:2px 2px 0 0;"></div><div data-tip="CLT · Sun · $13.3K" style="width:10px; height:58px; background:#4A7BC8; border-radius:2px 2px 0 0;"></div><div data-tip="Afro District · Sun · $9.6K" style="width:10px; height:42px; background:#A9C2E4; border-radius:2px 2px 0 0;"></div></div><div style="font-size:10px; color:#9AA1AC;">Sun</div></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:14px; font-weight:700;">Revenue Mix</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-bottom:16px;">Share by location</div>
+        <div style="display:flex; align-items:center; gap:18px;">
+          <div style="position:relative; width:108px; height:108px;">
+            <svg viewBox="0 0 120 120" style="width:108px; height:108px; transform:rotate(-90deg);">
+              <circle data-tip="Teranga ATL · $142,300 · 45%" cx="60" cy="60" r="50" fill="none" stroke="#184080" stroke-width="20" stroke-dasharray="141.4 314.2" stroke-dashoffset="0"></circle>
+              <circle data-tip="Teranga CLT · $98,600 · 31%" cx="60" cy="60" r="50" fill="none" stroke="#4A7BC8" stroke-width="20" stroke-dasharray="97.4 314.2" stroke-dashoffset="-141.4"></circle>
+              <circle data-tip="Afro District · $76,400 · 24%" cx="60" cy="60" r="50" fill="none" stroke="#A9C2E4" stroke-width="20" stroke-dasharray="75.4 314.2" stroke-dashoffset="-238.8"></circle>
+            </svg>
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;"><div style="font-family:'Newsreader',serif; font-size:14px; font-weight:600; line-height:1;">$317K</div><div style="font-size:9px; color:#9AA1AC; margin-top:2px;">net</div></div>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+            <div data-tip="Teranga ATL · $142,300 · 45%" style="display:flex; align-items:center; justify-content:space-between; font-size:12px;"><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#184080;"></span>Teranga ATL</span><span style="font-weight:700;">45%</span></div>
+            <div data-tip="Teranga CLT · $98,600 · 31%" style="display:flex; align-items:center; justify-content:space-between; font-size:12px;"><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#4A7BC8;"></span>Teranga CLT</span><span style="font-weight:700;">31%</span></div>
+            <div data-tip="Afro District · $76,400 · 24%" style="display:flex; align-items:center; justify-content:space-between; font-size:12px;"><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#A9C2E4;"></span>Afro District</span><span style="font-weight:700;">24%</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:14px; font-weight:700;">Revenue Streams</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-bottom:16px;">Food · Drink · Hookah · Valet</div>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div><div style="font-size:11px; color:#6B7280; margin-bottom:5px;">Teranga ATL</div><div style="display:flex; height:16px; border-radius:4px; overflow:hidden;"><div data-tip="ATL · Food · 58% ($82.5K)" style="width:58%; background:#184080;"></div><div data-tip="ATL · Drink · 24% ($34.2K)" style="width:24%; background:#4A7BC8;"></div><div data-tip="ATL · Hookah · 12% ($17.1K)" style="width:12%; background:#7FA3D6;"></div><div data-tip="ATL · Valet · 6% ($8.4K)" style="width:6%; background:#C4D6EC;"></div></div></div>
+          <div><div style="font-size:11px; color:#6B7280; margin-bottom:5px;">Teranga CLT</div><div style="display:flex; height:16px; border-radius:4px; overflow:hidden;"><div data-tip="CLT · Food · 54% ($53.2K)" style="width:54%; background:#184080;"></div><div data-tip="CLT · Drink · 26% ($25.6K)" style="width:26%; background:#4A7BC8;"></div><div data-tip="CLT · Hookah · 14% ($13.8K)" style="width:14%; background:#7FA3D6;"></div><div data-tip="CLT · Valet · 6% ($5.2K)" style="width:6%; background:#C4D6EC;"></div></div></div>
+          <div><div style="font-size:11px; color:#6B7280; margin-bottom:5px;">Afro District</div><div style="display:flex; height:16px; border-radius:4px; overflow:hidden;"><div data-tip="Afro District · Food · 62% ($47.4K)" style="width:62%; background:#184080;"></div><div data-tip="Afro District · Drink · 20% ($15.3K)" style="width:20%; background:#4A7BC8;"></div><div data-tip="Afro District · Hookah · 13% ($9.9K)" style="width:13%; background:#7FA3D6;"></div><div data-tip="Afro District · Valet · 5% ($3.8K)" style="width:5%; background:#C4D6EC;"></div></div></div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:2px;">
+            <span style="display:flex; align-items:center; gap:5px; font-size:10px; color:#6B7280;"><span style="width:8px; height:8px; border-radius:2px; background:#184080;"></span>Food</span>
+            <span style="display:flex; align-items:center; gap:5px; font-size:10px; color:#6B7280;"><span style="width:8px; height:8px; border-radius:2px; background:#4A7BC8;"></span>Drink</span>
+            <span style="display:flex; align-items:center; gap:5px; font-size:10px; color:#6B7280;"><span style="width:8px; height:8px; border-radius:2px; background:#7FA3D6;"></span>Hookah</span>
+            <span style="display:flex; align-items:center; gap:5px; font-size:10px; color:#6B7280;"><span style="width:8px; height:8px; border-radius:2px; background:#C4D6EC;"></span>Valet</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MONEY SAVED ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money Saved</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Food Cost %</div><span style="width:8px; height:8px; border-radius:50%; background:#22A55F;"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:32px; font-weight:500; margin-top:6px; color:#1A7F4B; font-variant-numeric:tabular-nums;">29.6%</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">Target &lt; 30% · <span style="color:#1A7F4B; font-weight:600;">within</span></div>
+      </div>
+      <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Labor Cost %</div><span style="width:8px; height:8px; border-radius:50%; background:#22A55F;"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:32px; font-weight:500; margin-top:6px; color:#1A7F4B; font-variant-numeric:tabular-nums;">27.2%</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">Target &lt; 28% · <span style="color:#1A7F4B; font-weight:600;">within</span></div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Liquor Cost %</div>
+        <div style="font-family:'Newsreader',serif; font-size:32px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">22.5%</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">No fixed target</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Total Expenses</div>
+        <div style="font-family:'Newsreader',serif; font-size:32px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">$54,200</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">From invoice sheet</div>
+      </div>
+    </div>
+
+    <!-- ===== MONEY PROTECTED ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Money Protected</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr; grid-auto-rows:1fr; gap:16px; margin-bottom:30px;">
+      <!-- Row 1 -->
+      <div style="background:#fff; border:1px solid #C8E6D4; border-radius:13px; padding:18px; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Void % of Sales</div><span style="width:8px; height:8px; border-radius:50%; background:#22A55F;"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:500; margin-top:6px; color:#1A7F4B;">0.8%</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Target &lt; 1% · <span style="color:#1A7F4B; font-weight:600;">within</span></div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px; display:flex; flex-direction:column;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:12px;">Voids by Day</div>
+        <div style="flex:1; display:flex; align-items:flex-end; gap:6px; min-height:54px;"><div data-tip="Mon · $180 voided" style="flex:1; height:40%; background:#9AA1AC; border-radius:2px;"></div><div data-tip="Tue · $250 voided" style="flex:1; height:55%; background:#9AA1AC; border-radius:2px;"></div><div data-tip="Wed · $140 voided" style="flex:1; height:30%; background:#9AA1AC; border-radius:2px;"></div><div data-tip="Thu · $320 voided" style="flex:1; height:70%; background:#9AA1AC; border-radius:2px;"></div><div data-tip="Fri · $460 voided — peak" style="flex:1; height:100%; background:#E04A38; border-radius:2px;"></div><div data-tip="Sat · $390 voided" style="flex:1; height:85%; background:#9AA1AC; border-radius:2px;"></div><div data-tip="Sun · $200 voided" style="flex:1; height:45%; background:#9AA1AC; border-radius:2px;"></div></div>
+        <div style="display:flex; gap:6px; margin-top:6px;"><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Mon</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Tue</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Wed</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Thu</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Fri</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Sat</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Sun</span></div>
+        <div style="text-align:center; font-size:10px; color:#B6BCC6; margin-top:4px;">Day of week</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px; display:flex; flex-direction:column;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Chargebacks by Stage</div>
+        <div style="flex:1; display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+          <div style="background:#E6F4EC; border-radius:10px; padding:13px; display:flex; flex-direction:column; justify-content:center;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:#1A7F4B; font-weight:700;">Won</div><div style="font-family:'Newsreader',serif; font-size:21px; font-weight:600; color:#1A7F4B; margin-top:4px;">$2,340</div><div style="font-size:11px; color:#1A7F4B;">4 recovered</div></div>
+          <div style="background:#F4F6F8; border-radius:10px; padding:13px; display:flex; flex-direction:column; justify-content:center;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:#5A626E; font-weight:700;">In Progress</div><div style="font-family:'Newsreader',serif; font-size:21px; font-weight:600; color:#2A2E35; margin-top:4px;">$1,890</div><div style="font-size:11px; color:#6B7280;">3 at stake</div></div>
+          <div style="background:#FBEAE8; border-radius:10px; padding:13px; display:flex; flex-direction:column; justify-content:center;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.04em; color:#C0392B; font-weight:700;">Lost</div><div style="font-family:'Newsreader',serif; font-size:21px; font-weight:600; color:#C0392B; margin-top:4px;">$1,120</div><div style="font-size:11px; color:#C0392B;">2 forfeited</div></div>
+        </div>
+      </div>
+      <!-- Row 2 -->
+      <div style="background:#FBEAE8; border:1px solid #F0C4BE; border-radius:13px; padding:18px; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Discount % of Sales</div><span style="width:8px; height:8px; border-radius:50%; background:#E04A38;"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:500; margin-top:6px; color:#C0392B;">3.4%</div>
+        <div style="font-size:11px; color:#C0392B; margin-top:4px; font-weight:600;">Target &lt; 3% · over</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px; display:flex; flex-direction:column;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:12px;">Discounts by Day</div>
+        <div style="flex:1; display:flex; align-items:flex-end; gap:6px; min-height:54px;"><div data-tip="Mon · $1,150 discounted" style="flex:1; height:50%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Tue · $1,500 discounted" style="flex:1; height:65%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Wed · $1,050 discounted" style="flex:1; height:45%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Thu · $1,850 discounted" style="flex:1; height:80%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Fri · $2,300 discounted — peak" style="flex:1; height:100%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Sat · $2,100 discounted" style="flex:1; height:90%; background:#4A7BC8; border-radius:2px;"></div><div data-tip="Sun · $1,400 discounted" style="flex:1; height:60%; background:#4A7BC8; border-radius:2px;"></div></div>
+        <div style="display:flex; gap:6px; margin-top:6px;"><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Mon</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Tue</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Wed</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Thu</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Fri</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Sat</span><span style="flex:1; text-align:center; font-size:10px; color:#9AA1AC;">Sun</span></div>
+        <div style="text-align:center; font-size:10px; color:#B6BCC6; margin-top:4px;">Day of week</div>
+      </div>
+      <a href="Exception%20Detail.dc.html" style="background:#184080; border-radius:13px; padding:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+        <div><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Exception Flags</div><div style="font-size:11px; color:#C4D6EC; margin-top:3px;">Transactions tripping audit rules</div></div>
+        <div style="display:flex; align-items:center; gap:11px;"><div style="font-family:'Newsreader',serif; font-size:38px; font-weight:600; color:#fff; line-height:1;">17</div><div style="background:#fff; color:#184080; font-size:12px; font-weight:700; padding:7px 13px; border-radius:8px;">Review →</div></div>
+      </a>
+    </div>
+
+    <!-- ===== TOP SELLERS ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Top Sellers <span style="font-family:'Hanken Grotesk'; font-size:13px; color:#9AA1AC;">· org-wide</span></div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;"><div style="padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff;">Top by $</div><div style="padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC;">Top by Qty</div></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Food</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">1</span><span style="flex:1; font-size:12px;">Jollof Rice &amp; Chicken</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$9,240</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">2</span><span style="flex:1; font-size:12px;">Suya Platter</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$7,810</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">3</span><span style="flex:1; font-size:12px;">Grilled Lamb Chops</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$6,470</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">4</span><span style="flex:1; font-size:12px;">Egusi Soup</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$5,120</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">5</span><span style="flex:1; font-size:12px;">Thieboudienne</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$4,360</span></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Liquor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">1</span><span style="flex:1; font-size:12px;">Hennessy VSOP</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$6,980</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">2</span><span style="flex:1; font-size:12px;">Don Julio 1942</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$5,640</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">3</span><span style="flex:1; font-size:12px;">Casamigos Blanco</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$4,210</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">4</span><span style="flex:1; font-size:12px;">Moët Impérial</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$3,880</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">5</span><span style="flex:1; font-size:12px;">Veuve Clicquot</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$3,120</span></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Top Hookah Flavor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">1</span><span style="flex:1; font-size:12px;">Double Apple</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$3,420</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">2</span><span style="flex:1; font-size:12px;">Mint</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$2,760</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">3</span><span style="flex:1; font-size:12px;">Blue Mist</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$2,140</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">4</span><span style="flex:1; font-size:12px;">Watermelon</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$1,690</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">5</span><span style="flex:1; font-size:12px;">Lemon Mint</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$1,280</span></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Category Performance</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div data-tip="Food · $181K · 57% of revenue"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>Food</span><span style="font-weight:700;">$181K</span></div><div style="height:8px; background:#EEF0F3; border-radius:4px;"><div style="width:90%; height:100%; background:#184080; border-radius:4px;"></div></div></div>
+          <div data-tip="Drink · $78K · 25% of revenue"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>Drink</span><span style="font-weight:700;">$78K</span></div><div style="height:8px; background:#EEF0F3; border-radius:4px;"><div style="width:48%; height:100%; background:#4A7BC8; border-radius:4px;"></div></div></div>
+          <div data-tip="Hookah · $41K · 13% of revenue"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>Hookah</span><span style="font-weight:700;">$41K</span></div><div style="height:8px; background:#EEF0F3; border-radius:4px;"><div style="width:28%; height:100%; background:#7FA3D6; border-radius:4px;"></div></div></div>
+          <div data-tip="Valet · $17K · 5% of revenue"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>Valet</span><span style="font-weight:700;">$17K</span></div><div style="height:8px; background:#EEF0F3; border-radius:4px;"><div style="width:12%; height:100%; background:#C4D6EC; border-radius:4px;"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BOTTOM SELLERS ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Bottom Sellers <span style="font-family:'Hanken Grotesk'; font-size:13px; color:#9AA1AC;">· org-wide · lowest movers first</span></div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;"><div style="padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff;">Bottom by $</div><div style="padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC;">Bottom by Qty</div></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Bottom Food</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">1</span><span style="flex:1; font-size:12px;">Garden Salad</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$310</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">2</span><span style="flex:1; font-size:12px;">Fried Yuca</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$380</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">3</span><span style="flex:1; font-size:12px;">Okra Stew</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$450</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">4</span><span style="flex:1; font-size:12px;">Veggie Samosa</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$520</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">5</span><span style="flex:1; font-size:12px;">Cassava Fries</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$590</span></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Bottom Liquor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">1</span><span style="flex:1; font-size:12px;">Amaretto Sour</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$180</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">2</span><span style="flex:1; font-size:12px;">Campari Spritz</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$240</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">3</span><span style="flex:1; font-size:12px;">Malibu Colada</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$290</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">4</span><span style="flex:1; font-size:12px;">Jameson Neat</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$340</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">5</span><span style="flex:1; font-size:12px;">Bacardi Mojito</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$410</span></div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:18px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">Bottom Hookah Flavor</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">1</span><span style="flex:1; font-size:12px;">Paan</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$95</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">2</span><span style="flex:1; font-size:12px;">Vanilla</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$140</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">3</span><span style="flex:1; font-size:12px;">Cherry</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$185</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">4</span><span style="flex:1; font-size:12px;">Coconut</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$230</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#9AA1AC; width:16px;">5</span><span style="flex:1; font-size:12px;">Peach</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">$280</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOCATION COMPARISON ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Location Comparison</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+            <th style="text-align:left; padding:12px 18px; font-weight:600;">Location</th>
+            <th style="padding:12px; font-weight:600;">Net Sales</th><th style="padding:12px; font-weight:600;">Valet</th><th style="padding:12px; font-weight:600;">Covers</th><th style="padding:12px; font-weight:600;">Avg Check</th><th style="padding:12px; font-weight:600;">Voids</th><th style="padding:12px; font-weight:600;">Discounts</th><th style="padding:12px; font-weight:600;">Food %</th><th style="padding:12px; font-weight:600;">Labor %</th><th style="padding:12px 18px; font-weight:600;">Liquor %</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+            <td style="text-align:left; padding:13px 18px; font-weight:700;">Teranga ATL</td><td style="padding:13px 12px;">$142,300</td><td style="padding:13px 12px;">$8,400</td><td style="padding:13px 12px;">3,180</td><td style="padding:13px 12px;">$44.75</td>
+            <td style="padding:13px 12px; color:#1A7F4B;">0.7%</td><td style="padding:13px 12px; color:#1A7F4B;">2.8%</td><td style="padding:13px 12px; background:#E6F4EC; color:#1A7F4B; font-weight:700;">29.4%</td><td style="padding:13px 12px; background:#E6F4EC; color:#1A7F4B; font-weight:700;">26.5%</td><td style="padding:13px 18px;">22.0%</td>
+          </tr>
+          <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+            <td style="text-align:left; padding:13px 18px; font-weight:700;">Teranga CLT</td><td style="padding:13px 12px;">$98,600</td><td style="padding:13px 12px;">$5,200</td><td style="padding:13px 12px;">2,420</td><td style="padding:13px 12px;">$40.74</td>
+            <td style="padding:13px 12px; color:#1A7F4B;">0.9%</td><td style="padding:13px 12px; background:#FBEAE8; color:#C0392B; font-weight:700;">3.9%</td><td style="padding:13px 12px; background:#FBEAE8; color:#C0392B; font-weight:700;">31.2%</td><td style="padding:13px 12px; background:#FBEAE8; color:#C0392B; font-weight:700;">29.4%</td><td style="padding:13px 18px;">23.6%</td>
+          </tr>
+          <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+            <td style="text-align:left; padding:13px 18px; font-weight:700;">Afro District</td><td style="padding:13px 12px;">$76,400</td><td style="padding:13px 12px;">$3,100</td><td style="padding:13px 12px;">2,050</td><td style="padding:13px 12px;">$37.27</td>
+            <td style="padding:13px 12px; color:#1A7F4B;">0.8%</td><td style="padding:13px 12px; color:#1A7F4B;">2.6%</td><td style="padding:13px 12px; background:#E6F4EC; color:#1A7F4B; font-weight:700;">28.1%</td><td style="padding:13px 12px; background:#E6F4EC; color:#1A7F4B; font-weight:700;">27.8%</td><td style="padding:13px 18px;">21.8%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tip: null };
+
+  renderVals() {
+    const tip = this.state.tip;
+    return {
+      tipOver: (e) => {
+        const el = e.target && e.target.closest ? e.target.closest("[data-tip]") : null;
+        if (el) {
+          this.setState({ tip: { text: el.getAttribute("data-tip"), x: e.clientX, y: e.clientY } });
+        } else if (this.state.tip) {
+          this.setState({ tip: null });
+        }
+      },
+      tipMove: (e) => {
+        const t = this.state.tip;
+        if (t && (Math.abs(e.clientX - t.x) + Math.abs(e.clientY - t.y) > 4)) {
+          this.setState({ tip: { text: t.text, x: e.clientX, y: e.clientY } });
+        }
+      },
+      tipHide: () => { if (this.state.tip) this.setState({ tip: null }); },
+      tipStyle: tip
+        ? { position: "fixed", left: (tip.x + 14) + "px", top: (tip.y - 34) + "px", background: "#102C58", color: "#fff", padding: "6px 10px", borderRadius: "7px", fontSize: "12px", fontWeight: 600, pointerEvents: "none", zIndex: 1000, whiteSpace: "nowrap", boxShadow: "0 4px 12px rgba(16,44,88,0.3)" }
+        : { display: "none" },
+      tipText: tip ? tip.text : "",
+    };
+  }
+}
+</script>
+</body>
+</html>
