@@ -200,6 +200,18 @@ export async function submitInvoice({ locationId, vendorName, invoiceDate, amoun
   return data
 }
 
+/** Mobile intake links (admin-only via RLS) — shown on the desktop intake
+    page so admins can share the no-login /submit?k=… URL with managers. */
+export async function fetchIntakeLinks() {
+  const { data, error } = await supabase
+    .from('invoice_intake_links')
+    .select('token, location_id, label, active')
+    .eq('active', true)
+    .order('label')
+  if (error) return [] // non-admins: RLS hides the table
+  return data ?? []
+}
+
 export async function fetchCategories() {
   const { data, error } = await supabase.from('expense_categories').select('id, name, grp').order('sort_order')
   if (error) throw new Error(error.message)
