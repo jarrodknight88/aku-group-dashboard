@@ -21,6 +21,74 @@ export const labelUpper = {
   fontWeight: 600,
 }
 
+/**
+ * Joined KPI stat row (§11): 1px-gap auto-fit grid inside one bordered
+ * container. `items` = { label, value, valueColor?, sub? (JSX) }.
+ */
+export function StatRow({ items, size = 28, min = 200, style }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`,
+        gap: 1,
+        background: colors.border,
+        border: `1px solid ${colors.border}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        ...style,
+      }}
+    >
+      {items.map((it, i) => (
+        <div key={i} style={{ background: '#fff', padding: size >= 28 ? '16px 18px' : '14px 16px' }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: colors.muted2, fontWeight: 700 }}>
+            {it.label}
+          </div>
+          <div
+            className="tnum"
+            style={{ fontFamily: fonts.serif, fontSize: size, fontWeight: 600, letterSpacing: '-0.01em', marginTop: size >= 28 ? 5 : 4, color: it.valueColor ?? colors.ink }}
+          >
+            {it.value}
+          </div>
+          {it.sub && <div style={{ marginTop: size >= 28 ? 8 : 2 }}>{it.sub}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Green/red delta chip + note, for StatRow subs and stat tiles. */
+export function DeltaChip({ delta, up = true, note = 'vs prior period' }) {
+  if (delta == null) return <span style={{ fontSize: 12, color: colors.muted3 }}>no comparison data</span>
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: up ? colors.greenDark : colors.red,
+          background: up ? colors.greenBg : colors.redBg,
+          padding: '2px 8px',
+          borderRadius: 5,
+        }}
+      >
+        {delta}
+      </span>
+      <span style={{ fontSize: 12, color: colors.muted3 }}>{note}</span>
+    </span>
+  )
+}
+
+/** 6px status dot + text (§11 — replaces emoji status glyphs). */
+export function StatusDot({ color, children, bold = 700 }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: bold, color }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      {children}
+    </span>
+  )
+}
+
 /** Headline-strip tile: label, big serif figure, green/red delta chip. */
 export function StatTile({ label, value, delta, up = true, note = 'vs last week' }) {
   return (

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import PageTitle from '../components/PageTitle.jsx'
+import DateRangePicker from '../components/DateRangePicker.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchOrgTargets, sumDaily } from '../data/live.js'
@@ -98,32 +100,32 @@ export default function ByLocation() {
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
       <AppHeader active="locations" />
 
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '30px 26px 48px' }}>
-        {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
-              Locations
+      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '20px 26px 48px' }}>
+        <PageTitle
+          title="Locations"
+          meta={
+            loading ? 'Loading…' : (
+              <>
+                {active.length} active · {fmtMoney(orgTotals.net)} net this period
+                {orgDelta != null && (
+                  <>
+                    {' · '}
+                    <span style={{ color: orgDelta >= 0 ? colors.greenDark : colors.red, fontWeight: 600 }}>{fmtDelta(orgDelta)}</span>{' '}
+                    vs prior period
+                  </>
+                )}
+              </>
+            )
+          }
+          right={
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <DateRangePicker />
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 700, color: colors.brand }}>
+                + Add Location
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: colors.muted3, marginTop: 5 }}>
-              {loading ? 'Loading…' : (
-                <>
-                  {active.length} active · {fmtMoney(orgTotals.net)} net this period
-                  {orgDelta != null && (
-                    <>
-                      {' · '}
-                      <span style={{ color: orgDelta >= 0 ? colors.greenDark : colors.red, fontWeight: 600 }}>{fmtDelta(orgDelta)}</span>{' '}
-                      vs prior period
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 700, color: colors.brand }}>
-            + Add Location
-          </div>
-        </div>
+          }
+        />
 
         {error && (
           <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 18 }}>

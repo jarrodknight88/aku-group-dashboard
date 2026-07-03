@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import PageTitle, { Crumbs } from '../components/PageTitle.jsx'
+import DateRangePicker from '../components/DateRangePicker.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import { card, RankRow, ModeToggle } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
@@ -70,26 +72,25 @@ export default function DetailDrill() {
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
       <AppHeader active="locations" />
 
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '22px 26px 48px' }}>
-        <Link
-          to={`/locations/${(location?.code ?? 'atl').toLowerCase()}`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted2, marginBottom: 12 }}
-        >
-          ← Back to {location?.name ?? 'Location'}
-        </Link>
-
-        {/* ===== PAGE TITLE ===== */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
-          <div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>
+      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '20px 26px 48px' }}>
+        <Crumbs
+          items={[
+            { label: 'Company', to: '/' },
+            { label: 'By Location', to: '/locations' },
+            { label: location?.name ?? '…', to: `/locations/${(location?.code ?? 'atl').toLowerCase()}` },
+            { label: 'Detail Drill' },
+          ]}
+        />
+        <PageTitle
+          title={
+            <>
               Detail Drill{' '}
-              <span style={{ fontFamily: fonts.sans, fontSize: 15, color: colors.muted3, fontWeight: 600 }}>· {location?.name ?? '…'}</span>
-            </div>
-            <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
-              The transaction-level "why" behind this location · {fmtRange(range.start, range.end)}
-            </div>
-          </div>
-        </div>
+              <span style={{ fontFamily: fonts.sans, fontSize: 14, color: colors.muted3, fontWeight: 600 }}>· {location?.name ?? '…'}</span>
+            </>
+          }
+          meta={<>The transaction-level "why" behind this location · {fmtRange(range.start, range.end)}</>}
+          right={<DateRangePicker />}
+        />
 
         {data.loading && <div style={{ padding: '40px 0', color: colors.muted3, fontSize: 13 }}>Loading live data…</div>}
         {data.error && (

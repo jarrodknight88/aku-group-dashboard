@@ -1,143 +1,131 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
-import RangePicker from './RangePicker.jsx'
+import { fetchLocations } from '../data/live.js'
 import { colors, fonts, layout } from '../theme.js'
 
-const ROLE_LABELS = {
-  owner: 'Owner',
-  admin: 'Admin',
-  general_manager: 'General Manager',
-  manager: 'Manager',
-}
-
 /**
- * Global top bar — persists across every level of the dashboard.
- * `active` highlights the current nav tab:
- * 'company' | 'locations' | 'payroll' | 'settings'.
- * `comparedTo` sets the comparison-window label under the date picker.
+ * Global top bar (enterprise pass, §11) — compact: brand left, nav right, no
+ * date control (the range picker lives in each page's title row).
+ * `active` highlights the current tab: 'company' | 'locations' | 'payroll' | 'settings'.
+ * Nav dropdowns: By Location lists venues (deep links to their reports);
+ * Settings lists Config / Account / Log out — managers see only Account.
  */
-export default function AppHeader({
-  active = 'company',
-  maxWidth = layout.maxWidth,
-  showDatePicker = true,
-}) {
+export default function AppHeader({ active = 'company' }) {
   const { profile, signOut } = useAuth()
+  const [locations, setLocations] = useState([])
+  const [menu, setMenu] = useState(null) // 'loc' | 'set' | null
 
-  const tabBase = {
-    padding: '8px 18px',
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 600,
-  }
+  useEffect(() => {
+    fetchLocations().then(setLocations).catch(() => setLocations([]))
+  }, [])
+
+  const isAdmin = ['owner', 'admin'].includes(profile?.role)
+
   const tab = (isActive) => ({
-    ...tabBase,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '7px 14px',
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: isActive ? 700 : 600,
     color: isActive ? '#fff' : colors.muted1,
     background: isActive ? colors.brand : 'transparent',
+    whiteSpace: 'nowrap',
   })
+  const caret = <span style={{ fontSize: 9, color: colors.muted3 }}>▾</span>
+  const menuBox = (side) => ({
+    position: 'absolute',
+    [side]: 0,
+    top: '100%',
+    marginTop: 4,
+    zIndex: 70,
+    minWidth: side === 'left' ? 200 : 180,
+    background: '#fff',
+    border: `1px solid ${colors.border}`,
+    borderRadius: 10,
+    boxShadow: '0 12px 32px rgba(16,44,88,0.16)',
+    padding: 6,
+    display: 'flex',
+    flexDirection: 'column',
+  })
+  const item = (bold, color) => ({
+    padding: '8px 12px',
+    borderRadius: 7,
+    fontSize: 12,
+    fontWeight: bold ? 700 : 600,
+    color: color ?? '#3A4150',
+  })
+  const divider = <div style={{ height: 1, background: '#F0F2F5', margin: '4px 6px' }} />
 
   return (
-    <div
-      style={{
-        background: colors.white,
-        borderBottom: `1px solid ${colors.border}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}
-    >
+    <div style={{ background: colors.white, borderBottom: `1px solid ${colors.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
       <div
         style={{
-          maxWidth,
+          maxWidth: layout.maxWidth,
           margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '16px 26px',
+          gap: '10px 16px',
+          padding: '12px 26px',
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 9,
-                background: colors.brand,
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontFamily: fonts.serif,
-                fontWeight: 600,
-                fontSize: 20,
-              }}
-            >
-              A
-            </div>
-            <div style={{ lineHeight: 1.08 }}>
-              <div
-                style={{
-                  fontFamily: fonts.serif,
-                  fontWeight: 600,
-                  fontSize: 19,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                Aku Group
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: colors.muted3,
-                  fontWeight: 500,
-                  letterSpacing: '0.03em',
-                }}
-              >
-                OPERATIONS DASHBOARD
-              </div>
-            </div>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: colors.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fonts.serif, fontWeight: 600, fontSize: 18 }}>
+            A
           </div>
-          <div
-            style={{
-              display: 'flex',
-              gap: 4,
-              background: colors.panelGray,
-              padding: 4,
-              borderRadius: 9,
-            }}
-          >
-            <Link to="/" style={tab(active === 'company')}>
-              Company
-            </Link>
+          <div style={{ lineHeight: 1.08 }}>
+            <div style={{ fontFamily: fonts.serif, fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>Aku Group</div>
+            <div style={{ fontSize: 10, color: colors.muted3, fontWeight: 500, letterSpacing: '0.03em' }}>OPERATIONS</div>
+          </div>
+        </Link>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, background: colors.panelGray, padding: 3, borderRadius: 8, maxWidth: '100%' }}>
+          <Link to="/" style={tab(active === 'company')}>
+            Company
+          </Link>
+          <div style={{ position: 'relative' }} onMouseEnter={() => setMenu('loc')} onMouseLeave={() => setMenu(null)}>
             <Link to="/locations" style={tab(active === 'locations')}>
-              By Location
+              By Location {caret}
             </Link>
-            <Link to="/payroll" style={tab(active === 'payroll')}>
-              Payroll
-            </Link>
-            <Link to="/settings" style={tab(active === 'settings')}>
-              Settings
-            </Link>
+            {menu === 'loc' && (
+              <div style={menuBox('left')}>
+                <Link to="/locations" className="menu-item" style={item(true, colors.ink)}>All locations</Link>
+                {divider}
+                {locations.map((l) =>
+                  l.status === 'active' ? (
+                    <Link key={l.id} to={`/locations/${l.code.toLowerCase()}`} className="menu-item" style={item(false)}>
+                      {l.name}
+                    </Link>
+                  ) : (
+                    <div key={l.id} style={{ ...item(false, colors.muted4), cursor: 'default' }}>{l.name} · coming soon</div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {showDatePicker && <RangePicker />}
-          {profile && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
-                {profile.full_name || profile.email}
+          <Link to="/payroll" style={tab(active === 'payroll')}>
+            Payroll
+          </Link>
+          <div style={{ position: 'relative' }} onMouseEnter={() => setMenu('set')} onMouseLeave={() => setMenu(null)}>
+            <Link to={isAdmin ? '/settings' : '/settings?tab=account'} style={tab(active === 'settings')}>
+              Settings {caret}
+            </Link>
+            {menu === 'set' && (
+              <div style={menuBox('right')}>
+                {isAdmin && (
+                  <Link to="/settings" className="menu-item" style={item(false)}>Config</Link>
+                )}
+                <Link to="/settings?tab=account" className="menu-item" style={item(false)}>Account</Link>
+                {divider}
+                <div onClick={signOut} className="menu-item menu-item-danger" style={{ ...item(true, colors.red), cursor: 'pointer' }}>
+                  Log out
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: colors.muted3 }}>
-                {ROLE_LABELS[profile.role] || profile.role} ·{' '}
-                <span
-                  onClick={signOut}
-                  style={{ color: colors.brand, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Sign out
-                </span>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

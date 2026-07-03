@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { card, StatTile, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
+import PageTitle, { dataThrough } from '../components/PageTitle.jsx'
+import DateRangePicker from '../components/DateRangePicker.jsx'
+import { card, StatRow, DeltaChip, KpiTile, Within, DetailsTail, RankRow, DayBarsCard, DAY_LABELS, weekdayBars, DonutRing, ChargebacksCard, ExceptionTile, ModeToggle } from '../components/cards.jsx'
 import { useHoverTip } from '../components/HoverTip.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations, sumDaily, groupSum } from '../data/live.js'
 import { useDashboardData } from '../data/useDashboardData.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
-import { fromStr } from '../lib/dates.js'
+import { fromStr, fmtRange } from '../lib/dates.js'
 
 /* Live Level 1 — org rollup across every location the signed-in user can
    see. Percentages recompute from summed dollars across locations (never
@@ -20,9 +22,10 @@ const STREAM_COLORS = [colors.brand, colors.brandTint1, colors.brandTint2, color
 /** Short venue label for chart tooltips: "Teranga ATL" → "ATL". */
 const shortName = (name) => (name || '').replace(/^Teranga\s+/, '')
 
-function HeadTile({ label, cur, prev, fmt }) {
+/** Joined-row headline item with a delta chip vs the comparison window. */
+function statItem(label, cur, prev, fmt) {
   const d = deltaPct(cur, prev)
-  return <StatTile label={label} value={fmt(cur)} delta={fmtDelta(d)} up={d == null ? true : d >= 0} note="vs prior period" />
+  return { label, value: fmt(cur), sub: <DeltaChip delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
 }
 
 /** Grouped daily (or weekly) bars, one series per location. */
@@ -256,7 +259,12 @@ export default function CompanyGlance() {
       {hoverTip.tip}
       <AppHeader active="company" />
 
-      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '28px 26px 48px' }}>
+      <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '20px 26px 48px' }}>
+        <PageTitle
+          title="Company Overview"
+          meta={<>All locations · <span style={{ color: colors.muted2 }}>{dataThrough(data.cur)} · Toast</span></>}
+          right={<DateRangePicker />}
+        />
         {data.loading && <div style={{ padding: '40px 0', color: colors.muted3, fontSize: 13 }}>Loading live data…</div>}
         {data.error && (
           <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 20 }}>
@@ -267,16 +275,19 @@ export default function CompanyGlance() {
         {!data.loading && !data.error && (
           <>
             {/* ===== HEADLINE STRIP ===== */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
-              <HeadTile label="Total Net Sales" cur={t?.net} prev={prev?.net} fmt={fmtMoney} />
-              <HeadTile label="Total Covers" cur={t?.covers} prev={prev?.covers} fmt={fmtInt} />
-              <HeadTile label="Avg Check Size" cur={t?.avgCheck} prev={prev?.avgCheck} fmt={fmtMoneyC} />
-              <HeadTile label="Gross Sales" cur={t?.gross} prev={prev?.gross} fmt={fmtMoney} />
-            </div>
+            <StatRow
+              style={{ marginBottom: 28 }}
+              items={[
+                statItem('Total Net Sales', t?.net, prev?.net, fmtMoney),
+                statItem('Total Covers', t?.covers, prev?.covers, fmtInt),
+                statItem('Avg Check Size', t?.avgCheck, prev?.avgCheck, fmtMoneyC),
+                statItem('Gross Sales', t?.gross, prev?.gross, fmtMoney),
+              ]}
+            />
 
             {/* ===== MONEY IN ===== */}
             <SectionHeader title="Money In" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 30 }}>
               <DailyByLocationCard rows={data.cur ?? []} locations={active} />
               <RevenueMixCard rows={data.cur ?? []} locations={active} totalNet={t?.net ?? 0} />
               <StreamsByLocationCard cats={data.cats ?? []} locations={active} />
@@ -284,7 +295,7 @@ export default function CompanyGlance() {
 
             {/* ===== MONEY SAVED ===== */}
             <SectionHeader title="Money Saved" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Food Cost %" value={fmtPct(t?.foodPct)} sub={t?.foodPct == null ? 'Awaiting invoice intake' : `Target < ${targets.food_pct ?? 30}%`} status={t?.foodPct == null ? 'neutral' : t.foodPct < (targets.food_pct ?? 30) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Labor Cost %" value={fmtPct(t?.laborPct)} sub={t?.laborPct == null ? 'Labor source deferred' : `Target < ${targets.labor_pct ?? 28}%`} status={t?.laborPct == null ? 'neutral' : t.laborPct < (targets.labor_pct ?? 28) ? 'good' : 'bad'} subTop={5} />
               <KpiTile label="Liquor Cost %" value={fmtPct(t?.liquorPct)} sub={t?.liquorPct == null ? 'Awaiting invoice intake' : `Target < ${targets.liquor_pct ?? 24}%`} status={t?.liquorPct == null ? 'neutral' : t.liquorPct < (targets.liquor_pct ?? 24) ? 'good' : 'bad'} subTop={5} />
@@ -306,7 +317,7 @@ export default function CompanyGlance() {
 
             {/* ===== TOP SELLERS ===== */}
             <SectionHeader title="Top Sellers" sub="org-wide" right={<ModeToggle mode={mode} onChange={setMode} />} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 30 }}>
               {['Food', 'Liquor', 'Hookah'].map((c) => (
                 <div key={c} style={{ ...card, padding: 18 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>Top {c}</div>
@@ -349,7 +360,7 @@ export default function CompanyGlance() {
               sub="org-wide · lowest movers first"
               right={<ModeToggle mode={bottomMode} onChange={setBottomMode} labels={['Bottom by $', 'Bottom by Qty']} />}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 30 }}>
               {[['Bottom Food', 'Food'], ['Bottom Liquor', 'Liquor'], ['Bottom Hookah Flavor', 'Hookah']].map(([title, c]) => (
                 <div key={c} style={{ ...card, padding: 18 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 13 }}>{title}</div>

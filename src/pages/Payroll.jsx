@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
+import PageTitle from '../components/PageTitle.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
@@ -71,7 +72,7 @@ function ExportModal({ csv, subtitle, onClose, onDownload }) {
             <div onClick={onClose} style={{ padding: '10px 16px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600, color: '#3A4150', cursor: 'pointer' }}>Cancel</div>
             {onDownload && (
               <div onClick={onDownload} style={{ padding: '10px 18px', background: colors.brand, color: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                ⤓ Download .csv &amp; save batch
+                Download .csv &amp; save batch
               </div>
             )}
           </div>
@@ -197,13 +198,25 @@ export default function Payroll() {
     a.download = `${batchId}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-    const { error } = await supabase.from('payroll_runs').upsert(
-      {
-        period_start: period.start, period_end: period.end, batch_id: batchId,
-        status: 'exported', exported_at: new Date().toISOString(), csv,
-      },
-      { onConflict: 'batch_id' },
-    )
+    const { data: saved, error } = await supabase
+      .from('payroll_runs')
+      .upsert(
+        {
+          period_start: period.start, period_end: period.end, batch_id: batchId,
+          status: 'exported', exported_at: new Date().toISOString(), csv,
+        },
+        { onConflict: 'batch_id' },
+      )
+      .select('id')
+      .single()
+    if (!error && saved?.id) {
+      // Stamp every released hold this export just paid, so the tip can't ride
+      // along on a future run ("pays on the next run exported after approval").
+      const holdIds = hourly.flatMap((r) => r.releasedHoldIds ?? [])
+      if (holdIds.length) {
+        await supabase.from('tip_holds').update({ released_run_id: saved.id, updated_at: new Date().toISOString() }).in('id', holdIds)
+      }
+    }
     if (!error) setReloadKey((k) => k + 1)
     setExportView(null)
   }
@@ -244,7 +257,7 @@ export default function Payroll() {
             <td style={{ padding: '13px 12px', color: colors.muted3 }}>{batchId}</td>
             <td style={{ padding: '13px 12px' }}><span style={pill(colors.muted1, colors.pageBg)}>In progress</span></td>
             <td style={{ padding: '13px 18px' }}>
-              <span onClick={exportBatch} style={{ fontSize: 12, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}>⤓ View</span>
+              <span onClick={exportBatch} style={{ fontSize: 12, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}>View</span>
             </td>
           </tr>
           {(data.runs ?? []).map((r) => (
@@ -259,7 +272,7 @@ export default function Payroll() {
                   onClick={() => setExportView({ csv: r.csv || '(no CSV stored)', subtitle: `Archived batch ${r.batch_id} · ${fmtRange(r.period_start, r.period_end)} — exactly as exported` })}
                   style={{ fontSize: 12, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}
                 >
-                  ⤓ View
+                  View
                 </span>
               </td>
             </tr>
@@ -278,22 +291,19 @@ export default function Payroll() {
 
   return (
     <div style={{ minHeight: '100vh', background: colors.pageBg, color: colors.ink }}>
-      <AppHeader active="payroll" showDatePicker={false} />
+      <AppHeader active="payroll" />
 
       <div style={{ maxWidth: layout.maxWidth, margin: '0 auto', padding: '24px 26px 48px' }}>
         {/* ===== PAGE TITLE + PERIOD + ACTIONS ===== */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
-          <div>
-            <div style={{ fontFamily: fonts.serif, fontSize: 30, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.05 }}>Payroll Run</div>
-            <div style={{ fontSize: 13, color: colors.muted3, marginTop: 4 }}>
-              Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <PageTitle
+          title="Payroll Run"
+          meta={<>Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time</>}
+          right={
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600 }}>
                 <span onClick={() => setOffset((o) => o - 1)} style={{ padding: '5px 10px', cursor: 'pointer', color: colors.muted1 }}>◀</span>
-                <span style={{ padding: '5px 4px' }}>📅 Pay Period: {periodLabel}</span>
+                <span style={{ padding: '5px 4px' }}>Pay Period: {periodLabel}</span>
                 <span
                   onClick={() => offset < 0 && setOffset((o) => o + 1)}
                   style={{ padding: '5px 10px', cursor: offset < 0 ? 'pointer' : 'default', color: offset < 0 ? colors.muted1 : colors.muted4 }}
@@ -307,13 +317,14 @@ export default function Payroll() {
               onClick={pullState?.running ? undefined : runPayroll}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: colors.brand, color: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: pullState?.running ? 0.7 : 1 }}
             >
-              {pullState?.running ? '⟳ Pulling tips sheet…' : '⟳ Run Payroll'}
+              {pullState?.running ? 'Pulling tips sheet…' : 'Run Payroll'}
             </div>
-            <div onClick={exportBatch} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', border: `1px solid ${colors.borderStrong}`, background: '#fff', color: colors.brand, borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              ⤓ Export to ADP
+              <div onClick={exportBatch} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', border: `1px solid ${colors.borderStrong}`, background: '#fff', color: colors.brand, borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Export to ADP
+              </div>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {pullState?.msg && (
           <div style={{ padding: '10px 14px', background: '#E8EEF6', borderRadius: 9, color: colors.brand, fontSize: 12, fontWeight: 600, marginBottom: 16 }}>
@@ -349,13 +360,13 @@ export default function Payroll() {
                 {tipDays > 0 ? `✓ Tips sheet · ${tipDays} nights` : '● Tips sheet not pulled — press Run Payroll'}
               </span>
               {heldSum > 0 && (
-                <Link to="/exceptions" style={chip(colors.brand, '#E8EEF6')}>⏳ {fmt(heldSum)} in large tips held</Link>
+                <Link to="/exceptions" style={chip(colors.brand, '#E8EEF6')}>{fmt(heldSum)} in large tips held</Link>
               )}
               {reviewCount > 0 && <span style={chip(colors.red, colors.redBg)}>● {reviewCount} needs review</span>}
             </div>
 
             {/* ===== SUMMARY TILES ===== */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 28 }}>
               <div style={{ background: colors.brand, borderRadius: 13, padding: 20, color: '#fff' }}>
                 <div style={{ ...labelUpper, color: colors.brandTint3 }}>Total Payroll</div>
                 <div className="tnum" style={{ fontFamily: fonts.serif, fontSize: 34, fontWeight: 600, marginTop: 6 }}>{fmt(sumWages + sumTips + sumSalary)}</div>
