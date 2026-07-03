@@ -98,6 +98,17 @@ const Icon = {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   ),
+  chevron: (s = 11) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 9l7 7 7-7" />
+    </svg>
+  ),
+  pin: (s = 16) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s-6.5-5.4-6.5-10.2a6.5 6.5 0 0 1 13 0C18.5 15.6 12 21 12 21z" />
+      <circle cx="12" cy="10.6" r="2.3" />
+    </svg>
+  ),
 }
 
 export default function MobileIntake() {
@@ -123,6 +134,7 @@ export default function MobileIntake() {
   const [dupes, setDupes] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(null) // { status, reasons, vendor, amount, date, locationName, name }
+  const [locSheet, setLocSheet] = useState(false) // location picker (header chip)
   const fileRef = useRef(null)
   const blurTimer = useRef(null)
 
@@ -133,6 +145,7 @@ export default function MobileIntake() {
         setBoot(b)
         if (b.location) setLocationId(b.location.id)
         else if (b.locations?.length === 1) setLocationId(b.locations[0].id)
+        else setLocSheet(true) // org-wide link: pick a venue before anything else
       })
       .catch((e) => setDead(e.message))
     return () => clearTimeout(blurTimer.current)
@@ -202,7 +215,7 @@ export default function MobileIntake() {
       }
       if (file) payload.file = await fileToPayload(file)
       const r = await callFn(payload)
-      const locationName = boot?.location?.name ?? boot?.locations?.find((l) => l.id === locationId)?.name ?? ''
+      const locationName = boot?.locations?.find((l) => l.id === locationId)?.name ?? boot?.location?.name ?? ''
       setDone({ status: r.status, reasons: r.flag_reasons ?? [], vendor: r.vendor, amount: Number(amount), date: invoiceDate, locationName, name: name.trim() })
       window.scrollTo(0, 0)
     } catch (e) {
@@ -240,6 +253,10 @@ export default function MobileIntake() {
     </div>
   )
 
+  // header chip: shows the venue this submission will post to; tappable on
+  // the form so traveling stakeholders can switch venues on any link
+  const currentLoc = boot?.locations?.find((l) => l.id === locationId) ?? boot?.location ?? null
+  const chipInteractive = !!boot && !done && !dead && (boot.locations?.length ?? 0) > 1
   const header = (
     <div style={{ background: `linear-gradient(160deg, ${colors.brand} 0%, ${colors.navy} 100%)`, color: '#fff', padding: '16px 0 42px', marginBottom: -28 }}>
       <div style={{ ...shell, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -250,9 +267,54 @@ export default function MobileIntake() {
             <div style={{ fontSize: 9, opacity: 0.75, fontWeight: 600, letterSpacing: '0.09em' }}>OPERATIONS</div>
           </div>
         </div>
-        {(boot?.location?.name || boot?.label) && (
-          <div style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', whiteSpace: 'nowrap' }}>
-            {boot?.location?.name || boot?.label}
+        {(currentLoc || boot?.label || chipInteractive) && (
+          <div
+            onClick={() => chipInteractive && setLocSheet(true)}
+            className={chipInteractive ? 'mi-press' : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, padding: '7px 12px', borderRadius: 999,
+              background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', whiteSpace: 'nowrap',
+              cursor: chipInteractive ? 'pointer' : 'default',
+            }}
+          >
+            {currentLoc?.name || boot?.label || 'Select location'}
+            {chipInteractive && <span style={{ display: 'flex', opacity: 0.8 }}>{Icon.chevron()}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const locationSheet = locSheet && boot && (
+    <div onClick={() => locationId && setLocSheet(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,22,44,0.52)', zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: '#fff', borderRadius: '16px 16px 0 0', padding: '10px 18px 26px', boxShadow: '0 -12px 40px rgba(16,44,88,0.25)' }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: colors.borderStrong, margin: '2px auto 14px' }} />
+        <div style={{ fontFamily: fonts.serif, fontSize: 18, fontWeight: 600, marginBottom: 2 }}>Select location</div>
+        <div style={{ fontSize: 12.5, color: colors.muted2, marginBottom: 10 }}>This invoice will post to the venue you choose.</div>
+        {(boot.locations ?? []).map((l) => {
+          const selected = l.id === locationId
+          return (
+            <div
+              key={l.id}
+              onClick={() => { setLocationId(l.id); setLocSheet(false) }}
+              className="mi-press"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 12px',
+                borderRadius: 10, cursor: 'pointer', borderTop: `1px solid ${colors.pageBg}`,
+                background: selected ? '#E8EEF6' : 'transparent',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15.5, fontWeight: selected ? 700 : 600 }}>
+                <span style={{ display: 'flex', color: selected ? colors.brand : colors.muted3 }}>{Icon.pin()}</span>
+                {l.name}
+              </span>
+              {selected && <span style={{ display: 'flex', color: colors.brand }}>{Icon.check(18)}</span>}
+            </div>
+          )
+        })}
+        {boot.location && locationId && locationId !== boot.location.id && (
+          <div style={{ marginTop: 10, fontSize: 12, color: colors.muted2, lineHeight: 1.45 }}>
+            This link's home venue is {boot.location.name} — your choice applies to this visit.
           </div>
         )}
       </div>
@@ -330,6 +392,7 @@ export default function MobileIntake() {
   return (
     <div style={page}>
       {header}
+      {locationSheet}
       <div style={shell}>
         <div style={cardStyle}>
           <div style={{ padding: '18px 18px 14px' }}>
@@ -393,17 +456,7 @@ export default function MobileIntake() {
               <div style={section}>
                 <div style={sectionTitle}>Invoice details</div>
 
-                {boot.locations && (
-                  <>
-                    <div style={{ ...label, marginTop: 0 }}>Location</div>
-                    <select className="mi-input" value={locationId} onChange={(e) => setLocationId(e.target.value)} style={input}>
-                      <option value="">Select location…</option>
-                      {boot.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                    </select>
-                  </>
-                )}
-
-                <div style={{ ...label, marginTop: boot.locations ? 14 : 0 }}>Amount</div>
+                <div style={{ ...label, marginTop: 0 }}>Amount</div>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: colors.muted3 }}>$</span>
                   <input className="mi-input tnum" type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ ...input, paddingLeft: 30 }} />
