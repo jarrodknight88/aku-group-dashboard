@@ -1,13 +1,20 @@
 // pull-tips — reads the nightly reconciliation Google Sheet (one tab per day,
 // MM.dd.yy) for a date range and replaces those days' rows in daily_tips.
 // Invoked by the dashboard's Run Payroll button with the signed-in user's JWT;
-// only org admins pass. The sheet is read via the anonymous CSV export, so it
-// must be link-shared as Viewer (the function returns a clear error if not).
+// only org admins pass.
+//
+// Sheet access: preferred path is a Google service account (set the
+// GOOGLE_SA_KEY secret to the service account's JSON key and share the
+// spreadsheet with its client_email as Viewer). Without the secret it falls
+// back to the anonymous CSV export, which requires link-sharing.
 //
 // Section semantics mirror the sheet's weekly gratuity script exactly:
 // rows above the first tipout-job row (Barback / Hookah Master / Service Bar /
 // Host in column B) take column K (earned tips, net of tip-out); rows at or
-// below take column C (tipout received); same-name rows are summed.
+// below take column C (tipout received); same-name rows are summed; the
+// aggregate rows at the bottom (Hookah/Barback/Bartender Tipout, Final House
+// Cash, Expected Cash) are skipped — that money is already counted in the
+// individual rows.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -21,6 +28,43 @@ const EXCLUDE_NAMES = new Set([
   'Day Shift', 'Night Shift', 'APD', 'Hookah Tipout', 'Barback Tipout', 'Bartender Tipout',
   'Final House Cash', 'Expected Cash', 'Name', '',
 ])
+
+/* ---------- Google service-account auth (Sheets read-only) ---------- */
+
+async function googleAccessToken(sa: { client_email: string; private_key: string }): Promise<string> {
+  const enc = new TextEncoder()
+  const b64url = (data: Uint8Array | string) => {
+    const bytes = typeof data === 'string' ? enc.encode(data) : data
+    let bin = ''
+    for (const b of bytes) bin += String.fromCharCode(b)
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  }
+  const now = Math.floor(Date.now() / 1000)
+  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const claims = b64url(
+    JSON.stringify({
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    }),
+  )
+  const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s/g, '')
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0))
+  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(`${header}.${claims}`)))
+  const jwt = `${header}.${claims}.${b64url(sig)}`
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${jwt}`,
+  })
+  if (!res.ok) throw new Error(`Google token exchange failed (${res.status}) — check the GOOGLE_SA_KEY secret.`)
+  return (await res.json()).access_token
+}
+
+/* ---------- tab fetchers ---------- */
 
 /** Minimal CSV parser (handles quoted fields with commas/newlines). */
 function parseCsv(text: string): string[][] {
@@ -46,8 +90,42 @@ function parseCsv(text: string): string[][] {
   return rows
 }
 
-const money = (v: string | undefined) => Number(String(v ?? '').replace(/[^0-9.\-]/g, '')) || 0
+/** Returns the tab's rows, null if the tab doesn't exist, or throws on access errors. */
+async function fetchTabRows(sheetId: string, tab: string, googleToken: string | null): Promise<string[][] | null> {
+  if (googleToken) {
+    const range = encodeURIComponent(`'${tab}'!A1:K500`)
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`, {
+      headers: { Authorization: `Bearer ${googleToken}` },
+    })
+    if (res.status === 400) return null // "Unable to parse range" = no tab for this date (closed day)
+    if (res.status === 403 || res.status === 404) {
+      throw new Error(
+        'The service account cannot read the spreadsheet — share the sheet with the service account email (Viewer) and run again.',
+      )
+    }
+    if (!res.ok) throw new Error(`Sheets API ${res.status}: ${(await res.text()).slice(0, 160)}`)
+    return (await res.json()).values ?? []
+  }
+  // Anonymous fallback — requires "Anyone with the link: Viewer" on the sheet.
+  const res = await fetch(
+    `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`,
+    { redirect: 'follow' },
+  )
+  const body = await res.text()
+  if (!res.ok || body.trimStart().startsWith('<')) {
+    if (body.includes('accounts.google.com') || res.status === 401 || res.status === 403) {
+      throw new Error(
+        'No sheet access: set the GOOGLE_SA_KEY secret (service account) or link-share the sheet as Viewer.',
+      )
+    }
+    return null
+  }
+  return parseCsv(body)
+}
 
+/* ---------- helpers ---------- */
+
+const money = (v: string | undefined) => Number(String(v ?? '').replace(/[^0-9.\-]/g, '')) || 0
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const tabNameFor = (iso: string) => {
   const [y, m, d] = iso.split('-')
@@ -64,6 +142,8 @@ function datesInRange(startIso: string, endIso: string): string[] {
   }
   return out
 }
+
+/* ---------- handler ---------- */
 
 Deno.serve(async (req: Request) => {
   const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
@@ -90,6 +170,9 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Date range must be 1–92 days.' }), { status: 400, headers })
     }
 
+    const saJson = Deno.env.get('GOOGLE_SA_KEY')
+    const googleToken = saJson ? await googleAccessToken(JSON.parse(saJson)) : null
+
     const service = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const { data: loc, error: locErr } = await service.from('locations').select('id').ilike('code', code).single()
     if (locErr || !loc) {
@@ -98,24 +181,12 @@ Deno.serve(async (req: Request) => {
 
     const days: { date: string; tab: string; rows: number }[] = []
     const skipped: string[] = []
-    let authFailure = false
 
     for (const date of dates) {
       const tab = tabNameFor(date)
-      const res = await fetch(
-        `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`,
-        { redirect: 'follow' },
-      )
-      const body = await res.text()
-      // No-access and missing-tab both come back as non-CSV; a login redirect
-      // (HTML) on every tab means the sheet is not link-readable.
-      if (!res.ok || body.trimStart().startsWith('<')) {
-        if (body.includes('accounts.google.com') || res.status === 401 || res.status === 403) authFailure = true
-        skipped.push(tab)
-        continue
-      }
+      const data = await fetchTabRows(sheetId, tab, googleToken)
+      if (!data) { skipped.push(tab); continue }
 
-      const data = parseCsv(body)
       let tipoutStart = Infinity
       for (let r = 0; r < data.length; r++) {
         const job = (data[r][1] ?? '').toString().trim()
@@ -150,18 +221,8 @@ Deno.serve(async (req: Request) => {
       days.push({ date, tab, rows: rows.length })
     }
 
-    if (authFailure && days.length === 0) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'The reconciliation sheet is not link-readable. In Google Sheets: Share → General access → "Anyone with the link" → Viewer, then run again.',
-        }),
-        { status: 502, headers },
-      )
-    }
-
     return new Response(
-      JSON.stringify({ ok: true, totalRows: days.reduce((s, d) => s + d.rows, 0), days, skipped }),
+      JSON.stringify({ ok: true, totalRows: days.reduce((s, d) => s + d.rows, 0), days, skipped, auth: googleToken ? 'service-account' : 'anonymous' }),
       { headers },
     )
   } catch (err) {
