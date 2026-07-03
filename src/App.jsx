@@ -9,6 +9,7 @@ import DetailDrill from './pages/DetailDrill.jsx'
 import ExceptionDetail from './pages/ExceptionDetail.jsx'
 import VoidDiscountDetail from './pages/VoidDiscountDetail.jsx'
 import Payroll from './pages/Payroll.jsx'
+import Financials from './pages/Financials.jsx'
 import Settings from './pages/Settings.jsx'
 import { colors } from './theme.js'
 
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/exceptions" element={<RequireAuth><ExceptionDetail /></RequireAuth>} />
         <Route path="/void-discount" element={<RequireAuth><VoidDiscountDetail /></RequireAuth>} />
         <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
+        <Route path="/financials" element={<RequireAuth><Financials /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
