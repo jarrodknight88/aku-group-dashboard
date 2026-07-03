@@ -22,7 +22,7 @@ export function payPeriod(offset = 0) {
 }
 
 export async function fetchPayrollData(start, end) {
-  const [labor, tips, aliases, salaried, holds, runs, rates] = await Promise.all([
+  const [labor, tips, aliases, salaried, holds, runs, rates, exclusions] = await Promise.all([
     supabase.from('daily_labor').select('*').gte('business_date', start).lte('business_date', end),
     supabase.from('daily_tips').select('*').gte('business_date', start).lte('business_date', end),
     supabase.from('employee_aliases').select('*'),
@@ -30,8 +30,9 @@ export async function fetchPayrollData(start, end) {
     supabase.from('tip_holds').select('*'),
     supabase.from('payroll_runs').select('*').order('period_start', { ascending: false }).limit(12),
     supabase.from('employee_rates').select('*'),
+    supabase.from('payroll_exclusions').select('*'),
   ])
-  const firstError = [labor, tips, aliases, salaried, holds, runs, rates].find((r) => r.error)
+  const firstError = [labor, tips, aliases, salaried, holds, runs, rates, exclusions].find((r) => r.error)
   if (firstError) throw new Error(firstError.error.message)
   return {
     labor: labor.data ?? [],
@@ -41,7 +42,23 @@ export async function fetchPayrollData(start, end) {
     holds: holds.data ?? [],
     runs: runs.data ?? [],
     rates: rates.data ?? [],
+    exclusions: exclusions.data ?? [],
   }
+}
+
+/** Exclude an employee from payroll runs (managers/security who clock in via
+    Toast but aren't paid here). They move to the Excluded section until restored. */
+export async function excludeEmployee(locationId, guid, name) {
+  const { error } = await supabase
+    .from('payroll_exclusions')
+    .upsert({ location_id: locationId, employee_guid: guid, employee_name: name }, { onConflict: 'employee_guid' })
+  if (error) throw new Error(error.message)
+}
+
+/** Put an excluded employee back on the payroll run. */
+export async function restoreEmployee(guid) {
+  const { error } = await supabase.from('payroll_exclusions').delete().eq('employee_guid', guid)
+  if (error) throw new Error(error.message)
 }
 
 /** Set (or clear, with rate == null) an employee's dashboard hourly rate.
@@ -95,7 +112,7 @@ function fuzzyCandidates(sheetNorm, employees) {
  * sheet tips, hold/release notations, and weekly-OT split (informational —
  * everything pays at straight time). Returns unmatched sheet names too.
  */
-export function buildRun({ labor, tips, aliases, holds, rates }, periodStart, periodEnd) {
+export function buildRun({ labor, tips, aliases, holds, rates, exclusions }, periodStart, periodEnd) {
   // --- roll up Toast labor per employee ---
   const byEmp = new Map()
   const startDate = fromStr(periodStart)
@@ -117,7 +134,7 @@ export function buildRun({ labor, tips, aliases, holds, rates }, periodStart, pe
   // Dashboard rates override Toast wages: Toast time entries rarely carry a
   // wage, so the entered rate × Toast hours is the wages source of truth.
   const rateMap = new Map((rates ?? []).map((r) => [r.employee_guid, Number(r.rate)]))
-  const employees = [...byEmp.values()].map((e) => {
+  const allEmployees = [...byEmp.values()].map((e) => {
     const dashRate = rateMap.get(e.guid)
     const rate = dashRate ?? (e.hours > 0 ? e.wagesC / 100 / e.hours : 0)
     const wages = dashRate != null ? Math.round(e.hours * dashRate * 100) / 100 : e.wagesC / 100
@@ -131,6 +148,16 @@ export function buildRun({ labor, tips, aliases, holds, rates }, periodStart, pe
       rateSource: dashRate != null ? 'dashboard' : rate > 0 ? 'toast' : 'none',
     }
   })
+
+  // --- payroll exclusions (managers/security clocking in via Toast) ---
+  // Partition BEFORE tips matching so an excluded person's sheet tips land in
+  // the unmatched banner instead of silently disappearing from the run.
+  const exclMap = new Map((exclusions ?? []).map((x) => [x.employee_guid, x]))
+  const employees = allEmployees.filter((e) => !exclMap.has(e.guid))
+  const excluded = allEmployees
+    .filter((e) => exclMap.has(e.guid))
+    .map((e) => ({ ...e, excludedAt: exclMap.get(e.guid)?.created_at }))
+    .sort((a, b) => b.hours - a.hours)
 
   // --- roll up sheet tips per (location, name) ---
   const tipTotals = new Map()
@@ -209,7 +236,7 @@ export function buildRun({ labor, tips, aliases, holds, rates }, periodStart, pe
     }
   })
 
-  return { rows, unmatchedSheetNames, locTipDays }
+  return { rows, excluded, unmatchedSheetNames, locTipDays }
 }
 
 /** Pull the reconciliation sheet for a period via the pull-tips edge function. */

@@ -6,7 +6,7 @@ import SectionHeader from '../components/SectionHeader.jsx'
 import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations } from '../data/live.js'
-import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate } from '../data/payroll.js'
+import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate, excludeEmployee, restoreEmployee } from '../data/payroll.js'
 import { supabase } from '../lib/supabase.js'
 import { fmtRange } from '../lib/dates.js'
 import { TIP_HOLD_THRESHOLD, TIP_HOLD_DAYS, PAY_PERIOD_DAYS, ADP_CO_CODES } from '../config.js'
@@ -118,7 +118,7 @@ export default function Payroll() {
     ADP_CO_CODES[(l?.code ?? '').toLowerCase()] ?? ((l?.name ?? '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'LOC')
 
   const run = useMemo(
-    () => (data.labor ? buildRun(data, period.start, period.end) : { rows: [], unmatchedSheetNames: [], locTipDays: new Map() }),
+    () => (data.labor ? buildRun(data, period.start, period.end) : { rows: [], excluded: [], unmatchedSheetNames: [], locTipDays: new Map() }),
     [data, period.start, period.end],
   )
 
@@ -152,6 +152,7 @@ export default function Payroll() {
     .filter((s) => (scopeId ? s.location_id === scopeId : true))
     .map((s) => ({ ...s, coCode: coCode(locById[s.location_id]) }))
   const unmatched = run.unmatchedSheetNames.filter((u) => (scopeId ? u.loc === scopeId : true))
+  const excludedRows = (run.excluded ?? []).filter((r) => (scopeId ? r.loc === scopeId : true))
 
   const sumHours = hourly.reduce((a, r) => a + r.hours, 0)
   const sumOT = hourly.reduce((a, r) => a + r.ot, 0)
@@ -234,6 +235,16 @@ export default function Payroll() {
       setReloadKey((k) => k + 1)
     } catch (e) {
       setPullState({ msg: `Add failed: ${e.message}` })
+    }
+  }
+
+  const toggleExclude = async (r, exclude) => {
+    try {
+      if (exclude) await excludeEmployee(r.loc, r.guid, r.name)
+      else await restoreEmployee(r.guid)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setPullState({ msg: `${exclude ? 'Exclude' : 'Restore'} failed: ${e.message}` })
     }
   }
 
@@ -483,12 +494,13 @@ export default function Payroll() {
                         <Th k="tips">Tips Owed</Th>
                         <th style={thRight}>Match</th>
                         <Th k="check" wide>Check Total</Th>
+                        <th style={{ width: 34 }} />
                       </tr>
                     </thead>
                     <tbody>
                       {hourly.length === 0 && (
                         <tr>
-                          <td colSpan={9} style={{ padding: '18px', color: colors.muted3, fontSize: 12 }}>
+                          <td colSpan={10} style={{ padding: '18px', color: colors.muted3, fontSize: 12 }}>
                             No Toast hours for this location in {periodLabel} — run the Toast backfill for this range first.
                           </td>
                         </tr>
@@ -539,6 +551,13 @@ export default function Payroll() {
                             </span>
                           </td>
                           <td style={{ padding: '12px 18px', fontWeight: 700 }}>{fmt(r.check)}</td>
+                          <td
+                            onClick={() => toggleExclude(r, true)}
+                            title="Exclude from payroll (managers/security) — moves to the Excluded section below"
+                            style={{ padding: '12px 14px 12px 0', textAlign: 'center', color: '#C4C9D1', cursor: 'pointer', fontSize: 13 }}
+                          >
+                            ✕
+                          </td>
                         </tr>
                       ))}
                       {hourly.length > 0 && (
@@ -552,6 +571,7 @@ export default function Payroll() {
                           <td style={{ padding: '13px 12px', fontWeight: 700 }}>{fmt(sumTips)}</td>
                           <td />
                           <td style={{ padding: '13px 18px', fontWeight: 800 }}>{fmt(sumWages + sumTips)}</td>
+                          <td />
                         </tr>
                       )}
                     </tbody>
@@ -619,6 +639,45 @@ export default function Payroll() {
                   days (chargeback window): held amounts are excluded from tips owed and notated on the row, then added to a later
                   run's check when released — also notated.
                 </div>
+
+                {/* ===== EXCLUDED EMPLOYEES ===== */}
+                {excludedRows.length > 0 && (
+                  <>
+                    <SectionHeader
+                      title="Excluded Employees"
+                      style={{ margin: '28px 0 14px' }}
+                      right={<span style={{ fontSize: 12, color: colors.muted3 }}>Clock in via Toast but aren't paid through this payroll — never in the run or the ADP export</span>}
+                    />
+                    <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+                      <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
+                            <th style={{ ...thLeft, padding: '12px 18px' }}>Employee</th>
+                            <th style={thLeft}>Role</th>
+                            <th style={thLeft}>Location</th>
+                            <th style={thRight}>Hours this period</th>
+                            <th style={{ ...thRight, padding: '12px 18px' }} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {excludedRows.map((r) => (
+                            <tr key={r.guid} style={{ borderTop: `1px solid ${colors.pageBg}`, textAlign: 'right', color: colors.muted2 }}>
+                              <td style={{ textAlign: 'left', padding: '12px 18px', fontWeight: 600 }}>{r.name}</td>
+                              <td style={{ textAlign: 'left', padding: 12 }}>{r.role || '—'}</td>
+                              <td style={{ textAlign: 'left', padding: 12 }}>{locById[r.loc]?.name ?? ''}</td>
+                              <td style={{ padding: 12 }}>{r.hours.toFixed(2)}</td>
+                              <td style={{ padding: '12px 18px' }}>
+                                <span onClick={() => toggleExclude(r, false)} style={{ fontSize: 12, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}>
+                                  Restore
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
 
                 <SectionHeader
                   title="Previous Payrolls"
