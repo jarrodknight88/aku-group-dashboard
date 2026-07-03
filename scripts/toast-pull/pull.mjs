@@ -722,6 +722,43 @@ async function upsertDay(locationId, businessDate, sales, labor) {
  * Breakdown tables get full-day replacement (delete + insert) so a re-pull
  * never leaves stale dimension members behind.
  */
+/**
+ * Per-employee-per-job daily labor rows (payroll intake, handoff §9). Same
+ * hour/wage resolution as aggregateLabor — entry wage, then employee-job
+ * assignment, then job default — but kept per employee so the payroll page
+ * can build checks. Rate stores the weighted average when entries differ.
+ */
+function laborBreakdown(entries, wageIdx) {
+  const byEmpJob = new Map()
+  for (const e of entries) {
+    let hours = (Number(e.regularHours) || 0) + (Number(e.overtimeHours) || 0)
+    if (!hours && e.inDate && e.outDate) {
+      const ms = new Date(e.outDate) - new Date(e.inDate)
+      if (ms > 0) hours = ms / 3_600_000
+    }
+    if (!hours) continue
+    const empGuid = e.employeeReference?.guid ?? e.employee?.guid
+    if (!empGuid) continue
+    const jobGuid = e.jobReference?.guid ?? e.job?.guid
+    let wage = Number(e.hourlyWage) || 0
+    if (!wage && jobGuid) wage = wageIdx.empJob.get(`${empGuid}:${jobGuid}`) || wageIdx.job.get(jobGuid) || 0
+    const jobTitle = (jobGuid && wageIdx.jobTitle.get(jobGuid)) || ''
+    const key = `${empGuid}\u0001${jobTitle}`
+    const row = byEmpJob.get(key) ?? { employee_guid: empGuid, job_title: jobTitle, hours: 0, wagesC: 0 }
+    row.hours += hours
+    row.wagesC += Math.round(hours * wage * 100)
+    byEmpJob.set(key, row)
+  }
+  return [...byEmpJob.values()].map((r) => ({
+    employee_guid: r.employee_guid,
+    employee_name: wageIdx.names.get(r.employee_guid) || null,
+    job_title: r.job_title,
+    hours: Math.round(r.hours * 100) / 100,
+    rate: r.hours > 0 ? Math.round(r.wagesC / r.hours) / 100 : 0,
+    wages: r.wagesC / 100,
+  }))
+}
+
 const addDaysIso = (dateIso, n) => {
   const d = new Date(dateIso + 'T00:00:00Z')
   d.setUTCDate(d.getUTCDate() + n)
@@ -948,6 +985,12 @@ for (const account of accounts) {
             for (const [table, tableRows] of Object.entries(rows)) {
               await replaceDayRows(table, locationId, businessDate, tableRows)
             }
+            await replaceDayRows(
+              'daily_labor',
+              locationId,
+              businessDate,
+              laborBreakdown(entries, wageIdx).map((r) => ({ location_id: locationId, business_date: businessDate, ...r })),
+            )
             await writeTipHolds(locationId, businessDate, sales.largeTips, lookups.employeeNames)
           }
         }
