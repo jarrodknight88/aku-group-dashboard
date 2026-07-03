@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="L3 Void & Discount Detail" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <a href="Payroll.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Payroll</a>
+          <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
+          <span style="color:#6B7280;">📅</span> This Week <span style="color:#9AA1AC;">▾</span>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:6px;">Compared to: <span style="color:#5A626E; font-weight:600;">Sep 8–14</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1480px; margin:0 auto; padding:22px 26px 48px;">
+
+    <a href="{{ backHref }}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#6B7280; margin-bottom:12px;">{{ backLabel }}</a>
+
+    <!-- ===== PAGE TITLE ===== -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Void &amp; Discount Detail</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">The "why" behind the numbers · Sep 15–21 · {{ scopeLabel }}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:4px; border-radius:9px;">
+          <div onClick="{{ goVoids }}" style="{{ tabVoids }}">Voids</div>
+          <div onClick="{{ goDiscounts }}" style="{{ tabDiscounts }}">Discounts</div>
+        </div>
+        <div style="display:flex; gap:3px; background:#fff; border:1px solid #E4E7EC; padding:3px; border-radius:7px;">
+          <div onClick="{{ byDollar }}" style="{{ tabDollar }}">By $</div>
+          <div onClick="{{ byQty }}" style="{{ tabQty }}">By Qty</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SUMMARY STRIP ===== -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
+      <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">{{ sumLabel }}</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums;">{{ sumTotal }}</div>
+        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">{{ sumSub }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid {{ pctBorder }}; border-radius:13px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:start;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">% of Sales</div><span style="width:8px; height:8px; border-radius:50%; background:{{ pctDot }};"></span></div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:{{ pctColor }}; font-variant-numeric:tabular-nums;">{{ pctVal }}</div>
+        <div style="font-size:11px; color:{{ pctSubColor }}; margin-top:4px; font-weight:600;">{{ pctSub }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Peak Day</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px;">{{ peakDay }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">{{ peakSub }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #F0C4BE; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Employees Over Target</div>
+        <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; color:#C0392B; font-variant-numeric:tabular-nums;">{{ overCount }}</div>
+        <div style="font-size:11px; color:#C0392B; margin-top:4px; font-weight:600;">{{ overSub }}</div>
+      </div>
+    </div>
+
+    <!-- ===== BREAKDOWN + TOP ITEMS ===== -->
+    <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:24px;">
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:16px;">{{ reasonTitle }}</div>
+        <div style="display:flex; flex-direction:column; gap:13px;">
+          <sc-for list="{{ reasons }}" as="rr" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <span style="width:210px; font-size:12px; color:#3A4150;">{{ rr.label }}</span>
+              <div style="flex:1; height:10px; background:#EEF0F3; border-radius:5px;"><div style="width:{{ rr.pct }}; height:100%; background:{{ rr.color }}; border-radius:5px;"></div></div>
+              <span style="width:70px; text-align:right; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ rr.val }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">{{ reasonNote }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:13px;">{{ itemsTitle }}</div>
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:10px;"><span style="font-family:'Newsreader',serif; font-size:14px; color:#184080; width:16px;">{{ it.rank }}</span><span style="flex:1; font-size:12px;">{{ it.name }}</span><span style="font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;">{{ it.val }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BY EMPLOYEE ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">{{ empTitle }}</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="font-size:12px; color:#9AA1AC;">Target: {{ empTargetNote }}</div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+            <th style="text-align:left; padding:12px 18px; font-weight:600;">Employee</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Role</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Location</th>
+            <th style="padding:12px 12px; font-weight:600;">{{ colAmount }}</th>
+            <th style="padding:12px 12px; font-weight:600;">{{ colCount }}</th>
+            <th style="padding:12px 12px; font-weight:600;">% of Own Sales</th>
+            <th style="padding:12px 18px; font-weight:600;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ empRows }}" as="e" hint-placeholder-count="6">
+            <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+              <td style="text-align:left; padding:13px 18px; font-weight:600;">{{ e.name }}</td>
+              <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ e.role }}</td>
+              <td style="text-align:left; padding:13px 12px;">{{ e.locName }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ e.amt }}</td>
+              <td style="padding:13px 12px;">{{ e.cnt }}</td>
+              <td style="padding:13px 12px; font-weight:700; color:{{ e.pctColor }}; background:{{ e.pctBg }};">{{ e.pct }}</td>
+              <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:{{ e.stColor }}; background:{{ e.stBg }}; padding:3px 9px; border-radius:5px;">{{ e.status }}</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">{{ footNote }}</div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab: null, mode: "dollar" };
+
+  NAMES = { atl: "Teranga ATL", clt: "Teranga CLT", afro: "Afro District" };
+
+  VOID_REASONS = [
+    { label: "86'd item — out of stock", d: 610, q: 22 },
+    { label: "Customer changed mind", d: 520, q: 24 },
+    { label: "Wrong order entered", d: 486, q: 19 },
+    { label: "Long wait — walkout", d: 412, q: 12 },
+    { label: "Spill / quality issue", d: 306, q: 11 },
+    { label: "Manager void — other", d: 206, q: 8 },
+  ];
+  DISC_TYPES = [
+    { label: "Birthday 20%", d: 2760, q: 48 },
+    { label: "Industry 15%", d: 2180, q: 42 },
+    { label: "Manager comp", d: 2050, q: 31 },
+    { label: "Happy Hour", d: 1690, q: 54 },
+    { label: "Employee meal 50%", d: 1260, q: 26 },
+    { label: "Loyalty / other", d: 850, q: 13 },
+  ];
+  VOID_ITEMS = [
+    { name: "Jollof Rice & Chicken", d: 420, q: 14 },
+    { name: "Suya Platter", d: 360, q: 9 },
+    { name: "Hennessy VSOP (glass)", d: 330, q: 6 },
+    { name: "Grilled Lamb Chops", d: 290, q: 7 },
+    { name: "Double Apple Hookah", d: 240, q: 8 },
+  ];
+  DISC_ITEMS = [
+    { name: "Jollof Rice & Chicken", d: 1840, q: 38 },
+    { name: "Suya Platter", d: 1420, q: 29 },
+    { name: "Hookah — house flavors", d: 1180, q: 31 },
+    { name: "Grilled Lamb Chops", d: 960, q: 18 },
+    { name: "House cocktails", d: 890, q: 24 },
+  ];
+  VOID_EMP = [
+    { name: "M. Diallo", role: "Server", loc: "atl", d: 640, q: 24, pct: 1.4 },
+    { name: "K. Owusu", role: "Server", loc: "clt", d: 460, q: 18, pct: 1.1 },
+    { name: "J. Mensah", role: "Server", loc: "afro", d: 410, q: 15, pct: 1.2 },
+    { name: "A. Sow", role: "Server", loc: "atl", d: 390, q: 15, pct: 0.8 },
+    { name: "F. Kamara", role: "Bartender", loc: "afro", d: 330, q: 12, pct: 0.9 },
+    { name: "R. Bah", role: "Bartender", loc: "clt", d: 310, q: 12, pct: 0.7 },
+  ];
+  DISC_EMP = [
+    { name: "M. Diallo", role: "Server", loc: "atl", d: 2340, q: 42, pct: 5.1 },
+    { name: "K. Owusu", role: "Server", loc: "clt", d: 2190, q: 40, pct: 3.9 },
+    { name: "J. Mensah", role: "Server", loc: "afro", d: 1780, q: 35, pct: 2.6 },
+    { name: "F. Kamara", role: "Bartender", loc: "afro", d: 1610, q: 32, pct: 1.9 },
+    { name: "A. Sow", role: "Server", loc: "atl", d: 1510, q: 35, pct: 2.9 },
+    { name: "R. Bah", role: "Bartender", loc: "clt", d: 1360, q: 30, pct: 2.4 },
+  ];
+  // per-scope % of sales + peak day [void, disc]
+  SCOPE = {
+    all:  { vPct: 0.8, dPct: 3.4, vPeak: ["Fri", "$460 voided"], dPeak: ["Fri", "$2,300 discounted"] },
+    atl:  { vPct: 0.7, dPct: 2.8, vPeak: ["Fri", "$225 voided"], dPeak: ["Fri", "$785 discounted"] },
+    clt:  { vPct: 0.9, dPct: 3.9, vPeak: ["Sat", "$150 voided"], dPeak: ["Sat", "$730 discounted"] },
+    afro: { vPct: 0.8, dPct: 2.6, vPeak: ["Fri", "$120 voided"], dPeak: ["Fri", "$540 discounted"] },
+  };
+
+  fmt(n) { return "$" + n.toLocaleString("en-US"); }
+
+  renderVals() {
+    let loc = "";
+    let urlTab = "void";
+    try {
+      const p = new URLSearchParams(window.location.search);
+      loc = (p.get("loc") || "").toLowerCase();
+      urlTab = (p.get("tab") || "void").toLowerCase();
+    } catch (e) {}
+    if (!this.NAMES[loc]) loc = "";
+    const scope = loc || "all";
+    const tab = this.state.tab || (urlTab === "discount" ? "discount" : "void");
+    const mode = this.state.mode;
+    const isVoid = tab === "void";
+    const sc = this.SCOPE[scope];
+
+    const inScope = (arr) => loc ? arr.filter(r => r.loc === loc) : arr;
+    const emps = inScope(isVoid ? this.VOID_EMP : this.DISC_EMP);
+    const target = isVoid ? 1 : 3;
+
+    const empTotal = { d: emps.reduce((a, r) => a + r.d, 0), q: emps.reduce((a, r) => a + r.q, 0) };
+
+    // reasons scaled to scope share of org totals
+    const RE = isVoid ? this.VOID_REASONS : this.DISC_TYPES;
+    const orgEmpAll = isVoid ? this.VOID_EMP : this.DISC_EMP;
+    const orgTotal = { d: orgEmpAll.reduce((a, r) => a + r.d, 0), q: orgEmpAll.reduce((a, r) => a + r.q, 0) };
+    const shareD = empTotal.d / orgTotal.d, shareQ = empTotal.q / orgTotal.q;
+    const palette = ["#184080", "#4A7BC8", "#7FA3D6", "#9DB6DC", "#A9C2E4", "#C4D6EC"];
+    const scaled = RE.map((r, i) => ({
+      label: r.label,
+      dv: Math.round(r.d * shareD),
+      qv: Math.round(r.q * shareQ),
+      color: palette[i],
+    }));
+    const maxV = Math.max(...scaled.map(r => mode === "dollar" ? r.dv : r.qv), 1);
+    const reasons = scaled.map(r => {
+      const v = mode === "dollar" ? r.dv : r.qv;
+      return { label: r.label, color: r.color, pct: Math.round((v / maxV) * 100) + "%", val: mode === "dollar" ? this.fmt(v) : v + (isVoid ? " items" : " checks") };
+    });
+
+    const ITEMS = (isVoid ? this.VOID_ITEMS : this.DISC_ITEMS)
+      .map(it => ({ name: it.name, v: mode === "dollar" ? it.d : it.q, val: mode === "dollar" ? this.fmt(Math.round(it.d * shareD)) : Math.round(it.q * shareQ) + "×" }))
+      .sort((a, b) => b.v - a.v)
+      .map((it, i) => ({ ...it, rank: i + 1 }));
+
+    const sorted = emps.slice().sort((a, b) => mode === "dollar" ? b.d - a.d : b.q - a.q);
+    const empRows = sorted.map(e => {
+      const over = e.pct > target;
+      return {
+        name: e.name, role: e.role, locName: this.NAMES[e.loc],
+        amt: this.fmt(e.d), cnt: e.q,
+        pct: e.pct.toFixed(1) + "%",
+        pctColor: over ? "#C0392B" : "#1A7F4B",
+        pctBg: over ? "#FBEAE8" : "transparent",
+        status: over ? "● Over target" : "✓ Within",
+        stColor: over ? "#C0392B" : "#1A7F4B",
+        stBg: over ? "#FBEAE8" : "#E6F4EC",
+      };
+    });
+    const overCount = emps.filter(e => e.pct > target).length;
+
+    const pctVal = isVoid ? sc.vPct : sc.dPct;
+    const overTarget = pctVal > target;
+    const peak = isVoid ? (loc ? this.SCOPE[scope].vPeak : sc.vPeak) : (loc ? this.SCOPE[scope].dPeak : sc.dPeak);
+
+    const tabA = "padding:7px 16px; border-radius:6px; background:#184080; color:#fff; font-size:12px; font-weight:600; cursor:pointer;";
+    const tabI = "padding:7px 16px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; cursor:pointer;";
+    const togA = "padding:5px 12px; border-radius:5px; background:#184080; font-size:11px; font-weight:700; color:#fff; cursor:pointer;";
+    const togI = "padding:5px 12px; border-radius:5px; font-size:11px; font-weight:600; color:#9AA1AC; cursor:pointer;";
+
+    const noun = isVoid ? "Voided" : "Discounted";
+
+    return {
+      scopeLabel: loc ? this.NAMES[loc] : "org-wide",
+      backHref: loc ? "Location%20Report.dc.html" : "Company%20Glance%20v2.dc.html",
+      backLabel: loc ? "← Back to " + this.NAMES[loc] : "← Back to Company",
+
+      goVoids: () => this.setState({ tab: "void" }),
+      goDiscounts: () => this.setState({ tab: "discount" }),
+      tabVoids: isVoid ? tabA : tabI,
+      tabDiscounts: !isVoid ? tabA : tabI,
+      byDollar: () => this.setState({ mode: "dollar" }),
+      byQty: () => this.setState({ mode: "qty" }),
+      tabDollar: mode === "dollar" ? togA : togI,
+      tabQty: mode === "qty" ? togA : togI,
+
+      sumLabel: "Total " + noun,
+      sumTotal: mode === "dollar" ? this.fmt(empTotal.d) : String(empTotal.q),
+      sumSub: mode === "dollar" ? empTotal.q + (isVoid ? " voided items" : " discounted checks") : (isVoid ? "items voided · " : "checks discounted · ") + this.fmt(empTotal.d),
+
+      pctVal: pctVal.toFixed(1) + "%",
+      pctColor: overTarget ? "#C0392B" : "#1A7F4B",
+      pctDot: overTarget ? "#E04A38" : "#22A55F",
+      pctBorder: overTarget ? "#F0C4BE" : "#C8E6D4",
+      pctSub: "Target < " + target + "% · " + (overTarget ? "over" : "within"),
+      pctSubColor: overTarget ? "#C0392B" : "#9AA1AC",
+
+      peakDay: peak[0],
+      peakSub: peak[1] + " — highest of the week",
+
+      overCount,
+      overSub: overCount > 0 ? "vs " + target + "% personal target" : "All within target",
+
+      reasonTitle: isVoid ? "Voids by Reason" : "Discounts by Type",
+      reasons,
+      reasonNote: isVoid ? "Reasons come from the Toast void-reason field at entry." : "Types come from the discount buttons configured in Toast.",
+      itemsTitle: isVoid ? "Most Voided Items" : "Most Discounted Items",
+      items: ITEMS,
+
+      empTitle: (isVoid ? "Voids" : "Discounts") + " by Employee",
+      empTargetNote: "< " + target + "% of own sales",
+      colAmount: noun + " $",
+      colCount: isVoid ? "Items" : "Checks",
+      empRows,
+      footNote: "% of own sales = " + noun.toLowerCase() + " dollars ÷ that employee's net sales for the period. Rows over the personal target are tinted; investigate via the exception list for check-level detail.",
+    };
+  }
+}
+</script>
+</body>
+</html>

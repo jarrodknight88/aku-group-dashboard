@@ -67,12 +67,12 @@
       <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
         <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Total Flags</div>
         <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:600; margin-top:6px;">{{ totalFlags }}</div>
-        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">This period</div>
+        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">{{ totalSub }}</div>
       </div>
       <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
         <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">$ at Risk</div>
         <div style="font-family:'Newsreader',serif; font-size:36px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ atRisk }}</div>
-        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Across flagged transactions</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">Open + held exposure</div>
       </div>
       <div style="background:#fff; border:1px solid #F0C4BE; border-radius:13px; padding:20px;">
         <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Open / Unreviewed</div>
@@ -134,7 +134,7 @@
         </thead>
         <tbody style="font-variant-numeric:tabular-nums;">
           <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
-            <tr style="border-top:1px solid #EEF0F3;">
+            <tr onClick="{{ r.onOpen }}" style="border-top:1px solid #EEF0F3; cursor:pointer;" style-hover="background:#F8FAFC;">
               <td style="padding:13px 18px; color:#3A4150;">{{ r.time }}</td>
               <td style="padding:13px 12px;">{{ r.locName }}</td>
               <td style="padding:13px 12px; color:#6B7280;">{{ r.check }}</td>
@@ -150,12 +150,58 @@
     </div>
 
   </div>
+
+  <!-- ===== EXCEPTION DETAIL MODAL ===== -->
+  <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; background:rgba(16,26,42,0.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:30px;">
+      <div style="width:660px; max-width:100%; max-height:85vh; background:#fff; border-radius:16px; overflow:auto; box-shadow:0 24px 60px rgba(10,20,40,0.35);">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; padding:20px 24px; border-bottom:1px solid #E4E7EC;">
+          <div>
+            <div style="font-family:'Newsreader',serif; font-size:20px; font-weight:600;">{{ dRule }}</div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+              <span style="font-size:11px; font-weight:700; color:{{ dSevColor }}; background:{{ dSevBg }}; padding:3px 9px; border-radius:5px;">{{ dSev }}</span>
+              <span style="font-size:12px; font-weight:700; color:{{ dStatusColor }};">{{ dStatusText }}</span>
+            </div>
+          </div>
+          <div onClick="{{ closeDetail }}" style="width:32px; height:32px; border-radius:8px; background:#F4F6F8; color:#5A626E; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; cursor:pointer;">✕</div>
+        </div>
+        <div style="padding:20px 24px;">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Date / Time</div><div style="font-size:13px; font-weight:600; margin-top:3px;">{{ dTime }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Location</div><div style="font-size:13px; font-weight:600; margin-top:3px;">{{ dLoc }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Check #</div><div style="font-size:13px; font-weight:600; margin-top:3px;">{{ dCheck }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Server</div><div style="font-size:13px; font-weight:600; margin-top:3px;">{{ dServer }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Flagged Amount</div><div style="font-size:13px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums;">{{ dAmount }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Check Total</div><div style="font-size:13px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums;">{{ dCheckTotal }}</div></div>
+            <div><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#9AA1AC; font-weight:600;">Card</div><div style="font-size:13px; font-weight:600; margin-top:3px;">{{ dCard }}</div></div>
+          </div>
+          <sc-if value="{{ dIsTip }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:0; margin-top:18px; background:#E8EEF6; border-radius:10px; padding:14px 16px;">
+              <div style="flex:1;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#184080; font-weight:700;">Flagged</div><div style="font-size:12px; font-weight:600; margin-top:2px;">{{ dTime }}</div></div>
+              <div style="color:#7FA3D6; font-size:14px; padding:0 10px;">→</div>
+              <div style="flex:1;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#184080; font-weight:700;">14-day hold ends</div><div style="font-size:12px; font-weight:600; margin-top:2px;">{{ dRel }}</div></div>
+              <div style="color:#7FA3D6; font-size:14px; padding:0 10px;">→</div>
+              <div style="flex:1.4;"><div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#184080; font-weight:700;">Payout</div><div style="font-size:12px; font-weight:600; margin-top:2px;">{{ dRun }}</div></div>
+            </div>
+          </sc-if>
+          <div style="margin-top:16px; background:#F4F6F8; border-radius:10px; padding:14px 16px; font-size:12px; line-height:1.6; color:#3A4150;">{{ dNote }}</div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:16px 24px; border-top:1px solid #E4E7EC; background:#FAFBFC;">
+          <div onClick="{{ denyFlag }}" style="padding:10px 18px; border:1px solid #F0C4BE; border-radius:9px; background:#fff; font-size:13px; font-weight:700; color:#C0392B; cursor:pointer;">✕ Deny</div>
+          <div onClick="{{ approveFlag }}" style="padding:10px 18px; background:#1A7F4B; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">✓ {{ dApproveLabel }}</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
+  state = { statusOv: {}, selected: null };
+
   renderVals() {
     const all = [
+      { time:"Sep 20 · 11:55p", loc:"atl", check:"#48244", server:"M. Diallo", rule:"Tip over $500 — auto-hold", amount:640.00, sev:"High", status:"held", tip:{ rel:"Oct 4", run:"paid on Oct 6 – 19 run", checkTotal:212.40, card:"Amex" } },
       { time:"Sep 20 · 11:42p", loc:"atl", check:"#48217", server:"M. Diallo", rule:"Void after payment closed", amount:184.00, sev:"High", status:"open" },
       { time:"Sep 20 · 10:08p", loc:"clt", check:"#33901", server:"K. Owusu", rule:"Discount over 50% on check", amount:142.50, sev:"High", status:"open" },
       { time:"Sep 19 · 9:21p", loc:"atl", check:"#48056", server:"A. Sow", rule:"Comp exceeds $100", amount:126.00, sev:"Medium", status:"open" },
@@ -165,12 +211,14 @@ class Component extends DCLogic {
       { time:"Sep 18 · 9:12p", loc:"afro", check:"#21680", server:"F. Kamara", rule:"Comp exceeds $100", amount:118.00, sev:"Medium", status:"open" },
       { time:"Sep 18 · 6:38p", loc:"clt", check:"#33704", server:"K. Owusu", rule:"Refund without manager approval", amount:64.00, sev:"High", status:"open" },
       { time:"Sep 17 · 11:02p", loc:"atl", check:"#47788", server:"A. Sow", rule:"Void after payment closed", amount:88.50, sev:"Medium", status:"open" },
+      { time:"Sep 17 · 10:32p", loc:"clt", check:"#33660", server:"D. Fall", rule:"Tip over $500 — auto-hold", amount:525.00, sev:"High", status:"held", tip:{ rel:"Oct 1", run:"paid on Oct 6 – 19 run", checkTotal:186.75, card:"Visa" } },
       { time:"Sep 17 · 8:25p", loc:"afro", check:"#21588", server:"J. Mensah", rule:"Check reopened after close", amount:52.00, sev:"Low", status:"cleared" },
       { time:"Sep 17 · 7:14p", loc:"clt", check:"#33640", server:"R. Bah", rule:"Discount over 50% on check", amount:96.75, sev:"Medium", status:"cleared" },
       { time:"Sep 16 · 10:33p", loc:"atl", check:"#47652", server:"M. Diallo", rule:"Comp exceeds $100", amount:104.00, sev:"Medium", status:"cleared" },
       { time:"Sep 16 · 9:48p", loc:"afro", check:"#21490", server:"F. Kamara", rule:"Void after payment closed", amount:71.00, sev:"Low", status:"cleared" },
       { time:"Sep 16 · 6:55p", loc:"clt", check:"#33571", server:"K. Owusu", rule:"Refund without manager approval", amount:58.50, sev:"Medium", status:"cleared" },
       { time:"Sep 15 · 10:19p", loc:"atl", check:"#47511", server:"A. Sow", rule:"Discount over 50% on check", amount:132.00, sev:"High", status:"cleared" },
+      { time:"Sep 15 · 9:44p", loc:"atl", check:"#47530", server:"A. Sow", rule:"Tip over $500 — auto-hold", amount:780.00, sev:"High", status:"released", tip:{ rel:"Sep 29", run:"added to Sep 15 – 28 run (checks Oct 3)", checkTotal:264.10, card:"Amex" } },
       { time:"Sep 15 · 8:07p", loc:"afro", check:"#21402", server:"J. Mensah", rule:"Check reopened after close", amount:44.00, sev:"Low", status:"cleared" },
       { time:"Sep 15 · 6:41p", loc:"clt", check:"#33498", server:"R. Bah", rule:"Comp exceeds $100", amount:112.50, sev:"Medium", status:"cleared" },
     ];
@@ -188,16 +236,31 @@ class Component extends DCLogic {
 
     const filtered = loc ? all.filter(r => r.loc === loc) : all;
 
-    const rows = filtered.map(r => {
+    const fmtM = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 });
+    const STATUS = {
+      open:     { text: "● Open",     color: "#C0392B" },
+      held:     { text: "⏳ Held",     color: "#184080" },
+      released: { text: "✓ Released", color: "#1A7F4B" },
+      cleared:  { text: "✓ Approved", color: "#1A7F4B" },
+      denied:   { text: "✕ Denied",   color: "#C0392B" },
+    };
+    const statusTextFor = (r) => {
+      if (r.st === "held" && r.tip) return "⏳ Held · rel " + r.tip.rel;
+      if (r.st === "released" && r.tip) return "✓ Released " + r.tip.rel;
+      if (r.st === "cleared" && r.tip) return "✓ Releases " + r.tip.rel;
+      return STATUS[r.st].text;
+    };
+    const withStatus = filtered.map(r => ({ ...r, st: this.state.statusOv[r.check] || r.status }));
+    const rows = withStatus.map(r => {
       const ss = sevStyle[r.sev];
-      const isOpen = r.status === "open";
       return {
         ...r,
         locName: names[r.loc],
-        amountFmt: "$" + r.amount.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }),
+        amountFmt: fmtM(r.amount),
         sevColor: ss.color, sevBg: ss.bg,
-        statusColor: isOpen ? "#C0392B" : "#1A7F4B",
-        statusText: isOpen ? "● Open" : "✓ Cleared",
+        statusColor: STATUS[r.st].color,
+        statusText: statusTextFor(r),
+        onOpen: () => this.setState({ selected: r.check }),
       };
     });
 
@@ -207,14 +270,27 @@ class Component extends DCLogic {
     const palette = ["#184080", "#4A7BC8", "#7FA3D6", "#A9C2E4", "#C4D6EC"];
     const ruleArr = Object.keys(counts).map(k => ({ rule:k, count:counts[k] })).sort((a,b) => b.count - a.count);
     const maxCount = ruleArr.length ? ruleArr[0].count : 1;
-    const ruleRows = ruleArr.slice(0,5).map((x,i) => ({
+    const ruleRows = ruleArr.slice(0,6).map((x,i) => ({
       rule: x.rule, count: x.count,
       pct: Math.round((x.count / maxCount) * 100) + "%",
       color: palette[i % palette.length],
     }));
 
-    const atRiskNum = filtered.reduce((s,r) => s + r.amount, 0);
-    const openCount = filtered.filter(r => r.status === "open").length;
+    const atRiskNum = withStatus.filter(r => r.st === "open" || r.st === "held").reduce((s, r) => s + r.amount, 0);
+    const openCount = withStatus.filter(r => r.st === "open").length;
+    const heldCount = withStatus.filter(r => r.st === "held").length;
+    const resolvedCount = withStatus.filter(r => r.st === "cleared" || r.st === "denied" || r.st === "released").length;
+
+    const RULE_NOTES = {
+      "Void after payment closed": "Items were voided after payment was captured. Confirm with the closing manager that the void was legitimate before approving.",
+      "Discount over 50% on check": "Discount exceeds half the check value. Verify the comp reason and authorizing manager before approving.",
+      "Comp exceeds $100": "Comped amount is above the $100 house limit and requires owner-level approval.",
+      "Check reopened after close": "Check was reopened after business close. Review the adjustment made after reopening.",
+      "Refund without manager approval": "Refund was processed without a manager PIN on file.",
+      "Tip over $500 — auto-hold": "Tip exceeds $500 on a single transaction. Auto-held for 14 days to clear the chargeback window before payout — excluded from the server's payroll tips until released, then added to the next run's check. Both movements are notated on the payroll sheet.",
+    };
+
+    const sel = withStatus.find(r => r.check === this.state.selected) || null;
 
     // location switch chips (deep links — manager-distributable)
     const chipDefs = [
@@ -238,9 +314,33 @@ class Component extends DCLogic {
       showLocFilter: !loc,
       scopeLabel: loc ? names[loc] : "org-wide",
       totalFlags: filtered.length,
+      totalSub: heldCount > 0 ? heldCount + " large-tip hold(s) included" : "This period",
       openCount,
-      clearedCount: filtered.length - openCount,
-      atRisk: "$" + atRiskNum.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }),
+      clearedCount: resolvedCount,
+      atRisk: fmtM(atRiskNum),
+
+      showDetail: !!sel,
+      dRule: sel ? sel.rule : "",
+      dSev: sel ? sel.sev : "",
+      dSevColor: sel ? sevStyle[sel.sev].color : "",
+      dSevBg: sel ? sevStyle[sel.sev].bg : "",
+      dStatusText: sel ? statusTextFor(sel) : "",
+      dStatusColor: sel ? STATUS[sel.st].color : "",
+      dTime: sel ? sel.time : "",
+      dLoc: sel ? names[sel.loc] : "",
+      dCheck: sel ? sel.check : "",
+      dServer: sel ? sel.server : "",
+      dAmount: sel ? fmtM(sel.amount) : "",
+      dCheckTotal: sel ? (sel.tip ? fmtM(sel.tip.checkTotal) : fmtM(Math.round(sel.amount * 2.6))) : "",
+      dCard: sel ? (sel.tip ? sel.tip.card : ["Visa", "Mastercard", "Amex"][parseInt(String(sel.check).replace(/\D/g, ""), 10) % 3]) : "",
+      dNote: sel ? (RULE_NOTES[sel.rule] || "") : "",
+      dIsTip: !!(sel && sel.tip),
+      dRel: sel && sel.tip ? sel.tip.rel : "",
+      dRun: sel && sel.tip ? sel.tip.run : "",
+      dApproveLabel: sel && sel.tip && sel.st === "held" ? "Approve & Release " + sel.tip.rel : "Approve",
+      approveFlag: () => { const s = this.state.selected; if (s) this.setState({ statusOv: { ...this.state.statusOv, [s]: "cleared" }, selected: null }); },
+      denyFlag: () => { const s = this.state.selected; if (s) this.setState({ statusOv: { ...this.state.statusOv, [s]: "denied" }, selected: null }); },
+      closeDetail: () => this.setState({ selected: null }),
       backHref: loc ? "Location%20Report.dc.html" : "Company%20Glance%20v2.dc.html",
       backLabel: loc ? "← Back to " + names[loc] : "← Back to Company",
     };

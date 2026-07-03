@@ -14,6 +14,8 @@ Existing pages map 1:1 to the design files in this bundle:
 | `Detail Drill.dc.html` | `src/pages/DetailDrill.jsx` |
 | `Exception Detail.dc.html` | `src/pages/ExceptionDetail.jsx` |
 | `Settings.dc.html` | `src/pages/Settings.jsx` |
+| `Payroll.dc.html` | `src/pages/Payroll.jsx` — **NEW page**: add route `/payroll` + nav item between By Location and Settings |
+| `Void Discount Detail.dc.html` | `src/pages/VoidDiscountDetail.jsx` — **NEW page**: route `/void-discount` with `?tab=&loc=` params |
 
 Shared repo modules to keep using: `src/theme.js` (tokens), `src/components/cards.jsx`, `src/components/SectionHeader.jsx`, `src/components/AppHeader.jsx`, `src/components/RangePicker.jsx`, `src/lib/format.js`, `src/data/*` (incl. `topEmployees.js`), `src/state/RangeContext.jsx`, `src/auth/AuthContext.jsx`.
 
@@ -67,6 +69,51 @@ The **Top by $ / Top by Qty** toggle moves from the Overall card up to the Top E
 - **Exception page location scoping**: `?loc=<code>` filters table + summary tiles + rule breakdown + title; the location filter chips are **hidden entirely when scoped** (manager view — managers only ever see their own location); back link goes to that location's report. Org view keeps the chips.
 - **Money Protected on Location Report** mirrors Company's 2×3 grid: Void % / Voids by Day / Chargebacks by Stage over Discount % / Discounts by Day / Exception Flags tile (tile links to the scoped exception page).
 
+## 7. Exception review flow — click-in + approve/deny (ExceptionDetail)
+Every row in the exception table is clickable (cursor pointer, `#F8FAFC` hover) and opens a **detail modal** (660px card, dark backdrop):
+- Header: rule name (Newsreader 20/600), severity pill, colored status text; ✕ close.
+- 3-column field grid: Date/Time, Location, Check #, Server, Flagged Amount (bold), Check Total, Card.
+- Rule-specific guidance note in a `#F4F6F8` box (copy per rule is in the reference file's `RULE_NOTES`).
+- Footer actions: **✕ Deny** (white bg, `#F0C4BE` border, `#C0392B` text) and **✓ Approve** (solid `#1A7F4B`). Acting updates the row's status and closes the modal.
+
+**Status model** (replaces the old open/cleared pair): `open` (● red) · `held` (⏳ navy `#184080`, shows release date) · `released` (✓ green, shows date) · `cleared/approved` (✓ green; for tips displays "✓ Releases <date>") · `denied` (✕ red). Summary tiles: **$ at Risk = open + held**; **Cleared tile counts approved + denied + released**. Persist review actions per transaction (exceptions table: `status`, `reviewed_by`, `reviewed_at`).
+
+## 8. Large-tip auto-hold rule ($500 / 14 days)
+Business rule, evaluated automatically at data-import time:
+- Any **single-transaction tip > $500** auto-creates an exception: rule "Tip over $500 — auto-hold", severity High, status `held`.
+- The tip is **held 14 days** from the transaction date (chargeback window) before it can be paid out.
+- In the modal, held tips show a **hold timeline strip** (`#E8EEF6` box): Flagged <date> → 14-day hold ends <date> → Payout <run label>.
+- Approve on a held tip reads **"Approve & Release <date>"** — it schedules release at hold end (not immediate payout). Deny keeps the tip withheld pending investigation.
+- Threshold ($500) and hold length (14 days) should be config constants (future Settings surface), not hardcoded.
+- Suggested data model: `tip_holds` (transaction ref, server, amount, flagged_at, release_at, status held/released/denied, released_run_id). A release job attaches released holds to the next payroll run.
+
+## 9. Payroll page (NEW — `Payroll.dc.html`)
+New top-level screen implementing the group's payroll process.
+
+**Core check math:** `check = (total hours × rate) + tips owed`. **Overtime hours are paid at the regular rate — no 1.5×**; the export sends all hours as regular earnings (OT shown in its own read-only column). Hours + rates come from the Toast payroll export; tips owed + tip-out come from the nightly reconciliation Google Sheet (tips owed is already **net of tip-out**; tip-out is a reference-only column). Rows are matched Toast-name ↔ sheet-name: unmatched rows get a red **● Review** pill and their tips are excluded from the check until resolved.
+
+**Two views** driven by the location filter:
+- **All locations = company dashboard**: per-location rollup table (employees, hours, wages, tips, salaries, total, status ✓ Ready / ● N needs review, "Open run →") with a company-total row; **Previous Payrolls** table with the current period pinned (CURRENT badge, "In progress") above past runs (period, checks dated, employees, wages, tips, salaries, total, ✓ Exported pill + batch ID, ⤓ View).
+- **Single location = run view**: hourly employee table (hours, of-which-OT, rate, hourly pay, tips owed, tip-out ref, match status, check total, totals row); **salaried employees** table with a working add-row (name, location select, role, $ per period → + Add; salaried are manual, not in Toast); that location's **Previous Payrolls** (its share of each exported batch, each with ⤓ View).
+
+**Held/released tip notation on the payroll sheet** (ties to section 8):
+- A held tip is **excluded** from the server's tips owed; the tips cell shows a navy sub-note: `− $640.00 held · rel Oct 4`.
+- A released hold is **added** to the next run's check; the tips cell shows a green sub-note: `+ $780.00 released Sep 29`.
+- The Tips summary tile subtitle shows total held; a blue chip `⏳ $640.00 in large tips held` links to the exception page.
+- Math: `payable tips = sheet tips (net of tip-out) + released holds`; held amounts excluded.
+
+**ADP export:** button opens a preview modal (works in both views, and for any archived batch via ⤓ View). Batch CSV columns: `Co Code` (per location: TGA / TGC / AFD), `Batch ID`, `File #`, `Employee`, `Reg Hours`, `Reg Rate`, `Reg Earnings`, `Code` (T = tips), `Tips Amt`, `Salary`. Salaried rows carry zero hours and the salary column. On real export, store the generated CSV per batch so previous runs show **exactly what was exported** (org-wide or location-scoped). Suggested tables: `payroll_runs`, `payroll_lines`, plus `tip_holds` above. Column template must be confirmed against the group's actual ADP product before wiring.
+
+## 10. Void & Discount drill-down (NEW — `Void Discount Detail.dc.html`)
+New page reached by clicking the **Void %** or **Discount %** tiles in Money Protected on Company (`?tab=void` / `?tab=discount`) and on Location Report (adds `&loc=atl`); the tiles get a `Details →` affordance and become links. Scoping matches the exception page: `?loc=` filters everything, back link goes to that location's report; no loc = org-wide.
+
+- **Tabs**: Voids ⬌ Discounts (also settable via `?tab=`). **Global By $ / By Qty toggle** drives every module on the page.
+- **Summary strip**: Total Voided/Discounted (navy tile; $ or count per toggle) · % of Sales vs target (green/red, same thresholds: void 1%, discount 3%) · Peak Day · Employees Over Target (red count vs the *personal* target below).
+- **Voids by Reason / Discounts by Type**: ranked horizontal bars in the blue ramp, values switching $ ↔ qty. Void reasons come from Toast's void-reason field; discount types from the configured discount buttons (Birthday 20%, Industry 15%, Manager comp, Happy Hour, Employee meal 50%, Loyalty).
+- **Most Voided / Most Discounted Items**: top-5 ranked list, re-ranks on toggle.
+- **By Employee table**: Employee · Role · Location · $ · Items/Checks · **% of Own Sales** (voided/discounted dollars ÷ that employee's net sales) · Status pill. Rows over the personal target (void > 1%, discount > 3% of own sales) get red-tinted % cell and "● Over target"; within shows "✓ Within". Sorts by the active toggle metric.
+- Data sources: Toast VoidDetails (reasons, items, employees) + discount detail from SalesSummary/ProductMix; employee net sales from the payroll/sales export for the % calc.
+
 ---
 
 # Reference spec (unchanged system — for context)
@@ -86,7 +133,9 @@ The **Top by $ / Top by Qty** toggle moves from the Overall card up to the Top E
 - **By Location** — hub with one card per location (KPI chips ordered Food · Liquor · Labor · Void · Disc), linking into Location Report. Locations are config-driven; R Thomas shows as "coming soon".
 - **Location Report** — same structure as Company scoped to one venue: headline strip; Money In (Daily Sales, Payment Mix donut, Revenue Streams); Money Saved (4 tiles, no daily chart); Money Protected (mirror); Top Sellers; **Bottom Sellers (NEW)**; **Top Employees (Servers/Bartenders/Hookah/Overall + section toggle, UPDATED)**.
 - **Detail Drill** — Top Food/Liquor/Hookah with working $/Qty toggle; Payment Methods table (txns, volume, avg tx, tips, share); Void/Exception preview card → scoped exception page; Monthly P&L (revenue lines → net sales → costs → Net Operating Income + margin footer).
-- **Exception Detail** — summary strip (Total, $ at Risk, Open, Cleared); Flags by Audit Rule bars; filter bar; transaction table (date/time, location, check #, server, rule, amount, severity pill, status). Audit rules are placeholders — final rules TBD by owner.
+- **Exception Detail** — summary strip (Total, $ at Risk = open + held, Open, Cleared); Flags by Audit Rule bars; filter bar; clickable transaction rows → review modal with approve/deny (see section 7); large-tip holds with release dates (section 8). Audit rules are placeholders — final rules TBD by owner.
+- **Payroll** — company payroll dashboard + per-location run views, salaried add, held/released tip notation, ADP export preview (full spec in section 9).
+- **Void & Discount Detail** — tabbed drill-down with reason/type breakdowns and by-employee accountability (full spec in section 10).
 - **Settings** — three tabs: KPI Targets (editable + Reset to Defaults), Period History (24 auto-snapshots, Clear All; backed by Supabase `period_snapshots`), Expense Category Mapping (keyword→category, longest-match-wins, vendor tester, category list, JSON export).
 
 ## Interactions & state
@@ -98,10 +147,10 @@ The **Top by $ / Top by Qty** toggle moves from the Overall card up to the Top E
 No image assets. Fonts via Google Fonts (Hanken Grotesk, Newsreader). All charts are DOM/SVG — no chart library required; keep it that way for parity.
 
 ## Files in this bundle
-`Company Glance v2.dc.html`, `By Location.dc.html`, `Location Report.dc.html`, `Detail Drill.dc.html`, `Exception Detail.dc.html`, `Settings.dc.html`, `support.js` (prototype runtime only).
+`Company Glance v2.dc.html`, `By Location.dc.html`, `Location Report.dc.html`, `Detail Drill.dc.html`, `Exception Detail.dc.html`, `Settings.dc.html`, `Payroll.dc.html`, `Void Discount Detail.dc.html`, `support.js` (prototype runtime only).
 
 ---
 
 # Suggested Claude Code prompt
 
-> In `jarrodknight88/aku-group-dashboard`, implement the design updates described in `design_handoff_aku_dashboard/README.md` (section "WHAT'S NEW"). The `.dc.html` files in that folder are the visual source of truth — open them in a browser to compare. Work within the existing React patterns: tokens from `src/theme.js`, shared cards/sections from `src/components`, data through `src/data/useDashboardData.js`. Implement the shared tooltip once and reuse it across `CompanyGlance.jsx` and `LocationReport.jsx`. Check section 6 ("Verify present") against the current code and only add what's missing. Don't restyle anything the references don't change.
+> In `jarrodknight88/aku-group-dashboard`, implement the design updates described in `design_handoff_aku_dashboard/README.md` (section "WHAT'S NEW"). The `.dc.html` files in that folder are the visual source of truth — open them in a browser to compare. Work within the existing React patterns: tokens from `src/theme.js`, shared cards/sections from `src/components`, data through `src/data/useDashboardData.js`. Implement the shared tooltip once and reuse it across `CompanyGlance.jsx` and `LocationReport.jsx`. Check section 6 ("Verify present") against the current code and only add what's missing. Sections 7–10 are the biggest pieces: the exception review modal with approve/deny, the $500 large-tip auto-hold rule (14-day hold, release scheduling), the new Payroll page, and the new Void & Discount drill-down — implement their business logic exactly as specified, including the held/released tip notations on payroll and the ADP export preview. Don't restyle anything the references don't change.

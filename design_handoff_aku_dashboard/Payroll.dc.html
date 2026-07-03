@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background:#EEF0F3; }
+  a { text-decoration:none; color:inherit; }
+  input, select { font-family:inherit; }
+</style>
+</helmet>
+
+<div data-screen-label="Payroll Run" style="min-height:100vh; background:#EEF0F3; font-family:'Hanken Grotesk',sans-serif; color:#1A2230;">
+
+  <!-- ===== HEADER ===== -->
+  <div style="background:#FFFFFF; border-bottom:1px solid #E4E7EC; position:sticky; top:0; z-index:10;">
+    <div style="max-width:1480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 26px;">
+      <div style="display:flex; align-items:center; gap:30px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:9px; background:#184080; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; font-weight:600; font-size:20px;">T</div>
+          <div style="line-height:1.08;">
+            <div style="font-family:'Newsreader',serif; font-weight:600; font-size:19px; letter-spacing:-0.01em;">Teranga Group</div>
+            <div style="font-size:11px; color:#9AA1AC; font-weight:500; letter-spacing:0.03em;">OPERATIONS DASHBOARD</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; background:#F4F6F8; padding:4px; border-radius:9px;">
+          <a href="Company%20Glance%20v2.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Company</a>
+          <a href="By%20Location.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">By Location</a>
+          <div style="padding:8px 18px; border-radius:6px; background:#184080; color:#fff; font-size:13px; font-weight:600;">Payroll</div>
+          <a href="Settings.dc.html" style="padding:8px 18px; border-radius:6px; color:#5A626E; font-size:13px; font-weight:600;">Settings</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1480px; margin:0 auto; padding:24px 26px 48px;">
+
+    <!-- ===== PAGE TITLE + PERIOD + EXPORT ===== -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;">
+      <div>
+        <div style="font-family:'Newsreader',serif; font-size:30px; font-weight:600; letter-spacing:-0.01em; line-height:1.05;">Payroll Run</div>
+        <div style="font-size:13px; color:#9AA1AC; margin-top:4px;">Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time</div>
+      </div>
+      <div style="display:flex; align-items:flex-start; gap:12px;">
+        <div style="text-align:right;">
+          <div style="display:flex; align-items:center; gap:9px; padding:9px 15px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600;">
+            <span style="color:#6B7280;">📅</span> Pay Period: Sep 15 – Sep 28 <span style="color:#9AA1AC;">▾</span>
+          </div>
+          <div style="font-size:11px; color:#9AA1AC; margin-top:5px;">Biweekly · 14 days · checks dated Oct 3</div>
+        </div>
+        <div onClick="{{ openExport }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">⤓ Export to ADP</div>
+      </div>
+    </div>
+
+    <!-- ===== SOURCE STATUS + LOCATION FILTER ===== -->
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+      <div style="display:flex; gap:4px; background:#fff; border:1px solid #E4E7EC; padding:4px; border-radius:9px;">
+        <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="4">
+          <div onClick="{{ c.onPick }}" style="{{ c.style }}">{{ c.label }}</div>
+        </sc-for>
+      </div>
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1A7F4B; background:#E6F4EC; padding:6px 12px; border-radius:7px;">✓ Toast hours imported · 14 days</span>
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1A7F4B; background:#E6F4EC; padding:6px 12px; border-radius:7px;">✓ Tips sheet matched · 14 nights</span>
+      <sc-if value="{{ hasHeld }}" hint-placeholder-val="{{ false }}">
+        <a href="Exception%20Detail.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#184080; background:#E8EEF6; padding:6px 12px; border-radius:7px;">⏳ {{ heldChip }}</a>
+      </sc-if>
+      <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#C0392B; background:#FBEAE8; padding:6px 12px; border-radius:7px;">● {{ reviewCount }} needs review</span>
+    </div>
+
+    <!-- ===== SUMMARY TILES ===== -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px;">
+      <div style="background:#184080; border-radius:13px; padding:20px; color:#fff;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#A9C2E4; font-weight:600;">Total Payroll</div>
+        <div style="font-family:'Newsreader',serif; font-size:34px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums;">{{ totalPayroll }}</div>
+        <div style="font-size:11px; color:#C4D6EC; margin-top:4px;">{{ headcountNote }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Hourly Wages</div>
+        <div style="font-family:'Newsreader',serif; font-size:34px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ totalWages }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">{{ totalHours }} hrs · OT at straight time</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Tips &amp; Gratuity Owed</div>
+        <div style="font-family:'Newsreader',serif; font-size:34px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ totalTips }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">{{ tipsSub }}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; padding:20px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#6B7280; font-weight:600;">Salaries</div>
+        <div style="font-family:'Newsreader',serif; font-size:34px; font-weight:500; margin-top:6px; font-variant-numeric:tabular-nums;">{{ totalSalaries }}</div>
+        <div style="font-size:11px; color:#9AA1AC; margin-top:4px;">{{ salaryCount }} salaried · per period</div>
+      </div>
+    </div>
+
+    <!-- ===== ALL-LOCATIONS DASHBOARD ===== -->
+    <sc-if value="{{ allView }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+        <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">This Pay Period by Location</div>
+        <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+        <div style="font-size:12px; color:#9AA1AC;">Open a location to review &amp; edit its run</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden; margin-bottom:28px;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+          <thead>
+            <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+              <th style="text-align:left; padding:12px 18px; font-weight:600;">Location</th>
+              <th style="text-align:left; padding:12px 12px; font-weight:600;">Employees</th>
+              <th style="padding:12px 12px; font-weight:600;">Hours</th>
+              <th style="padding:12px 12px; font-weight:600;">Hourly Wages</th>
+              <th style="padding:12px 12px; font-weight:600;">Tips Owed</th>
+              <th style="padding:12px 12px; font-weight:600;">Salaries</th>
+              <th style="padding:12px 12px; font-weight:600;">Total</th>
+              <th style="padding:12px 12px; font-weight:600;">Status</th>
+              <th style="padding:12px 18px; font-weight:600;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ locSummary }}" as="L" hint-placeholder-count="3">
+              <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+                <td style="text-align:left; padding:13px 18px; font-weight:700;">{{ L.locName }}</td>
+                <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ L.emp }}</td>
+                <td style="padding:13px 12px;">{{ L.hours }}</td>
+                <td style="padding:13px 12px;">{{ L.wages }}</td>
+                <td style="padding:13px 12px;">{{ L.tips }}</td>
+                <td style="padding:13px 12px;">{{ L.salaries }}</td>
+                <td style="padding:13px 12px; font-weight:700;">{{ L.total }}</td>
+                <td style="padding:13px 12px;"><span style="font-size:11px; font-weight:700; color:{{ L.statusColor }}; background:{{ L.statusBg }}; padding:3px 9px; border-radius:5px;">{{ L.statusText }}</span></td>
+                <td style="padding:13px 18px;"><span onClick="{{ L.open }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">Open run →</span></td>
+              </tr>
+            </sc-for>
+            <tr style="border-top:2px solid #E4E7EC; text-align:right; background:#F4F6F8;">
+              <td style="text-align:left; padding:13px 18px; font-weight:700;">Company total</td>
+              <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ headcountNote }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ totalHours }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ totalWages }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ totalTips }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ totalSalaries }}</td>
+              <td style="padding:13px 12px; font-weight:800;">{{ totalPayroll }}</td>
+              <td></td><td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+        <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Previous Payrolls</div>
+        <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+        <div style="font-size:12px; color:#9AA1AC;">Saved after each ADP export · company-wide</div>
+      </div>
+      <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+          <thead>
+            <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+              <th style="text-align:left; padding:12px 18px; font-weight:600;">Pay Period</th>
+              <th style="text-align:left; padding:12px 12px; font-weight:600;">Checks Dated</th>
+              <th style="text-align:left; padding:12px 12px; font-weight:600;">Employees</th>
+              <th style="padding:12px 12px; font-weight:600;">Hourly Wages</th>
+              <th style="padding:12px 12px; font-weight:600;">Tips</th>
+              <th style="padding:12px 12px; font-weight:600;">Salaries</th>
+              <th style="padding:12px 12px; font-weight:600;">Total Payroll</th>
+              <th style="padding:12px 18px; font-weight:600;">ADP Status</th>
+              <th style="padding:12px 18px; font-weight:600;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top:1px solid #EEF0F3; text-align:right; background:#FAFBFC;">
+              <td style="text-align:left; padding:13px 18px; font-weight:700;">Sep 15 – 28 <span style="font-size:10px; font-weight:700; color:#184080; background:#E8EEF6; padding:2px 7px; border-radius:4px; margin-left:6px;">CURRENT</span></td>
+              <td style="text-align:left; padding:13px 12px;">Oct 3</td>
+              <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ headcountNote }}</td>
+              <td style="padding:13px 12px;">{{ totalWages }}</td>
+              <td style="padding:13px 12px;">{{ totalTips }}</td>
+              <td style="padding:13px 12px;">{{ totalSalaries }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ totalPayroll }}</td>
+              <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#5A626E; background:#EEF0F3; padding:3px 9px; border-radius:5px;">In progress</span></td>
+              <td style="padding:13px 18px;"><span onClick="{{ openExport }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+            </tr>
+            <sc-for list="{{ prevRuns }}" as="p" hint-placeholder-count="6">
+              <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+                <td style="text-align:left; padding:13px 18px; font-weight:600;">{{ p.period }}</td>
+                <td style="text-align:left; padding:13px 12px;">{{ p.checks }}</td>
+                <td style="text-align:left; padding:13px 12px; color:#6B7280;">{{ p.emp }}</td>
+                <td style="padding:13px 12px;">{{ p.wages }}</td>
+                <td style="padding:13px 12px;">{{ p.tips }}</td>
+                <td style="padding:13px 12px;">{{ p.salaries }}</td>
+                <td style="padding:13px 12px; font-weight:700;">{{ p.total }}</td>
+                <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:3px 9px; border-radius:5px;">{{ p.status }}</span> <span style="font-size:11px; color:#9AA1AC; margin-left:6px;">{{ p.batch }}</span></td>
+                <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ runView }}" hint-placeholder-val="{{ true }}">
+    <!-- ===== HOURLY TABLE ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Hourly Employees</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="font-size:12px; color:#9AA1AC;">Check = (hours × rate) + tips owed</div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden; margin-bottom:28px;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+            <th style="text-align:left; padding:12px 18px; font-weight:600;">Employee</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Location</th>
+            <th style="padding:12px 12px; font-weight:600;">Hours</th>
+            <th style="padding:12px 12px; font-weight:600;">of which OT</th>
+            <th style="padding:12px 12px; font-weight:600;">Rate</th>
+            <th style="padding:12px 12px; font-weight:600;">Hourly Pay</th>
+            <th style="padding:12px 12px; font-weight:600;">Tips Owed</th>
+            <th style="padding:12px 12px; font-weight:600;">Tip-out (ref)</th>
+            <th style="padding:12px 12px; font-weight:600;">Match</th>
+            <th style="padding:12px 18px; font-weight:600;">Check Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ hourlyRows }}" as="r" hint-placeholder-count="10">
+            <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+              <td style="text-align:left; padding:12px 18px;"><span style="font-weight:700;">{{ r.name }}</span> <span style="color:#9AA1AC; font-size:11px;">· {{ r.role }}</span></td>
+              <td style="text-align:left; padding:12px;">{{ r.locName }}</td>
+              <td style="padding:12px;">{{ r.hours }}</td>
+              <td style="padding:12px; color:#9AA1AC;">{{ r.ot }}</td>
+              <td style="padding:12px;">{{ r.rateFmt }}</td>
+              <td style="padding:12px;">{{ r.wagesFmt }}</td>
+              <td style="padding:12px;">{{ r.tipsFmt }}<div style="font-size:10px; font-weight:700; color:{{ r.tipNoteColor }}; margin-top:2px;">{{ r.tipNote }}</div></td>
+              <td style="padding:12px; color:#9AA1AC;">{{ r.tipOutFmt }}</td>
+              <td style="padding:12px;"><span style="font-size:11px; font-weight:700; color:{{ r.matchColor }}; background:{{ r.matchBg }}; padding:3px 9px; border-radius:5px;">{{ r.matchText }}</span></td>
+              <td style="padding:12px 18px; font-weight:700;">{{ r.checkFmt }}</td>
+            </tr>
+          </sc-for>
+          <tr style="border-top:2px solid #E4E7EC; text-align:right; background:#F4F6F8;">
+            <td style="text-align:left; padding:13px 18px; font-weight:700;">Totals</td>
+            <td></td>
+            <td style="padding:13px 12px; font-weight:700;">{{ totalHours }}</td>
+            <td style="padding:13px 12px; color:#9AA1AC;">{{ totalOT }}</td>
+            <td></td>
+            <td style="padding:13px 12px; font-weight:700;">{{ totalWages }}</td>
+            <td style="padding:13px 12px; font-weight:700;">{{ totalTips }}</td>
+            <td style="padding:13px 12px; color:#9AA1AC;">{{ totalTipOut }}</td>
+            <td></td>
+            <td style="padding:13px 18px; font-weight:800;">{{ totalHourlyChecks }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ===== SALARIED ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Salaried Employees</div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="font-size:12px; color:#9AA1AC;">Added manually · not in Toast hours</div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+            <th style="text-align:left; padding:12px 18px; font-weight:600;">Employee</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Location</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Role</th>
+            <th style="padding:12px 12px; font-weight:600;">Salary / period</th>
+            <th style="padding:12px 18px; font-weight:600;">Check Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ salaryRows }}" as="s" hint-placeholder-count="3">
+            <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+              <td style="text-align:left; padding:12px 18px; font-weight:700;">{{ s.name }}</td>
+              <td style="text-align:left; padding:12px;">{{ s.locName }}</td>
+              <td style="text-align:left; padding:12px;">{{ s.role }}</td>
+              <td style="padding:12px;">{{ s.salaryFmt }}</td>
+              <td style="padding:12px 18px; font-weight:700;">{{ s.salaryFmt }}</td>
+            </tr>
+          </sc-for>
+          <tr style="border-top:1px solid #EEF0F3; background:#FAFBFC;">
+            <td style="padding:10px 18px;"><input value="{{ newName }}" onInput="{{ onNewName }}" placeholder="Full name" style="width:100%; padding:8px 10px; border:1px solid #D6DBE2; border-radius:7px; font-size:12px;" /></td>
+            <td style="padding:10px 12px;">
+              <select value="{{ newLoc }}" onChange="{{ onNewLoc }}" style="width:100%; padding:8px 10px; border:1px solid #D6DBE2; border-radius:7px; font-size:12px; background:#fff;">
+                <option value="atl">Teranga ATL</option>
+                <option value="clt">Teranga CLT</option>
+                <option value="afro">Afro District</option>
+              </select>
+            </td>
+            <td style="padding:10px 12px;"><input value="{{ newRole }}" onInput="{{ onNewRole }}" placeholder="Role" style="width:100%; padding:8px 10px; border:1px solid #D6DBE2; border-radius:7px; font-size:12px;" /></td>
+            <td style="padding:10px 12px;"><input value="{{ newSalary }}" onInput="{{ onNewSalary }}" placeholder="$ per period" style="width:100%; padding:8px 10px; border:1px solid #D6DBE2; border-radius:7px; font-size:12px; text-align:right;" /></td>
+            <td style="padding:10px 18px; text-align:right;"><div onClick="{{ addSalaried }}" style="display:inline-flex; padding:8px 16px; background:#184080; color:#fff; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">+ Add</div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="font-size:11px; color:#9AA1AC; margin-top:14px;">Overtime hours are paid at the regular rate per current policy — the export sends all hours as regular earnings. "Needs review" = a Toast name with no matching row on the tips sheet; resolve on the sheet and re-import. Tips over $500 on a single transaction are auto-held for 14 days (chargeback window): held amounts are excluded from tips owed and notated on the row, then added to a later run's check when released — also notated.</div>
+
+    <!-- ===== LOCATION PREVIOUS PAYROLLS ===== -->
+    <div style="display:flex; align-items:center; gap:12px; margin:28px 0 14px;">
+      <div style="font-family:'Newsreader',serif; font-size:18px; font-weight:600;">Previous Payrolls <span style="font-family:'Hanken Grotesk'; font-size:13px; color:#9AA1AC;">· {{ scopeName }}</span></div>
+      <div style="flex:1; height:1px; background:#DFE3E8;"></div>
+      <div style="font-size:12px; color:#9AA1AC;">This location's share of each exported batch</div>
+    </div>
+    <div style="background:#fff; border:1px solid #E4E7EC; border-radius:13px; overflow:hidden;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums;">
+        <thead>
+          <tr style="background:#F4F6F8; color:#6B7280; text-align:right;">
+            <th style="text-align:left; padding:12px 18px; font-weight:600;">Pay Period</th>
+            <th style="text-align:left; padding:12px 12px; font-weight:600;">Checks Dated</th>
+            <th style="padding:12px 12px; font-weight:600;">Hourly Wages</th>
+            <th style="padding:12px 12px; font-weight:600;">Tips</th>
+            <th style="padding:12px 12px; font-weight:600;">Salaries</th>
+            <th style="padding:12px 12px; font-weight:600;">Total</th>
+            <th style="padding:12px 18px; font-weight:600;">ADP Status</th>
+            <th style="padding:12px 18px; font-weight:600;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ locPrevRuns }}" as="p" hint-placeholder-count="6">
+            <tr style="border-top:1px solid #EEF0F3; text-align:right;">
+              <td style="text-align:left; padding:13px 18px; font-weight:600;">{{ p.period }}</td>
+              <td style="text-align:left; padding:13px 12px;">{{ p.checks }}</td>
+              <td style="padding:13px 12px;">{{ p.wages }}</td>
+              <td style="padding:13px 12px;">{{ p.tips }}</td>
+              <td style="padding:13px 12px;">{{ p.salaries }}</td>
+              <td style="padding:13px 12px; font-weight:700;">{{ p.total }}</td>
+              <td style="padding:13px 18px;"><span style="font-size:11px; font-weight:700; color:#1A7F4B; background:#E6F4EC; padding:3px 9px; border-radius:5px;">{{ p.status }}</span> <span style="font-size:11px; color:#9AA1AC; margin-left:6px;">{{ p.batch }}</span></td>
+              <td style="padding:13px 18px;"><span onClick="{{ p.onView }}" style="font-size:12px; font-weight:700; color:#184080; cursor:pointer;">⤓ View</span></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    </sc-if>
+
+  </div>
+
+  <!-- ===== ADP EXPORT MODAL ===== -->
+  <sc-if value="{{ showExport }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; background:rgba(16,26,42,0.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:30px;">
+      <div style="width:940px; max-width:100%; max-height:85vh; background:#fff; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(10,20,40,0.35);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid #E4E7EC;">
+          <div>
+            <div style="font-family:'Newsreader',serif; font-size:20px; font-weight:600;">ADP Export Preview</div>
+            <div style="font-size:12px; color:#9AA1AC; margin-top:2px;">Payroll batch CSV · {{ exportPeriod }} · {{ exportScope }} · {{ exportCount }} employees · hours as regular earnings, tips as earnings code T</div>
+          </div>
+          <div onClick="{{ closeExport }}" style="width:32px; height:32px; border-radius:8px; background:#F4F6F8; color:#5A626E; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; cursor:pointer;">✕</div>
+        </div>
+        <div style="padding:20px 24px; overflow:auto; flex:1;">
+          <pre style="margin:0; background:#102C58; color:#C4D6EC; padding:16px; border-radius:10px; font-size:11px; line-height:1.65; white-space:pre; overflow:auto;">{{ csvPreview }}</pre>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-top:1px solid #E4E7EC; background:#FAFBFC;">
+          <div style="font-size:11px; color:#9AA1AC;">Column template is configurable to your ADP company codes &amp; earnings codes before wiring.</div>
+          <div style="display:flex; gap:10px;">
+            <div onClick="{{ closeExport }}" style="padding:10px 16px; border:1px solid #D6DBE2; border-radius:9px; background:#fff; font-size:13px; font-weight:600; color:#3A4150; cursor:pointer;">Cancel</div>
+            <div style="padding:10px 18px; background:#184080; color:#fff; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;">⤓ Download .csv</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    loc: "all",
+    showExport: false,
+    exportRun: null,
+    salaried: [
+      { name: "B. Toure", loc: "atl", role: "General Manager", salary: 3269.23 },
+      { name: "E. Diagne", loc: "atl", role: "Executive Chef", salary: 2884.62 },
+      { name: "N. Sylla", loc: "clt", role: "General Manager", salary: 3076.92 },
+    ],
+    newName: "", newLoc: "atl", newRole: "", newSalary: "",
+  };
+
+  HOURLY = [
+    { name: "M. Diallo", role: "Server", loc: "atl", hours: 82.5, ot: 4.5, rate: 12.00, tips: 2140.50, tipOut: 428.10, tipHold: { amt: 640.00, rel: "Oct 4" } },
+    { name: "A. Sow", role: "Server", loc: "atl", hours: 78.0, ot: 0, rate: 12.00, tips: 1962.25, tipOut: 392.45, tipRelease: { amt: 780.00, note: "released Sep 29" } },
+    { name: "T. Ndiaye", role: "Server", loc: "atl", hours: 71.25, ot: 0, rate: 11.50, tips: 1704.00, tipOut: 340.80 },
+    { name: "K. Toure", role: "Bartender", loc: "atl", hours: 80.0, ot: 2.0, rate: 14.00, tips: 1856.75, tipOut: 0 },
+    { name: "O. Mbaye", role: "Hookah", loc: "atl", hours: 68.5, ot: 0, rate: 13.00, tips: 1122.00, tipOut: 0 },
+    { name: "K. Owusu", role: "Server", loc: "clt", hours: 76.75, ot: 1.25, rate: 11.50, tips: 1688.50, tipOut: 337.70 },
+    { name: "R. Bah", role: "Server", loc: "clt", hours: 69.0, ot: 0, rate: 11.50, tips: 1512.75, tipOut: 302.55 },
+    { name: "D. Fall", role: "Bartender", loc: "clt", hours: 77.5, ot: 3.5, rate: 14.00, tips: 1594.25, tipOut: 0 },
+    { name: "Y. Diop", role: "Hookah", loc: "clt", hours: 64.0, ot: 0, rate: 13.00, tips: 918.50, tipOut: 0 },
+    { name: "J. Mensah", role: "Server", loc: "afro", hours: 74.25, ot: 0, rate: 11.00, tips: null, tipOut: null },
+    { name: "F. Kamara", role: "Server", loc: "afro", hours: 70.5, ot: 0, rate: 11.00, tips: 1428.00, tipOut: 285.60 },
+    { name: "R. Cisse", role: "Bartender", loc: "afro", hours: 75.0, ot: 1.0, rate: 13.50, tips: 1370.25, tipOut: 0 },
+  ];
+
+  NAMES = { atl: "Teranga ATL", clt: "Teranga CLT", afro: "Afro District" };
+  CO_CODES = { atl: "TGA", clt: "TGC", afro: "AFD" };
+
+  fmt(n) { return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  renderVals() {
+    const loc = this.state.loc;
+    const inScope = (r) => loc === "all" || r.loc === loc;
+
+    const hourly = this.HOURLY.filter(inScope);
+    const salaried = this.state.salaried.filter(inScope);
+
+    const hourlyRows = hourly.map(r => {
+      const wages = r.hours * r.rate;
+      const matched = r.tips !== null;
+      const payable = matched ? r.tips + (r.tipRelease ? r.tipRelease.amt : 0) : 0;
+      const check = wages + payable;
+      return {
+        name: r.name, role: r.role, locName: this.NAMES[r.loc],
+        hours: r.hours.toFixed(2),
+        ot: r.ot > 0 ? r.ot.toFixed(2) : "—",
+        rateFmt: this.fmt(r.rate),
+        wagesFmt: this.fmt(wages),
+        tipsFmt: matched ? this.fmt(payable) : "—",
+        tipNote: r.tipHold ? ("− " + this.fmt(r.tipHold.amt) + " held · rel " + r.tipHold.rel) : (r.tipRelease ? ("+ " + this.fmt(r.tipRelease.amt) + " " + r.tipRelease.note) : ""),
+        tipNoteColor: r.tipHold ? "#184080" : "#1A7F4B",
+        tipOutFmt: matched && r.tipOut > 0 ? this.fmt(r.tipOut) : "—",
+        matchText: matched ? "✓ Matched" : "● Review",
+        matchColor: matched ? "#1A7F4B" : "#C0392B",
+        matchBg: matched ? "#E6F4EC" : "#FBEAE8",
+        checkFmt: this.fmt(check),
+      };
+    });
+
+    const salaryRows = salaried.map(s => ({
+      name: s.name, locName: this.NAMES[s.loc], role: s.role, salaryFmt: this.fmt(s.salary),
+    }));
+
+    const sumHours = hourly.reduce((a, r) => a + r.hours, 0);
+    const sumOT = hourly.reduce((a, r) => a + r.ot, 0);
+    const sumWages = hourly.reduce((a, r) => a + r.hours * r.rate, 0);
+    const sumTips = hourly.reduce((a, r) => a + (r.tips || 0) + (r.tips !== null && r.tipRelease ? r.tipRelease.amt : 0), 0);
+    const heldSum = hourly.reduce((a, r) => a + (r.tipHold ? r.tipHold.amt : 0), 0);
+    const sumTipOut = hourly.reduce((a, r) => a + (r.tipOut || 0), 0);
+    const sumSalary = salaried.reduce((a, s) => a + s.salary, 0);
+    const reviewCount = hourly.filter(r => r.tips === null).length;
+
+    // location chips
+    const chipDefs = [
+      { code: "all", label: "All locations" },
+      { code: "atl", label: "Teranga ATL" },
+      { code: "clt", label: "Teranga CLT" },
+      { code: "afro", label: "Afro District" },
+    ];
+    const active = "padding:7px 14px; border-radius:6px; background:#184080; color:#fff; font-size:12px; font-weight:600; cursor:pointer;";
+    const idle = "padding:7px 14px; border-radius:6px; color:#5A626E; font-size:12px; font-weight:600; cursor:pointer;";
+    const locChips = chipDefs.map(c => ({
+      label: c.label,
+      style: c.code === loc ? active : idle,
+      onPick: () => this.setState({ loc: c.code }),
+    }));
+
+    // per-location rollup (dashboard view)
+    const locSummary = ["atl", "clt", "afro"].map(code => {
+      const h = this.HOURLY.filter(r => r.loc === code);
+      const s = this.state.salaried.filter(x => x.loc === code);
+      const wages = h.reduce((a, r) => a + r.hours * r.rate, 0);
+      const tips = h.reduce((a, r) => a + (r.tips || 0), 0);
+      const sal = s.reduce((a, x) => a + x.salary, 0);
+      const hrs = h.reduce((a, r) => a + r.hours, 0);
+      const reviews = h.filter(r => r.tips === null).length;
+      return {
+        locName: this.NAMES[code],
+        emp: h.length + " hourly · " + s.length + " sal",
+        hours: hrs.toFixed(2),
+        wages: this.fmt(wages), tips: this.fmt(tips), salaries: this.fmt(sal),
+        total: this.fmt(wages + tips + sal),
+        statusText: reviews > 0 ? "● " + reviews + " needs review" : "✓ Ready",
+        statusColor: reviews > 0 ? "#C0392B" : "#1A7F4B",
+        statusBg: reviews > 0 ? "#FBEAE8" : "#E6F4EC",
+        open: () => this.setState({ loc: code }),
+      };
+    });
+
+    // previous payroll runs — archived batches, reconstructable per scope
+    const PREV = [
+      { period: "Sep 1 – 14", checks: "Sep 19", emp: "12 hourly · 3 sal", batch: "TG0914", f: 0.97 },
+      { period: "Aug 18 – 31", checks: "Sep 5", emp: "12 hourly · 3 sal", batch: "TG0831", f: 0.93 },
+      { period: "Aug 4 – 17", checks: "Aug 22", emp: "13 hourly · 3 sal", batch: "TG0817", f: 1.02 },
+      { period: "Jul 21 – Aug 3", checks: "Aug 8", emp: "13 hourly · 3 sal", batch: "TG0803", f: 0.90 },
+      { period: "Jul 7 – 20", checks: "Jul 25", emp: "12 hourly · 3 sal", batch: "TG0720", f: 0.96 },
+      { period: "Jun 23 – Jul 6", checks: "Jul 11", emp: "11 hourly · 3 sal", batch: "TG0706", f: 0.88 },
+    ];
+
+    const scopeFilter = (arr, sc) => sc === "all" ? arr : arr.filter(r => r.loc === sc);
+    const runSums = (f, sc) => {
+      const h = scopeFilter(this.HOURLY, sc);
+      const s = scopeFilter(this.state.salaried, sc);
+      return {
+        wages: h.reduce((a, r) => a + r.hours * f * r.rate, 0),
+        tips: h.reduce((a, r) => a + (r.tips === null ? 1400 : r.tips) * f, 0),
+        sal: s.reduce((a, x) => a + x.salary, 0),
+      };
+    };
+
+    const prevRuns = PREV.map((p, i) => {
+      const t = runSums(p.f, "all");
+      return {
+        period: p.period, checks: p.checks, emp: p.emp,
+        wages: this.fmt(t.wages), tips: this.fmt(t.tips), salaries: this.fmt(t.sal),
+        total: this.fmt(t.wages + t.tips + t.sal),
+        status: "✓ Exported " + p.checks, batch: p.batch,
+        onView: () => this.setState({ showExport: true, exportRun: i }),
+      };
+    });
+
+    const locPrevRuns = PREV.map((p, i) => {
+      const t = runSums(p.f, loc);
+      return {
+        period: p.period, checks: p.checks,
+        wages: this.fmt(t.wages), tips: this.fmt(t.tips), salaries: this.fmt(t.sal),
+        total: this.fmt(t.wages + t.tips + t.sal),
+        status: "✓ Exported " + p.checks, batch: p.batch,
+        onView: () => this.setState({ showExport: true, exportRun: i }),
+      };
+    });
+
+    // ADP CSV preview — current run, or an archived batch (scoped to the active location filter)
+    const runIdx = this.state.exportRun;
+    const archived = (runIdx !== null && runIdx !== undefined) ? PREV[runIdx] : null;
+    const csvF = archived ? archived.f : 1;
+    const csvBatch = archived ? archived.batch : "TG0928";
+    const pad = (s, n) => String(s).padEnd(n);
+    const header = pad("Co Code", 8) + pad("Batch ID", 10) + pad("File #", 8) + pad("Employee", 16) + pad("Reg Hours", 11) + pad("Reg Rate", 10) + pad("Reg Earnings", 14) + pad("Code", 6) + pad("Tips Amt", 11) + "Salary";
+    let fileNo = 1041;
+    const lines = [header];
+    hourly.forEach(r => {
+      const hrs = r.hours * csvF;
+      const wages = hrs * r.rate;
+      const tips = archived ? (r.tips === null ? 1400 : r.tips) * csvF : (r.tips === null ? null : r.tips + (r.tipRelease ? r.tipRelease.amt : 0));
+      lines.push(
+        pad(this.CO_CODES[r.loc], 8) + pad(csvBatch, 10) + pad(String(fileNo++), 8) + pad(r.name, 16) +
+        pad(hrs.toFixed(2), 11) + pad(r.rate.toFixed(2), 10) + pad(wages.toFixed(2), 14) +
+        pad(tips !== null ? "T" : "—", 6) + pad(tips !== null ? tips.toFixed(2) : "0.00", 11) + ""
+      );
+    });
+    salaried.forEach(s => {
+      lines.push(
+        pad(this.CO_CODES[s.loc], 8) + pad(csvBatch, 10) + pad(String(fileNo++), 8) + pad(s.name, 16) +
+        pad("0.00", 11) + pad("—", 10) + pad("0.00", 14) + pad("—", 6) + pad("0.00", 11) + s.salary.toFixed(2)
+      );
+    });
+
+    return {
+      locChips,
+      allView: loc === "all",
+      runView: loc !== "all",
+      locSummary,
+      prevRuns,
+      locPrevRuns,
+      scopeName: this.NAMES[loc] || "",
+      reviewCount,
+      hasHeld: heldSum > 0,
+      heldChip: this.fmt(heldSum) + " in large tips held",
+      tipsSub: heldSum > 0 ? ("Net of tip-out · " + this.fmt(heldSum) + " held") : "Net of tip-out · from recon sheet",
+      totalPayroll: this.fmt(sumWages + sumTips + sumSalary),
+      headcountNote: hourly.length + " hourly · " + salaried.length + " salaried",
+      totalWages: this.fmt(sumWages),
+      totalHours: sumHours.toFixed(2),
+      totalOT: sumOT > 0 ? sumOT.toFixed(2) : "—",
+      totalTips: this.fmt(sumTips),
+      totalTipOut: this.fmt(sumTipOut),
+      totalSalaries: this.fmt(sumSalary),
+      salaryCount: salaried.length,
+      totalHourlyChecks: this.fmt(sumWages + sumTips),
+      hourlyRows, salaryRows,
+
+      newName: this.state.newName, newLoc: this.state.newLoc, newRole: this.state.newRole, newSalary: this.state.newSalary,
+      onNewName: (e) => this.setState({ newName: e.target.value }),
+      onNewLoc: (e) => this.setState({ newLoc: e.target.value }),
+      onNewRole: (e) => this.setState({ newRole: e.target.value }),
+      onNewSalary: (e) => this.setState({ newSalary: e.target.value }),
+      addSalaried: () => {
+        const amt = parseFloat(String(this.state.newSalary).replace(/[$,]/g, ""));
+        if (!this.state.newName.trim() || !(amt > 0)) return;
+        this.setState({
+          salaried: [...this.state.salaried, { name: this.state.newName.trim(), loc: this.state.newLoc, role: this.state.newRole.trim() || "Salaried", salary: amt }],
+          newName: "", newRole: "", newSalary: "",
+        });
+      },
+
+      showExport: this.state.showExport,
+      openExport: () => this.setState({ showExport: true, exportRun: null }),
+      closeExport: () => this.setState({ showExport: false }),
+      exportCount: hourly.length + salaried.length,
+      exportPeriod: archived ? archived.period : "Sep 15 – Sep 28 (current)",
+      exportScope: loc === "all" ? "All locations" : this.NAMES[loc],
+      csvPreview: lines.join("\n"),
+    };
+  }
+}
+</script>
+</body>
+</html>
