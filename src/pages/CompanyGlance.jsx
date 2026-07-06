@@ -334,7 +334,7 @@ export default function CompanyGlance() {
 
             {/* ===== MONEY PROTECTED ===== */}
             <SectionHeader title="Money Protected" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16, marginBottom: 30 }}>
+            <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16, marginBottom: 30 }}>
               <KpiTile label="Void % of Sales" value={fmtPct(t?.voidPct)} status={voidStatus} size={30} padding={18} to="/void-discount?tab=void"
                 sub={t?.voidPct == null ? 'No sales in range' : (<>Target &lt; {targets.void_pct ?? 1}% · {voidStatus === 'good' ? <Within /> : <span style={{ fontWeight: 600 }}>over</span>} · <DetailsTail /></>)} />
               {(() => {
@@ -432,7 +432,8 @@ export default function CompanyGlance() {
             {/* ===== LOCATION COMPARISON ===== */}
             <SectionHeader title="Location Comparison" />
             <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <div style={{ overflowX: 'auto' }}>
+              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 680 }}>
                 <thead>
                   <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
                     <th style={{ textAlign: 'left', padding: '12px 18px', fontWeight: 600 }}>Location</th>
@@ -474,6 +475,7 @@ export default function CompanyGlance() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </>
         )}

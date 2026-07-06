@@ -35,6 +35,8 @@ export const PRESETS = [
   { key: 'last7', label: 'Last 7 Days' },
   { key: 'last30', label: 'Last 30 Days' },
   { key: 'last90', label: 'Last 90 Days' },
+  { key: 'ytd', label: 'Year to Date' },
+  { key: 'lastYear', label: 'Last Year' },
   { key: 'custom', label: 'Custom Range' },
 ]
 
@@ -61,6 +63,10 @@ export function presetRange(key, today = new Date()) {
     }
     case 'last7':
       return { start: toStr(addDays(t, -6)), end: toStr(t), label: 'Last 7 Days' }
+    case 'ytd':
+      return { start: `${t.getFullYear()}-01-01`, end: toStr(t), label: 'Year to Date' }
+    case 'lastYear':
+      return { start: `${t.getFullYear() - 1}-01-01`, end: `${t.getFullYear() - 1}-12-31`, label: 'Last Year' }
     case 'last90':
       return { start: toStr(addDays(t, -89)), end: toStr(t), label: 'Last 90 Days' }
     case 'last30':
@@ -69,10 +75,15 @@ export function presetRange(key, today = new Date()) {
   }
 }
 
-/** The immediately-preceding window of equal length. */
+/** The immediately-preceding window of equal length — except Jan-1-anchored
+    ranges (Year to Date, Last Year), which compare to the SAME window a year
+    earlier (Jan 1 – Jul 6, 2026 vs Jan 1 – Jul 6, 2025), like Shopify. */
 export function compareRange({ start, end }) {
   const s = fromStr(start)
   const e = fromStr(end)
+  if (start.slice(5) === '01-01' && e.getFullYear() === s.getFullYear()) {
+    return { start: `${s.getFullYear() - 1}${start.slice(4)}`, end: `${e.getFullYear() - 1}${end.slice(4)}` }
+  }
   const len = Math.round((e - s) / 86_400_000) + 1
   const compEnd = addDays(s, -1)
   const compStart = addDays(compEnd, -(len - 1))

@@ -42,6 +42,15 @@ a {
   background: #f8fafc;
 }
 
+/* Fixed-column grids collapse to a single column on phones (their inline
+   desktop templates — '1fr 1fr 1.4fr', 'repeat(3,1fr)' — can't shrink and
+   force the mobile layout viewport wider than the screen). */
+@media (max-width: 720px) {
+  .grid-collapse {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Mobile invoice intake (/submit) — input focus ring + press feedback.
    16px+ font sizes there keep iOS from zooming; these carry the states
    inline styles can't express. */
