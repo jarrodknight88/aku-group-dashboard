@@ -52,6 +52,7 @@ export default function VoidDiscountDetail() {
   const [serverSales, setServerSales] = useState([])
   const [serverCats, setServerCats] = useState([])
   const [notes, setNotes] = useState([]) // void_discount_notes rows for the range
+  const [vdChecks, setVdChecks] = useState([]) // check-level detail with full ticket items
   const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -86,16 +87,18 @@ export default function VoidDiscountDetail() {
           fetchDim('daily_server_sales', id, range.start, range.end),
           fetchDim('daily_server_categories', id, range.start, range.end),
           fetchVdNotes(id, range.start, range.end),
+          fetchDim('daily_vd_checks', id, range.start, range.end).catch(() => []),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [m, v, ss, sc, ns] = res
+        const [m, v, ss, sc, ns, ck] = res
         setMetrics(m)
         setVd(v)
         setServerSales(ss)
         setServerCats(sc)
         setNotes(ns)
+        setVdChecks(ck)
         setLoading(false)
         setError('')
       })
@@ -229,6 +232,17 @@ export default function VoidDiscountDetail() {
   )
   const modalNotes = noteModal
     ? notesByLine.get(noteKeyOf(noteModal.location_id, noteModal.business_date, noteModal.kind, vdLineKey(noteModal), noteModal.reason ?? '')) ?? []
+    : []
+  // full-ticket snapshots for the line under review (check-level pull data)
+  const modalChecks = noteModal
+    ? vdChecks.filter(
+        (c) =>
+          c.kind === noteModal.kind &&
+          c.business_date === noteModal.business_date &&
+          c.location_id === noteModal.location_id &&
+          (c.employee_guid || c.employee_name || '') === vdLineKey(noteModal) &&
+          (c.reason ?? '') === (noteModal.reason ?? ''),
+      )
     : []
   const saveNote = async () => {
     if (!noteModal || !noteText.trim() || savingNote) return
@@ -576,6 +590,49 @@ export default function VoidDiscountDetail() {
               </div>
               <span onClick={() => setNoteModal(null)} style={{ fontSize: 18, color: colors.muted3, cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</span>
             </div>
+
+            {/* ---- the tickets behind this line ---- */}
+            <div style={{ margin: '16px 0 8px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {noteModal.kind === 'void' ? 'Tickets with these voids' : 'Tickets with this discount'}
+            </div>
+            {modalChecks.length === 0 ? (
+              <div style={{ fontSize: 11.5, color: colors.muted3, lineHeight: 1.5, marginBottom: 4 }}>
+                No ticket detail for this night yet — check-level capture starts with the next Toast pull (re-run the backfill for history).
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {modalChecks.map((c, ci) => (
+                  <div key={ci} style={{ border: `1px solid ${colors.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 13px', background: colors.panelGray, fontSize: 12, fontWeight: 700 }}>
+                      <span>
+                        Check {c.check_number ? `#${c.check_number}` : '—'}
+                        {c.opened_at && (
+                          <span style={{ color: colors.muted3, fontWeight: 500 }}>
+                            {' '}· {new Date(c.opened_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </span>
+                      <span className="tnum">{fmt(c.amount)} {c.kind === 'void' ? 'voided' : 'off'}</span>
+                    </div>
+                    <div style={{ padding: '6px 13px 9px' }}>
+                      {(c.items ?? []).map((it, ii) => (
+                        <div key={ii} className="tnum" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0', fontSize: 12 }}>
+                          <span style={{ textDecoration: it.voided ? 'line-through' : 'none', color: it.voided ? colors.red : it.discounted ? '#8A6D1A' : colors.ink }}>
+                            {it.qty > 1 ? `${Math.round(it.qty)}× ` : ''}{it.name}
+                            {it.voided && <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6, textDecoration: 'none', display: 'inline-block' }}>VOIDED</span>}
+                            {!it.voided && it.discounted && <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>DISCOUNTED</span>}
+                          </span>
+                          <span style={{ color: it.voided ? colors.red : colors.muted2, whiteSpace: 'nowrap' }}>
+                            {'$' + Number(it.price ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                      {(c.items ?? []).length === 0 && <div style={{ fontSize: 11.5, color: colors.muted3, padding: '4px 0' }}>No line items recorded.</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ margin: '16px 0 10px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Notes</div>
             {modalNotes.length === 0 ? (
