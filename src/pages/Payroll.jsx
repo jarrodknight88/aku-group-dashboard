@@ -269,7 +269,8 @@ export default function Payroll() {
 
   const runsTable = (
     <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-      <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <div style={{ overflowX: 'auto' }}>
+      <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 560 }}>
         <thead>
           <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'left' }}>
             <th style={{ ...thLeft, padding: '12px 18px' }}>Pay Period</th>
@@ -316,6 +317,7 @@ export default function Payroll() {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   )
 
@@ -426,7 +428,8 @@ export default function Payroll() {
                 {/* ===== ALL-LOCATIONS DASHBOARD ===== */}
                 <SectionHeader title="This Pay Period by Location" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Open a location to review &amp; edit its run</span>} />
                 <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
-                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
                     <thead>
                       <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
                         <th style={{ ...thLeft, padding: '12px 18px' }}>Location</th>
@@ -474,6 +477,7 @@ export default function Payroll() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 <SectionHeader title="Previous Payrolls" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Saved after each ADP export · company-wide</span>} />
@@ -484,7 +488,8 @@ export default function Payroll() {
                 {/* ===== HOURLY TABLE (run view) ===== */}
                 <SectionHeader title="Hourly Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Check = (hours × rate) + tips owed · click a rate to set it — it carries into every future period</span>} />
                 <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: unmatched.length ? 12 : 28 }}>
-                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 820 }}>
                     <thead>
                       <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
                         <Th k="name" left wide>Employee</Th>
@@ -578,6 +583,7 @@ export default function Payroll() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
                 {unmatched.length > 0 && (
                   <div style={{ padding: '10px 14px', background: '#FBF3DC', borderRadius: 9, color: '#8A6D1A', fontSize: 12, fontWeight: 600, marginBottom: 28 }}>
@@ -589,7 +595,8 @@ export default function Payroll() {
                 {/* ===== SALARIED ===== */}
                 <SectionHeader title="Salaried Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Added manually · not in Toast hours</span>} />
                 <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
                     <thead>
                       <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
                         <th style={{ ...thLeft, padding: '12px 18px' }}>Employee</th>
@@ -632,6 +639,7 @@ export default function Payroll() {
                       </tr>
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 <div style={{ fontSize: 11, color: colors.muted3, marginTop: 14 }}>
@@ -651,7 +659,8 @@ export default function Payroll() {
                       right={<span style={{ fontSize: 12, color: colors.muted3 }}>Clock in via Toast but aren't paid through this payroll — never in the run or the ADP export</span>}
                     />
                     <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-                      <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <div style={{ overflowX: 'auto' }}>
+                      <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 560 }}>
                         <thead>
                           <tr style={{ background: colors.panelGray, color: colors.muted2, textAlign: 'right' }}>
                             <th style={{ ...thLeft, padding: '12px 18px' }}>Employee</th>
@@ -677,6 +686,7 @@ export default function Payroll() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   </>
                 )}
