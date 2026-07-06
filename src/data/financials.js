@@ -331,12 +331,25 @@ export async function pinVdPhoto(id, checkGuid, kind) {
   if (error) throw new Error(error.message)
 }
 
+/** Unpinning marks the photo 'rejected' (not 'unmatched') so the nightly
+    auto-matcher never re-attaches it — it stays in the night gallery for a
+    manual pin if it belongs somewhere else. */
 export async function unpinVdPhoto(id) {
   const { error } = await supabase
     .from('groupme_photos')
-    .update({ matched_check_guid: null, matched_kind: null, match_status: 'unmatched' })
+    .update({ matched_check_guid: null, matched_kind: null, match_status: 'rejected' })
     .eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+/** Client mirror of the DB's names_probably_match(): anchored on the
+    employee's FIRST name ("Tish" ~ "Tishaa", "Kim" ~ "Kimberly") — surname-
+    only matches are rejected, family members share those. */
+export function namesProbablyMatch(senderName, employeeName) {
+  const toks = (s) => String(s ?? '').toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3)
+  const first = toks(employeeName)[0]
+  if (!first) return false
+  return toks(senderName).some((x) => x.startsWith(first) || first.startsWith(x))
 }
 
 /* ---- invoice comment threads (migration 33) ---- */
