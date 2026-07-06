@@ -303,6 +303,41 @@ export async function addVdNote({ locationId, businessDate, kind, employeeKey, r
   return data
 }
 
+/* ---- GroupMe void/comp photos (migration 34) ----
+   The group bots push every photo to groupme_photos; the nightly matcher
+   auto-attaches them to checks. Anyone with location access can pin/unpin
+   the ambiguous ones from the drill-down. */
+
+export async function fetchVdPhotos(locationId, start, end) {
+  let q = supabase
+    .from('groupme_photos')
+    .select('id, location_id, business_date, sender_name, posted_at, caption, image_url, matched_check_guid, matched_kind, match_status')
+    .gte('business_date', start)
+    .lte('business_date', end)
+    .order('posted_at', { ascending: false })
+    .limit(500)
+  if (locationId) q = q.eq('location_id', locationId)
+  const { data, error } = await q
+  if (error) return []
+  return data ?? []
+}
+
+export async function pinVdPhoto(id, checkGuid, kind) {
+  const { error } = await supabase
+    .from('groupme_photos')
+    .update({ matched_check_guid: checkGuid, matched_kind: kind, match_status: 'manual' })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function unpinVdPhoto(id) {
+  const { error } = await supabase
+    .from('groupme_photos')
+    .update({ matched_check_guid: null, matched_kind: null, match_status: 'unmatched' })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 /* ---- invoice comment threads (migration 33) ---- */
 
 export async function fetchInvoiceComments(invoiceId) {

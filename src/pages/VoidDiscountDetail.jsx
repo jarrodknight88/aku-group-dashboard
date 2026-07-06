@@ -8,7 +8,7 @@ import { card, StatRow, RankRow, ModeToggle, DAY_LABELS } from '../components/ca
 import { colors, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../data/live.js'
-import { fetchVdNotes, addVdNote, vdLineKey } from '../data/financials.js'
+import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdPhoto } from '../data/financials.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
@@ -53,6 +53,7 @@ export default function VoidDiscountDetail() {
   const [serverCats, setServerCats] = useState([])
   const [notes, setNotes] = useState([]) // void_discount_notes rows for the range
   const [vdChecks, setVdChecks] = useState([]) // check-level detail with full ticket items
+  const [photos, setPhotos] = useState([]) // GroupMe void/comp photos for the range
   const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -88,17 +89,19 @@ export default function VoidDiscountDetail() {
           fetchDim('daily_server_categories', id, range.start, range.end),
           fetchVdNotes(id, range.start, range.end),
           fetchDim('daily_vd_checks', id, range.start, range.end).catch(() => []),
+          fetchVdPhotos(id, range.start, range.end),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [m, v, ss, sc, ns, ck] = res
+        const [m, v, ss, sc, ns, ck, ph] = res
         setMetrics(m)
         setVd(v)
         setServerSales(ss)
         setServerCats(sc)
         setNotes(ns)
         setVdChecks(ck)
+        setPhotos(ph)
         setLoading(false)
         setError('')
       })
@@ -244,6 +247,51 @@ export default function VoidDiscountDetail() {
           (c.reason ?? '') === (noteModal.reason ?? ''),
       )
     : []
+  // photos for the modal: attached to this line's checks, plus that night's
+  // unattached gallery for one-tap pinning
+  const modalCheckGuids = new Set(modalChecks.map((c) => c.check_guid).filter(Boolean))
+  const matchedPhotos = noteModal ? photos.filter((p) => p.matched_check_guid && modalCheckGuids.has(p.matched_check_guid)) : []
+  const nightPhotos = noteModal
+    ? photos.filter(
+        (p) =>
+          p.location_id === noteModal.location_id &&
+          p.business_date === noteModal.business_date &&
+          !(p.matched_check_guid && modalCheckGuids.has(p.matched_check_guid)),
+      )
+    : []
+  const pinTarget = modalChecks.find((c) => c.check_guid) ?? null
+  const handlePin = async (photo) => {
+    if (!pinTarget) return
+    try {
+      await pinVdPhoto(photo.id, pinTarget.check_guid, pinTarget.kind)
+      setPhotos((ps) => ps.map((p) => (p.id === photo.id ? { ...p, matched_check_guid: pinTarget.check_guid, matched_kind: pinTarget.kind, match_status: 'manual' } : p)))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+  const handleUnpin = async (photo) => {
+    try {
+      await unpinVdPhoto(photo.id)
+      setPhotos((ps) => ps.map((p) => (p.id === photo.id ? { ...p, matched_check_guid: null, matched_kind: null, match_status: 'unmatched' } : p)))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+  const PhotoCard = ({ p, action, actionLabel }) => (
+    <div style={{ width: 128, flexShrink: 0 }}>
+      <a href={p.image_url} target="_blank" rel="noreferrer">
+        <img src={p.image_url} alt="GroupMe" style={{ width: 128, height: 96, objectFit: 'cover', borderRadius: 8, border: `1px solid ${colors.border}`, display: 'block' }} />
+      </a>
+      <div style={{ fontSize: 10, color: colors.muted2, marginTop: 3, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.caption ?? ''}>
+        {p.sender_name} · {new Date(p.posted_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        {p.caption ? ` — ${p.caption}` : ''}
+      </div>
+      {action && (
+        <span onClick={() => action(p)} style={{ fontSize: 10.5, fontWeight: 700, color: colors.brand, cursor: 'pointer' }}>{actionLabel}</span>
+      )}
+    </div>
+  )
+
   const saveNote = async () => {
     if (!noteModal || !noteText.trim() || savingNote) return
     setSavingNote(true)
@@ -632,6 +680,32 @@ export default function VoidDiscountDetail() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* ---- GroupMe photos ---- */}
+            {(matchedPhotos.length > 0 || nightPhotos.length > 0) && (
+              <>
+                <div style={{ margin: '16px 0 8px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>GroupMe photos</div>
+                {matchedPhotos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                    {matchedPhotos.map((p) => (
+                      <PhotoCard key={p.id} p={p} action={p.match_status === 'manual' ? handleUnpin : undefined} actionLabel="✕ unpin" />
+                    ))}
+                  </div>
+                )}
+                {nightPhotos.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, color: colors.muted3, margin: '8px 0 6px' }}>
+                      More photos from that night{pinTarget ? ' — pin the right one to this check:' : ':'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                      {nightPhotos.slice(0, 12).map((p) => (
+                        <PhotoCard key={p.id} p={p} action={pinTarget ? handlePin : undefined} actionLabel="📌 Pin to this check" />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
 
             <div style={{ margin: '16px 0 10px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Notes</div>
