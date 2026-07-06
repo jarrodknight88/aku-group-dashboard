@@ -346,6 +346,35 @@ function aggregateOrders(orders, lookups = {}) {
     if (!map.has(key)) map.set(key, { amountC: 0, qty: 0 })
     return map.get(key)
   }
+  // Check-level void/discount events: the Toast check number, who rang it,
+  // the reason, and a snapshot of EVERYTHING on the ticket — the drill-down
+  // shows what else was rung in, and the check # is the GroupMe-photo join
+  // key. One row per (check, kind) with any activity.
+  const vdChecks = []
+  const snapItems = (check) =>
+    (check.selections ?? []).map((sel) => ({
+      name: sel.displayName || 'Unknown item',
+      qty: Number(sel.quantity) || 0,
+      price: cents(sel.price) / 100,
+      voided: !!sel.voided,
+      discounted: (sel.appliedDiscounts ?? []).some((d) => !d.processingState || d.processingState === 'APPLIED'),
+    }))
+  const pushVdCheck = (kind, order, check, amountC, qty, reason, voidAll = false) => {
+    if (!(amountC > 0)) return
+    const items = snapItems(check)
+    if (voidAll) for (const it of items) it.voided = true
+    vdChecks.push({
+      kind,
+      check_guid: check.guid || null,
+      check_number: check.displayNumber != null ? String(check.displayNumber) : null,
+      employee_guid: order.server?.guid ?? null,
+      reason: reason || (kind === 'void' ? 'No reason recorded' : 'unnamed'),
+      amountC,
+      qty,
+      opened_at: order.openedDate || order.paidDate || null,
+      items,
+    })
+  }
   // Toast keeps removed discounts in the response with processingState VOID/
   // PENDING; the Sales Summary counts only applied ones. (Calibration: the
   // item-level overcount of exactly $303.28 disappeared with this filter.)
@@ -386,10 +415,17 @@ function aggregateOrders(orders, lookups = {}) {
     if (order.voided) {
       // Fully voided order: contributes to voids, not to sales.
       for (const check of order.checks ?? []) {
+        let chkC = 0
+        let chkQ = 0
+        let chkReason = null
         for (const sel of check.selections ?? []) {
           addVoidC(cents(sel.price))
           addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          chkC += cents(sel.price)
+          chkQ += Number(sel.quantity) || 0
+          if (!chkReason) chkReason = voidReasonOf(sel, check)
         }
+        pushVdCheck('void', order, check, chkC, chkQ, chkReason, true)
       }
       continue
     }
@@ -403,18 +439,35 @@ function aggregateOrders(orders, lookups = {}) {
 
     for (const check of checks) {
       if (check.voided) {
+        let chkC = 0
+        let chkQ = 0
+        let chkReason = null
         for (const sel of check.selections ?? []) {
           addVoidC(cents(sel.price))
           addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          chkC += cents(sel.price)
+          chkQ += Number(sel.quantity) || 0
+          if (!chkReason) chkReason = voidReasonOf(sel, check)
         }
+        pushVdCheck('void', order, check, chkC, chkQ, chkReason, true)
         continue
       }
+      // per-check accumulators feeding the check-level snapshot rows
+      let chkVoidC = 0
+      let chkVoidQ = 0
+      let chkVoidReason = null
+      let chkDiscC = 0
+      let chkDiscQ = 0
+      let chkDiscName = null
       for (const disc of check.appliedDiscounts ?? []) {
         if (!isApplied(disc)) continue
         const c = cents(disc.discountAmount)
         addDiscountC(c)
         addDebug('check', disc, c)
         addVd('discount', orderServer, disc.name || disc.discount?.name || 'unnamed', null, c, 1)
+        chkDiscC += c
+        chkDiscQ += 1
+        if (!chkDiscName) chkDiscName = disc.name || disc.discount?.name || 'unnamed'
       }
       for (const p of check.payments ?? []) {
         // Calibration: cash/Discover/OpenTable matched the Payments summary
@@ -443,6 +496,9 @@ function aggregateOrders(orders, lookups = {}) {
         if (sel.voided) {
           addVoidC(cents(sel.price))
           addVd('void', orderServer, voidReasonOf(sel, check), sel.displayName, cents(sel.price), Number(sel.quantity) || 0)
+          chkVoidC += cents(sel.price)
+          chkVoidQ += Number(sel.quantity) || 0
+          if (!chkVoidReason) chkVoidReason = voidReasonOf(sel, check)
           continue
         }
         const priceC = cents(sel.price)
@@ -488,8 +544,13 @@ function aggregateOrders(orders, lookups = {}) {
           addDiscountC(c)
           addDebug('item', d, c)
           addVd('discount', orderServer, d.name || d.discount?.name || 'unnamed', sel.displayName, c, 1)
+          chkDiscC += c
+          chkDiscQ += 1
+          if (!chkDiscName) chkDiscName = d.name || d.discount?.name || 'unnamed'
         }
       }
+      pushVdCheck('void', order, check, chkVoidC, chkVoidQ, chkVoidReason)
+      pushVdCheck('discount', order, check, chkDiscC, chkDiscQ, chkDiscName)
     }
 
     if (serverGuid && orderNetC > 0) {
@@ -518,6 +579,7 @@ function aggregateOrders(orders, lookups = {}) {
     discounts_by_hour: discountsByHourC.map((c) => c / 100),
     vdEmp,
     vdItem,
+    vdChecks,
   }
 }
 
@@ -960,6 +1022,19 @@ function breakdownRows(sales, locationId, businessDate, employeeNames, jobTitles
         }
       }),
     ],
+    daily_vd_checks: (sales.vdChecks ?? []).map((c) => ({
+      ...base,
+      kind: c.kind,
+      check_guid: c.check_guid,
+      check_number: c.check_number,
+      employee_guid: c.employee_guid,
+      employee_name: (c.employee_guid && employeeNames?.get(c.employee_guid)) || null,
+      reason: c.reason,
+      amount: c.amountC / 100,
+      qty: c.qty,
+      opened_at: c.opened_at,
+      items: c.items,
+    })),
   }
 }
 

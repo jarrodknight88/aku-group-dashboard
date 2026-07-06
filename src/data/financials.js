@@ -303,6 +303,28 @@ export async function addVdNote({ locationId, businessDate, kind, employeeKey, r
   return data
 }
 
+/* ---- invoice comment threads (migration 33) ---- */
+
+export async function fetchInvoiceComments(invoiceId) {
+  const { data, error } = await supabase
+    .from('invoice_comments')
+    .select('id, comment, author_name, created_at')
+    .eq('invoice_id', invoiceId)
+    .order('created_at')
+  if (error) return []
+  return data ?? []
+}
+
+export async function addInvoiceComment({ invoiceId, comment, authorId, authorName }) {
+  const { data, error } = await supabase
+    .from('invoice_comments')
+    .insert({ invoice_id: invoiceId, comment: comment.trim(), author_id: authorId, author_name: authorName ?? null })
+    .select('id, comment, author_name, created_at')
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
 /** Sum helper: group invoices by a key function. */
 export function sumBy(rows, keyFn) {
   const m = new Map()
