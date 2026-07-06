@@ -134,7 +134,7 @@ export default function ByLocation() {
         )}
 
         {/* Location cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
+        <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
           {active.map((l) => {
             const d = perLocation.get(l.id)
             const t = d?.cur

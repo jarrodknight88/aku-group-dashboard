@@ -456,7 +456,7 @@ export default function LocationReport() {
 
             {/* ===== MONEY PROTECTED ===== */}
             <SectionHeader title="Money Protected" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16 }}>
+            <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gridAutoRows: '1fr', gap: 16 }}>
               <KpiTile
                 label="Void % of Sales"
                 value={fmtPct(t?.voidPct)}

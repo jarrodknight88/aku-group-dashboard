@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useRange } from '../state/RangeContext.jsx'
-import { presetRange, fromStr, toStr, addDays, PRESETS } from '../lib/dates.js'
+import { presetRange, compareRange, fromStr, toStr, PRESETS } from '../lib/dates.js'
 import { colors } from '../theme.js'
 
 /* Date-range picker (enterprise pass, §11 — Company reference is canonical).
@@ -21,11 +21,9 @@ export function fmtRangeYear(aStr, bStr) {
   return `${MO[a.getMonth()]} ${a.getDate()} – ${MO[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`
 }
 
-const compareOf = (startStr, endStr) => {
-  const s = fromStr(startStr)
-  const len = Math.round((fromStr(endStr) - s) / 86_400_000) + 1
-  return { start: toStr(addDays(s, -len)), end: toStr(addDays(s, -1)) }
-}
+// Jan-1-anchored ranges compare year-over-year; everything else to the
+// preceding window of equal length (compareRange decides).
+const isYoY = ({ start, end }) => start.slice(5) === '01-01' && end.slice(0, 4) === start.slice(0, 4)
 
 // Panel opens on the month before the range's end month (reference behavior).
 const anchorFor = (endStr) => {
@@ -34,12 +32,12 @@ const anchorFor = (endStr) => {
 }
 
 export default function DateRangePicker() {
-  const { range, presetKey, setPresetKey, setCustom } = useRange()
+  const { range, compare, presetKey, setPresetKey, setCustom } = useRange()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(null) // { preset, start, end, picking, anchor }
 
   const committedLabel = PRESETS.find((p) => p.key === presetKey)?.label ?? 'Custom Range'
-  const committedCompare = compareOf(range.start, range.end)
+  const committedCompare = compare
 
   const openPanel = () =>
     setDraft({ preset: presetKey, start: range.start, end: range.end, picking: 0, anchor: anchorFor(range.end) })
@@ -55,7 +53,7 @@ export default function DateRangePicker() {
   }
 
   const d = draft ?? { preset: presetKey, start: range.start, end: range.end, anchor: anchorFor(range.end) }
-  const draftCompare = compareOf(d.start, d.end)
+  const draftCompare = compareRange({ start: d.start, end: d.end })
 
   const pickPreset = (key) => {
     if (key === 'custom') return setDraft({ ...d, preset: 'custom', picking: 0 })
@@ -89,27 +87,44 @@ export default function DateRangePicker() {
     </div>
   )
 
+  // Phones get a fixed, screen-anchored panel (the absolute dropdown can
+  // land off-screen when the title row wraps) — decided when the panel opens.
+  const mobile = typeof window !== 'undefined' && window.innerWidth < 700
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', maxWidth: '100%' }}>
       <div
         onClick={() => {
           if (!open) openPanel()
           setOpen(!open)
         }}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '2px 9px', padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', maxWidth: '100%' }}
       >
-        <span>{committedLabel}</span>
-        <span style={{ color: colors.muted3, fontWeight: 500 }}>{fmtRangeYear(range.start, range.end)}</span>
+        <span style={{ whiteSpace: 'nowrap' }}>{committedLabel}</span>
+        <span style={{ color: colors.muted3, fontWeight: 500, whiteSpace: 'nowrap' }}>{fmtRangeYear(range.start, range.end)}</span>
         <span style={{ color: colors.muted3 }}>▾</span>
       </div>
       <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6, textAlign: 'right' }}>
         Compared to: <span style={{ color: colors.muted1, fontWeight: 600 }}>{fmtRangeYear(committedCompare.start, committedCompare.end)}</span>
       </div>
 
+      {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 59, background: mobile ? 'rgba(16,44,88,0.35)' : 'transparent' }} />}
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: 44, zIndex: 60, width: 680, maxWidth: 'calc(100vw - 48px)', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 16px 40px rgba(16,44,88,0.18)', overflow: 'hidden' }}>
+        <div
+          style={
+            mobile
+              ? { position: 'fixed', left: 8, right: 8, top: 64, zIndex: 60, maxHeight: 'calc(100vh - 90px)', overflowY: 'auto', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 16px 40px rgba(16,44,88,0.28)' }
+              : { position: 'absolute', right: 0, top: 44, zIndex: 60, width: 680, maxWidth: 'calc(100vw - 48px)', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 16px 40px rgba(16,44,88,0.18)', overflow: 'hidden' }
+          }
+        >
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 0 150px', maxWidth: 190, borderRight: '1px solid #F0F2F5', padding: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div
+              style={
+                mobile
+                  ? { flex: '1 1 100%', borderBottom: '1px solid #F0F2F5', padding: 8, display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 4 }
+                  : { flex: '1 0 150px', maxWidth: 190, borderRight: '1px solid #F0F2F5', padding: 8, display: 'flex', flexDirection: 'column', gap: 2 }
+              }
+            >
               {PRESETS.map((p) => (
                 <div
                   key={p.key}
@@ -155,7 +170,7 @@ export default function DateRangePicker() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: `1px solid ${colors.border}`, background: '#FAFBFC', flexWrap: 'wrap' }}>
             <div style={{ fontSize: 11, color: colors.muted3 }}>
-              Compared to: <span style={{ color: colors.muted1, fontWeight: 600 }}>{fmtRangeYear(draftCompare.start, draftCompare.end)}</span> · preceding period of equal length
+              Compared to: <span style={{ color: colors.muted1, fontWeight: 600 }}>{fmtRangeYear(draftCompare.start, draftCompare.end)}</span> · {isYoY({ start: d.start, end: d.end }) ? 'same period last year' : 'preceding period of equal length'}
             </div>
             <div style={{ flex: 1 }} />
             <div onClick={() => setOpen(false)} style={{ padding: '8px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>

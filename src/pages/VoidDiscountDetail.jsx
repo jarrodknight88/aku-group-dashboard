@@ -512,14 +512,14 @@ export default function VoidDiscountDetail() {
         <SectionHeader
           title={`${isVoid ? 'Voids' : 'Discounts'} by Employee`}
           right={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search employee"
-                style={{ padding: '7px 11px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, fontSize: 12, fontFamily: 'inherit', width: 160 }}
+                style={{ padding: '7px 11px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, fontSize: 12, fontFamily: 'inherit', width: 160, maxWidth: '100%' }}
               />
-              <span style={{ fontSize: 12, color: colors.muted3, whiteSpace: 'nowrap' }}>Target: &lt; {target}% of own sales</span>
+              <span style={{ fontSize: 12, color: colors.muted3 }}>Target: &lt; {target}% of own sales</span>
             </div>
           }
         />

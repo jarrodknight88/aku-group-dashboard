@@ -333,6 +333,29 @@ export default function Financials() {
   }, [yearMetrics, yearInvoices, scopedPayments, payrollMonths, valetYear, year])
   const ytd = pnl.reduce((a, m) => ({ rev: a.rev + m.rev, exp: a.exp + m.exp }), { rev: 0, exp: 0 })
 
+  /* ---- summary tiles: the SELECTED range, not the whole year ----
+     Daily items (Toast sales, wages, invoices, valet) count by date; monthly
+     items (bill payments, tips, salaries) count when their month starts
+     inside the range — same 1st-of-month convention as the P&L. */
+  const rangeTotals = useMemo(() => {
+    const inR = (d) => d >= range.start && d <= range.end
+    let rev = 0
+    let exp = 0
+    for (const r of yearMetrics) {
+      if (!inR(r.business_date)) continue
+      rev += Number(r.net_sales) || 0
+      exp += Number(r.labor_cost) || 0 // wages
+    }
+    for (const i of invoices) if (i.expense_categories?.name !== 'Payroll') exp += Number(i.amount) || 0
+    for (const v of valetRange) {
+      rev += Number(v.total_revenue) || 0
+      exp += (Number(v.workers_paid) || 0) + (Number(v.other_expenses) || 0)
+    }
+    for (const p of scopedPayments) if (inR(p.month)) exp += Number(p.amount) || 0
+    for (const pm of payrollMonths) if (inR(pm.month)) exp += (Number(pm.tips) || 0) + (Number(pm.salaried_monthly) || 0)
+    return { rev, exp }
+  }, [yearMetrics, invoices, valetRange, scopedPayments, payrollMonths, range.start, range.end])
+
   /* ---- category drill (selected range) ---- */
   const byGroup = useMemo(() => sumBy(invoices, (i) => i.expense_categories?.grp ?? 'Uncategorized'), [invoices])
   const rangeTotal = byGroup.reduce((a, g) => a + g.amount, 0)
@@ -539,14 +562,14 @@ export default function Financials() {
           title="Financials"
           meta={<>Revenue from Toast · costs from approved invoices · {loading ? 'Loading…' : `${invoices.length} invoices in range`}</>}
           right={
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, maxWidth: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
                 <Link to="/financials/submit" style={{ padding: '9px 16px', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
                   ＋ Submit invoice
                 </Link>
                 <DateRangePicker />
               </div>
-              <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9 }}>
+              <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
                 {[['all', 'All locations'], ...active.map((l) => [l.code.toLowerCase(), l.name])].map(([code, label]) => (
                   <div key={code} onClick={() => { setLoc(code); setDrill({}) }} style={{ padding: '7px 14px', borderRadius: 6, background: code === loc ? colors.brand : 'transparent', color: code === loc ? '#fff' : colors.muted1, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                     {label}
@@ -569,12 +592,12 @@ export default function Financials() {
           min={190}
           style={{ marginBottom: 22 }}
           items={[
-            { label: `Revenue (${year} YTD)`, value: fmtK(ytd.rev), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>Toast net sales + valet</span> },
-            { label: `Expenses (${year} YTD)`, value: fmtK(ytd.exp), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>invoices · bills · payroll · valet</span> },
+            { label: `Revenue · ${fmtRange(range.start, range.end)}`, value: fmtK(rangeTotals.rev), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>Toast net sales + valet</span> },
+            { label: `Expenses · ${fmtRange(range.start, range.end)}`, value: fmtK(rangeTotals.exp), sub: <span style={{ fontSize: 11, color: colors.muted3 }}>invoices · bills · payroll · valet</span> },
             {
-              label: `Net (${year} YTD)`, value: fmtK(ytd.rev - ytd.exp),
-              valueColor: ytd.rev - ytd.exp >= 0 ? colors.greenDark : colors.red,
-              sub: <span style={{ fontSize: 11, color: colors.muted3 }}>{ytd.rev > 0 ? `${(((ytd.rev - ytd.exp) / ytd.rev) * 100).toFixed(1)}% margin` : 'no revenue yet'}</span>,
+              label: `Net · ${fmtRange(range.start, range.end)}`, value: fmtK(rangeTotals.rev - rangeTotals.exp),
+              valueColor: rangeTotals.rev - rangeTotals.exp >= 0 ? colors.greenDark : colors.red,
+              sub: <span style={{ fontSize: 11, color: colors.muted3 }}>{rangeTotals.rev > 0 ? `${(((rangeTotals.rev - rangeTotals.exp) / rangeTotals.rev) * 100).toFixed(1)}% margin` : 'no revenue in range'}</span>,
             },
             {
               label: 'Needs Review', value: queue.length,
