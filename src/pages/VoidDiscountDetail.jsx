@@ -8,7 +8,7 @@ import { card, StatRow, RankRow, ModeToggle, DAY_LABELS } from '../components/ca
 import { colors, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../data/live.js'
-import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdPhoto } from '../data/financials.js'
+import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdPhoto, namesProbablyMatch } from '../data/financials.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
@@ -271,11 +271,13 @@ export default function VoidDiscountDetail() {
             (c.employee_guid || c.employee_name || '') === vdLineKey(noteModal) &&
             (c.reason ?? '') === (noteModal.reason ?? ''),
         )
-  // photos for the modal: attached to this line's checks, plus that night's
-  // unattached gallery for one-tap pinning
+  // photos for the modal: attached to this check, plus that night's gallery
+  // (scoped to this employee's posts — a "show all" toggle widens it for the
+  // cases where someone else posted the picture)
+  const [showAllNight, setShowAllNight] = useState(false)
   const modalCheckGuids = new Set(modalChecks.map((c) => c.check_guid).filter(Boolean))
   const matchedPhotos = noteModal ? photos.filter((p) => p.matched_check_guid && modalCheckGuids.has(p.matched_check_guid)) : []
-  const nightPhotos = noteModal
+  const allNightPhotos = noteModal
     ? photos.filter(
         (p) =>
           p.location_id === noteModal.location_id &&
@@ -283,6 +285,10 @@ export default function VoidDiscountDetail() {
           !(p.matched_check_guid && modalCheckGuids.has(p.matched_check_guid)),
       )
     : []
+  const nightPhotos = showAllNight
+    ? allNightPhotos
+    : allNightPhotos.filter((p) => !noteModal?.employee_name || namesProbablyMatch(p.sender_name, noteModal.employee_name))
+  const hiddenNightCount = allNightPhotos.length - nightPhotos.length
   const pinTarget = modalChecks.find((c) => c.check_guid) ?? null
   const handlePin = async (photo) => {
     if (!pinTarget) return
@@ -615,7 +621,7 @@ export default function VoidDiscountDetail() {
                 </thead>
                 <tbody>
                   {detailRows.slice(0, 80).map((r, i) => (
-                    <tr key={i} className="row-hover" onClick={() => { setNoteModal(r); setNoteText('') }} style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }}>
+                    <tr key={i} className="row-hover" onClick={() => { setNoteModal(r); setNoteText(''); setShowAllNight(false) }} style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }}>
                       <td style={{ padding: '11px 18px', whiteSpace: 'nowrap' }}>
                         {fmtRange(r.business_date, r.business_date)}
                         {r.opened_at && (
@@ -709,8 +715,16 @@ export default function VoidDiscountDetail() {
                         <div key={ii} className="tnum" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0', fontSize: 12 }}>
                           <span style={{ textDecoration: it.voided ? 'line-through' : 'none', color: it.voided ? colors.red : it.discounted ? '#8A6D1A' : colors.ink }}>
                             {it.qty > 1 ? `${Math.round(it.qty)}× ` : ''}{it.name}
-                            {it.voided && <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6, textDecoration: 'none', display: 'inline-block' }}>VOIDED</span>}
-                            {!it.voided && it.discounted && <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>DISCOUNTED</span>}
+                            {it.voided && (
+                              <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6, textDecoration: 'none', display: 'inline-block' }}>
+                                VOIDED{it.reason ? ` · ${it.reason}` : ''}
+                              </span>
+                            )}
+                            {!it.voided && it.discounted && (
+                              <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 6 }}>
+                                DISCOUNTED{it.discount ? ` · ${it.discount}` : ''}
+                              </span>
+                            )}
                           </span>
                           <span style={{ color: it.voided ? colors.red : colors.muted2, whiteSpace: 'nowrap' }}>
                             {'$' + Number(it.price ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -725,20 +739,21 @@ export default function VoidDiscountDetail() {
             )}
 
             {/* ---- GroupMe photos ---- */}
-            {(matchedPhotos.length > 0 || nightPhotos.length > 0) && (
+            {(matchedPhotos.length > 0 || allNightPhotos.length > 0) && (
               <>
                 <div style={{ margin: '16px 0 8px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>GroupMe photos</div>
                 {matchedPhotos.length > 0 && (
                   <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
                     {matchedPhotos.map((p) => (
-                      <PhotoCard key={p.id} p={p} action={p.match_status === 'manual' ? handleUnpin : undefined} actionLabel="✕ unpin" />
+                      <PhotoCard key={p.id} p={p} action={handleUnpin} actionLabel="✕ unpin — not this check" />
                     ))}
                   </div>
                 )}
                 {nightPhotos.length > 0 && (
                   <>
                     <div style={{ fontSize: 11, color: colors.muted3, margin: '8px 0 6px' }}>
-                      More photos from that night{pinTarget ? ' — pin the right one to this check:' : ':'}
+                      {noteModal.employee_name ? `More posted by ${noteModal.employee_name.split(' ')[0]} that night` : 'More photos from that night'}
+                      {pinTarget ? ' — pin the right one to this check:' : ':'}
                     </div>
                     <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
                       {nightPhotos.slice(0, 12).map((p) => (
@@ -746,6 +761,11 @@ export default function VoidDiscountDetail() {
                       ))}
                     </div>
                   </>
+                )}
+                {hiddenNightCount > 0 && !showAllNight && (
+                  <div onClick={() => setShowAllNight(true)} style={{ fontSize: 11, fontWeight: 700, color: colors.brand, cursor: 'pointer', marginTop: 6 }}>
+                    Show all {allNightPhotos.length} photos from that night (other posters)
+                  </div>
                 )}
               </>
             )}

@@ -351,18 +351,30 @@ function aggregateOrders(orders, lookups = {}) {
   // shows what else was rung in, and the check # is the GroupMe-photo join
   // key. One row per (check, kind) with any activity.
   const vdChecks = []
-  const snapItems = (check) =>
-    (check.selections ?? []).map((sel) => ({
-      name: sel.displayName || 'Unknown item',
-      qty: Number(sel.quantity) || 0,
-      price: cents(sel.price) / 100,
-      voided: !!sel.voided,
-      discounted: (sel.appliedDiscounts ?? []).some((d) => !d.processingState || d.processingState === 'APPLIED'),
-    }))
+  const snapItems = (check) => {
+    const rn = (ref) => (ref ? ref.name || lookups.voidReasons?.get(ref.guid) || null : null)
+    return (check.selections ?? []).map((sel) => {
+      const disc = (sel.appliedDiscounts ?? []).find((d) => !d.processingState || d.processingState === 'APPLIED')
+      return {
+        name: sel.displayName || 'Unknown item',
+        qty: Number(sel.quantity) || 0,
+        price: cents(sel.price) / 100,
+        voided: !!sel.voided,
+        discounted: !!disc,
+        // per-line labels for the drill-down ticket view
+        reason: sel.voided ? rn(sel.voidReason) || rn(check?.voidReason) || null : null,
+        discount: disc ? disc.name || disc.discount?.name || null : null,
+      }
+    })
+  }
   const pushVdCheck = (kind, order, check, amountC, qty, reason, voidAll = false) => {
     if (!(amountC > 0)) return
     const items = snapItems(check)
-    if (voidAll) for (const it of items) it.voided = true
+    if (voidAll)
+      for (const it of items) {
+        it.voided = true
+        it.reason = it.reason || reason || null
+      }
     vdChecks.push({
       kind,
       check_guid: check.guid || null,

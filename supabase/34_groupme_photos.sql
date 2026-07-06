@@ -42,7 +42,7 @@ create table if not exists public.groupme_photos (
   image_url          text not null,             -- i.groupme.com — stable hosting
   matched_check_guid text,                      -- daily_vd_checks.check_guid (survives re-imports)
   matched_kind       text,                      -- 'void' | 'discount'
-  match_status       text not null default 'unmatched',  -- 'unmatched' | 'auto' | 'manual'
+  match_status       text not null default 'unmatched',  -- 'unmatched' | 'auto' | 'manual' | 'rejected'
   created_at         timestamptz not null default now()
 );
 create index if not exists idx_gmp_loc_date on public.groupme_photos(location_id, business_date);
@@ -59,17 +59,19 @@ create policy gmp_update on public.groupme_photos for update
   with check (public.can_access_location(location_id));
 
 -- ---------- nightly auto-match ----------
--- Name matching is deliberately loose: any ≥3-char token of the GroupMe
--- display name prefixes a token of the Toast employee name, or vice versa
--- ("Touched By Tish" ↔ "Tishaa Harris").
+-- Name matching anchors on the employee's FIRST name: some token of the
+-- GroupMe display name must prefix-match it, either direction
+-- ("Touched By Tish" ~ "Tishaa Harris", "Kim Yung" ~ "Kimberly Dobson").
+-- Surname-only matches are rejected -- family members share them.
 create or replace function public.names_probably_match(p_sender text, p_employee text)
 returns boolean language sql immutable as $$
   select exists (
     select 1
-    from unnest(regexp_split_to_array(lower(coalesce(p_sender, '')), '[^a-z]+')) s(tok)
-    cross join unnest(regexp_split_to_array(lower(coalesce(p_employee, '')), '[^a-z]+')) e(tok)
-    where length(s.tok) >= 3 and length(e.tok) >= 3
-      and (s.tok like e.tok || '%' or e.tok like s.tok || '%')
+    from unnest(regexp_split_to_array(lower(coalesce(p_sender, '')), '[^a-z]+')) s(tok),
+         lateral (select t as first from unnest(regexp_split_to_array(lower(coalesce(p_employee, '')), '[^a-z]+')) t
+                  where length(t) >= 3 limit 1) f
+    where length(s.tok) >= 3
+      and (s.tok like f.first || '%' or f.first like s.tok || '%')
   )
 $$;
 
@@ -83,8 +85,10 @@ declare
   n int := 0;
 begin
   -- self-regulating retro-match: attempt any unmatched photo whose night has
-  -- check-level data, however old -- so a Toast history backfill is picked up
-  -- automatically on the next run
+  -- check-level data ('rejected' photos -- manually unpinned -- are never
+  -- re-attempted). Precision over recall: the check must have a known open
+  -- time within 45 minutes of the photo; anything looser waits in the night
+  -- gallery for a manual pin.
   for p in
     select gp.* from public.groupme_photos gp
     where gp.match_status = 'unmatched'
@@ -93,23 +97,23 @@ begin
         where c.location_id = gp.location_id and c.business_date = gp.business_date
       )
   loop
-    -- distinct checks (by guid) that plausibly belong to this photo
     select count(distinct c.check_guid) into v_candidates
     from public.daily_vd_checks c
     where c.location_id = p.location_id
       and c.business_date = p.business_date
       and c.check_guid is not null
+      and c.opened_at is not null
       and public.names_probably_match(p.sender_name, c.employee_name)
-      and (c.opened_at is null or abs(extract(epoch from (c.opened_at - p.posted_at))) < 7200);
+      and abs(extract(epoch from (c.opened_at - p.posted_at))) < 2700;
     if v_candidates = 1 then
-      -- one check -- attach (prefer its void row over its discount row)
       select c.check_guid, c.kind into v_guid, v_kind
       from public.daily_vd_checks c
       where c.location_id = p.location_id
         and c.business_date = p.business_date
         and c.check_guid is not null
+        and c.opened_at is not null
         and public.names_probably_match(p.sender_name, c.employee_name)
-        and (c.opened_at is null or abs(extract(epoch from (c.opened_at - p.posted_at))) < 7200)
+        and abs(extract(epoch from (c.opened_at - p.posted_at))) < 2700
       order by (c.kind = 'void') desc
       limit 1;
       update public.groupme_photos
