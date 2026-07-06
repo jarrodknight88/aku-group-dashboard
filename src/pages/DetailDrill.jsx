@@ -103,14 +103,14 @@ export default function DetailDrill() {
           <>
             {/* ===== TOP SELLERS ===== */}
             <SectionHeader title="Top Sellers" right={<ModeToggle mode={mode} onChange={setMode} />} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
+            <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
               {topBlock('Top Food', 'Food')}
               {topBlock('Top Liquor', 'Liquor')}
               {topBlock('Top Hookah', 'Hookah')}
             </div>
 
             {/* ===== PAYMENT METHODS + EXCEPTIONS ===== */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 16, marginBottom: 30 }}>
+            <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 16, marginBottom: 30 }}>
               <div style={card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>
                   <div style={{ fontFamily: fonts.serif, fontSize: 18, fontWeight: 600 }}>Payment Methods</div>
@@ -121,7 +121,8 @@ export default function DetailDrill() {
                 {payments.length === 0 ? (
                   <div style={{ color: colors.muted3, fontSize: 12 }}>No payments in range</div>
                 ) : (
-                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                  <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 430 }}>
                     <thead>
                       <tr style={{ color: colors.muted2, textAlign: 'right', borderBottom: `1px solid ${colors.pageBg}` }}>
                         <th style={{ textAlign: 'left', padding: '9px 6px', fontWeight: 600 }}>Method</th>
@@ -143,6 +144,7 @@ export default function DetailDrill() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
 

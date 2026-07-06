@@ -508,7 +508,7 @@ export default function Settings() {
 
         {/* ===== EXPENSE MAPPING ===== */}
         {tab === 'mapping' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'start' }}>
+          <div className="grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'start' }}>
             <div style={panel}>
               <div style={{ fontFamily: fonts.serif, fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
                 Vendor → Category Mapping

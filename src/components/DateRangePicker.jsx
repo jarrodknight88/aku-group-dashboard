@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRange } from '../state/RangeContext.jsx'
 import { presetRange, compareRange, fromStr, toStr, PRESETS } from '../lib/dates.js'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { colors } from '../theme.js'
 
 /* Date-range picker (enterprise pass, §11 — Company reference is canonical).
@@ -90,6 +91,7 @@ export default function DateRangePicker() {
   // Phones get a fixed, screen-anchored panel (the absolute dropdown can
   // land off-screen when the title row wraps) — decided when the panel opens.
   const mobile = typeof window !== 'undefined' && window.innerWidth < 700
+  useScrollLock(open && mobile)
 
   return (
     <div style={{ position: 'relative', maxWidth: '100%' }}>
