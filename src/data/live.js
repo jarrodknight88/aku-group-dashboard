@@ -136,9 +136,12 @@ export async function fetchChargebackTotals(locationId, start, end) {
 }
 
 export async function fetchExceptionCount(locationId, start, end) {
+  // dashboards count only what still needs attention — cleared / released /
+  // denied flags stay visible on the Exceptions page but not in this number
   let q = supabase
     .from('exception_flags')
     .select('id', { count: 'exact', head: true })
+    .in('status', ['open', 'held'])
     .gte('occurred_at', start + 'T00:00:00Z')
     .lte('occurred_at', end + 'T23:59:59Z')
   if (locationId) q = q.eq('location_id', locationId)

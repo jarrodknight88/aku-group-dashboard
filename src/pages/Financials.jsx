@@ -36,6 +36,93 @@ function FlagChips({ reasons }) {
   )
 }
 
+const STATUS_STYLE = {
+  auto_approved: { label: 'Auto-approved', color: colors.greenDark, bg: colors.greenBg },
+  approved: { label: 'Approved', color: colors.greenDark, bg: colors.greenBg },
+  needs_review: { label: 'Needs review', color: '#8A6D1A', bg: '#FBF3DC' },
+  declined: { label: 'Declined', color: colors.red, bg: colors.redBg },
+  imported_legacy: { label: 'Legacy import', color: colors.muted2, bg: colors.panelGray },
+}
+
+/** Everything about one expense in one place: details, flags, notes, the
+    attached image (inline when it renders) and the Evernote link. */
+function InvoiceModal({ inv, locations, onClose }) {
+  const [imgBroken, setImgBroken] = useState(false)
+  if (!inv) return null
+  const st = STATUS_STYLE[inv.status] ?? { label: inv.status, color: colors.muted2, bg: colors.panelGray }
+  const submitter = inv.submitter?.full_name || inv.submitter?.email || inv.submitted_name || null
+  const row = (k, v) =>
+    v == null || v === '' ? null : (
+      <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: '9px 0', borderTop: `1px solid ${colors.pageBg}`, fontSize: 12.5 }}>
+        <span style={{ color: colors.muted2, whiteSpace: 'nowrap' }}>{k}</span>
+        <span style={{ fontWeight: 600, textAlign: 'right', overflowWrap: 'anywhere' }}>{v}</span>
+      </div>
+    )
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(16,44,88,0.45)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 15, width: 660, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', padding: 26 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div>
+            <div style={{ fontFamily: fonts.serif, fontSize: 21, fontWeight: 600, letterSpacing: '-0.01em' }}>{inv.vendors?.name ?? inv.vendor_name_raw}</div>
+            {inv.vendors?.name && inv.vendors.name !== inv.vendor_name_raw && (
+              <div style={{ fontSize: 11, color: colors.muted3, marginTop: 2 }}>entered as "{inv.vendor_name_raw}"</div>
+            )}
+          </div>
+          <span onClick={onClose} style={{ fontSize: 18, color: colors.muted3, cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '10px 0 14px' }}>
+          <span className="tnum" style={{ fontSize: 24, fontWeight: 700 }}>{fmt2(inv.amount)}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 999, color: st.color, background: st.bg }}>{st.label}</span>
+        </div>
+
+        {(inv.flag_reasons ?? []).length > 0 && (
+          <div style={{ marginBottom: 12 }}><FlagChips reasons={inv.flag_reasons} /></div>
+        )}
+
+        {row('Invoice date', fmtRange(inv.invoice_date, inv.invoice_date))}
+        {row('Invoice #', inv.invoice_number)}
+        {row('Location', locations.find((l) => l.id === inv.location_id)?.name)}
+        {row('Category', inv.expense_categories ? `${inv.expense_categories.name} · ${inv.expense_categories.grp ?? ''}` : 'Uncategorized')}
+        {row('Submitted', inv.submitted_at ? new Date(inv.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : null)}
+        {row('Submitted by', submitter)}
+        {row('Submission ID', inv.submission_id)}
+        {row('Notes', inv.notes)}
+
+        {(inv.file_url || inv.evernote_link) && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            {inv.file_url && (
+              <a href={inv.file_url} target="_blank" rel="noreferrer" style={{ padding: '8px 16px', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                Open invoice file ↗
+              </a>
+            )}
+            {inv.evernote_link && (
+              <a href={inv.evernote_link} target="_blank" rel="noreferrer" style={{ padding: '8px 16px', border: `1px solid ${colors.borderStrong}`, color: colors.brand, borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                Open in Evernote ↗
+              </a>
+            )}
+          </div>
+        )}
+        {inv.file_url && !imgBroken && (
+          <a href={inv.file_url} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 14 }}>
+            <img
+              src={inv.file_url}
+              alt="invoice attachment"
+              onError={() => setImgBroken(true)}
+              style={{ maxWidth: '100%', maxHeight: 460, borderRadius: 10, border: `1px solid ${colors.border}`, display: 'block' }}
+            />
+          </a>
+        )}
+        {inv.file_url && imgBroken && (
+          <div style={{ marginTop: 12, fontSize: 11, color: colors.muted3 }}>Attachment isn't an image (probably a PDF) — use "Open invoice file" above.</div>
+        )}
+        {!inv.file_url && (
+          <div style={{ marginTop: 14, fontSize: 11, color: colors.muted3 }}>No file was attached to this expense.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Financials() {
   const { profile } = useAuth()
   const { range } = useRange()
@@ -55,6 +142,7 @@ export default function Financials() {
   const [payments, setPayments] = useState([]) // { bill_id, month, amount } for the year
   const [categories, setCategories] = useState([])
   const [billModal, setBillModal] = useState(null) // bill row or null
+  const [invModal, setInvModal] = useState(null) // invoice row or null (detail view)
   const [payrollMonths, setPayrollMonths] = useState([]) // rpc: { month, tips, salaried_monthly }
   const [billDraft, setBillDraft] = useState({ name: '', category_id: '', due_day: '', expected: '', loc: '' })
   const [valetRange, setValetRange] = useState([]) // selected range, worksheet
@@ -454,7 +542,7 @@ export default function Financials() {
                 </thead>
                 <tbody>
                   {queue.map((q) => (
-                    <tr key={q.id} style={{ borderTop: `1px solid ${colors.pageBg}`, verticalAlign: 'top' }}>
+                    <tr key={q.id} className="row-hover" onClick={() => setInvModal(q)} style={{ borderTop: `1px solid ${colors.pageBg}`, verticalAlign: 'top', cursor: 'pointer' }} title="Click for full detail">
                       <td style={{ ...tdL, padding: '12px 18px', whiteSpace: 'nowrap' }}>
                         {fmtRange(q.invoice_date, q.invoice_date)}
                         <div style={{ fontSize: 10, color: colors.muted3 }}>#{q.invoice_number || '—'}</div>
@@ -468,11 +556,11 @@ export default function Financials() {
                       </td>
                       <td style={{ ...td, fontWeight: 700 }}>{fmt2(q.amount)}</td>
                       <td style={tdL}><FlagChips reasons={q.flag_reasons} /></td>
-                      <td style={tdL}>
+                      <td style={tdL} onClick={(e) => e.stopPropagation()}>
                         {q.file_url && <a href={q.file_url} target="_blank" rel="noreferrer" style={{ color: colors.brand, fontWeight: 700, marginRight: 10 }}>Invoice</a>}
                         {q.evernote_link && <a href={q.evernote_link} target="_blank" rel="noreferrer" style={{ color: colors.brand, fontWeight: 700 }}>Evernote</a>}
                       </td>
-                      <td style={{ ...td, padding: '12px 18px', whiteSpace: 'nowrap' }}>
+                      <td style={{ ...td, padding: '12px 18px', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                         {canAct ? (
                           <>
                             <span onClick={() => acting !== q.id && act(q.id, true)} style={{ display: 'inline-block', padding: '6px 12px', background: colors.brand, color: '#fff', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: acting === q.id ? 0.6 : 1 }}>Approve</span>
@@ -594,13 +682,13 @@ export default function Financials() {
                     {vendorInvoices.map((i) => {
                       const over = vendorBaseline && Number(i.amount) > vendorBaseline.band && Number(i.amount) >= 500
                       return (
-                        <tr key={i.id} style={{ borderTop: `1px solid ${colors.pageBg}` }}>
+                        <tr key={i.id} className="row-hover" onClick={() => setInvModal(i)} style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }} title="Click for full detail">
                           <td style={{ ...tdL, padding: '11px 18px' }}>{fmtRange(i.invoice_date, i.invoice_date)}</td>
                           <td style={tdL}>{locations.find((l) => l.id === i.location_id)?.name ?? ''}</td>
                           <td style={tdL}>{i.invoice_number || '—'}</td>
                           <td style={{ ...td, fontWeight: 700, color: over ? colors.red : 'inherit', background: over ? colors.redBg : 'transparent' }}>{fmt2(i.amount)}</td>
                           <td style={{ ...tdL, color: colors.muted2 }}>{i.status.replace('_', ' ')}</td>
-                          <td style={{ ...tdL, padding: '11px 18px' }}>
+                          <td style={{ ...tdL, padding: '11px 18px' }} onClick={(e) => e.stopPropagation()}>
                             {i.file_url && <a href={i.file_url} target="_blank" rel="noreferrer" style={{ color: colors.brand, fontWeight: 700, marginRight: 10 }}>Invoice</a>}
                             {i.evernote_link && <a href={i.evernote_link} target="_blank" rel="noreferrer" style={{ color: colors.brand, fontWeight: 700 }}>Evernote</a>}
                           </td>
@@ -812,6 +900,9 @@ export default function Financials() {
           that come from the sheet get overwritten by the next sync, so fix those in the sheet itself.
         </div>
       </div>
+
+      {/* ===== INVOICE DETAIL MODAL ===== */}
+      <InvoiceModal inv={invModal} locations={locations} onClose={() => setInvModal(null)} />
 
       {/* ===== MONTHLY PAYMENT MODAL ===== */}
       {billModal && (

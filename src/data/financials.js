@@ -8,8 +8,9 @@ import { supabase } from '../lib/supabase.js'
 export const COUNTED = ['auto_approved', 'approved', 'imported_legacy']
 
 const INVOICE_COLS =
-  'id, submission_id, submitted_at, location_id, vendor_id, vendor_name_raw, invoice_number, invoice_date, amount, status, flag_reasons, file_url, evernote_link, notes, ' +
-  'vendors(name, is_recurring, expected_amount, expected_frequency), expense_categories(name, grp)'
+  'id, submission_id, submitted_at, location_id, vendor_id, vendor_name_raw, invoice_number, invoice_date, amount, status, flag_reasons, file_url, evernote_link, notes, submitted_name, ' +
+  'vendors(name, is_recurring, expected_amount, expected_frequency), expense_categories(name, grp), ' +
+  'submitter:profiles!invoices_submitted_by_fkey(full_name, email)'
 
 /** Counted invoices in a window (joined with vendor + category). */
 export async function fetchInvoices(locationId, start, end) {
@@ -262,6 +263,44 @@ export async function fetchCategories() {
   const { data, error } = await supabase.from('expense_categories').select('id, name, grp').order('sort_order')
   if (error) throw new Error(error.message)
   return data ?? []
+}
+
+/* ---- void/discount line notes (migration 32) ----
+   The Toast pull aggregates per (day, employee, reason) and rewrites those
+   rows on re-import, so notes key on the line's natural identity. */
+
+export const vdLineKey = (r) => r.employee_guid || r.employee_name || ''
+
+export async function fetchVdNotes(locationId, start, end) {
+  let q = supabase
+    .from('void_discount_notes')
+    .select('id, location_id, business_date, kind, employee_key, reason, note, author_name, created_at')
+    .gte('business_date', start)
+    .lte('business_date', end)
+    .order('created_at')
+  if (locationId) q = q.eq('location_id', locationId)
+  const { data, error } = await q
+  if (error) return []
+  return data ?? []
+}
+
+export async function addVdNote({ locationId, businessDate, kind, employeeKey, reason, note, authorId, authorName }) {
+  const { data, error } = await supabase
+    .from('void_discount_notes')
+    .insert({
+      location_id: locationId,
+      business_date: businessDate,
+      kind,
+      employee_key: employeeKey ?? '',
+      reason: reason ?? '',
+      note: note.trim(),
+      author_id: authorId,
+      author_name: authorName ?? null,
+    })
+    .select('id, location_id, business_date, kind, employee_key, reason, note, author_name, created_at')
+    .single()
+  if (error) throw new Error(error.message)
+  return data
 }
 
 /** Sum helper: group invoices by a key function. */
