@@ -82,9 +82,16 @@ declare
   v_candidates int;
   n int := 0;
 begin
+  -- self-regulating retro-match: attempt any unmatched photo whose night has
+  -- check-level data, however old -- so a Toast history backfill is picked up
+  -- automatically on the next run
   for p in
-    select * from public.groupme_photos
-    where match_status = 'unmatched' and posted_at > now() - interval '21 days'
+    select gp.* from public.groupme_photos gp
+    where gp.match_status = 'unmatched'
+      and exists (
+        select 1 from public.daily_vd_checks c
+        where c.location_id = gp.location_id and c.business_date = gp.business_date
+      )
   loop
     -- distinct checks (by guid) that plausibly belong to this photo
     select count(distinct c.check_guid) into v_candidates
@@ -95,7 +102,7 @@ begin
       and public.names_probably_match(p.sender_name, c.employee_name)
       and (c.opened_at is null or abs(extract(epoch from (c.opened_at - p.posted_at))) < 7200);
     if v_candidates = 1 then
-      -- one check — attach (prefer its void row over its discount row)
+      -- one check -- attach (prefer its void row over its discount row)
       select c.check_guid, c.kind into v_guid, v_kind
       from public.daily_vd_checks c
       where c.location_id = p.location_id
