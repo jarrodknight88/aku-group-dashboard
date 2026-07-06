@@ -212,41 +212,65 @@ export default function VoidDiscountDetail() {
     [itemRaw, mode],
   )
 
-  /* ---- line detail + notes ----
-     One line per (night, employee, reason) — the finest grain the Toast pull
-     stores. Notes attach to that identity and survive re-imports. */
+  /* ---- check detail + notes ----
+     One row per CHECK when the pull has check-level data (notes key on the
+     stable check_guid). Nights imported before check capture fall back to
+     the old (night · employee · reason) grain so nothing disappears. */
   const noteKeyOf = (locId, date, k, empKey, reason) => `${locId}|${date}|${k}|${empKey}|${reason ?? ''}`
   const notesByLine = useMemo(() => {
     const m = new Map()
     for (const nte of notes) {
-      const k = noteKeyOf(nte.location_id, nte.business_date, nte.kind, nte.employee_key, nte.reason)
+      const k = nte.check_guid ? `guid:${nte.check_guid}` : noteKeyOf(nte.location_id, nte.business_date, nte.kind, nte.employee_key, nte.reason)
       if (!m.has(k)) m.set(k, [])
       m.get(k).push(nte)
     }
     return m
   }, [notes])
-  const detailLines = useMemo(
-    () =>
-      empRaw
-        .filter((r) => !query || (r.employee_name ?? '').toLowerCase().includes(query.toLowerCase()))
-        .map((r) => ({ ...r, noteList: notesByLine.get(noteKeyOf(r.location_id, r.business_date, r.kind, vdLineKey(r), r.reason ?? '')) ?? [] }))
-        .sort((a, b) => (a.business_date < b.business_date ? 1 : a.business_date > b.business_date ? -1 : b.amount - a.amount)),
-    [empRaw, query, notesByLine],
-  )
+  const detailRows = useMemo(() => {
+    const match = (name) => !query || (name ?? '').toLowerCase().includes(query.toLowerCase())
+    const checkRows = vdChecks
+      .filter((c) => c.kind === kind && match(c.employee_name))
+      .map((c) => ({
+        type: 'check',
+        ...c,
+        noteList: (c.check_guid && notesByLine.get(`guid:${c.check_guid}`)) || [],
+        photoCount: c.check_guid ? photos.filter((p) => p.matched_check_guid === c.check_guid).length : 0,
+      }))
+    // nights that predate check-level capture keep the aggregated rows
+    const covered = new Set(vdChecks.filter((c) => c.kind === kind).map((c) => `${c.location_id}|${c.business_date}`))
+    const legacyRows = empRaw
+      .filter((r) => !covered.has(`${r.location_id}|${r.business_date}`) && match(r.employee_name))
+      .map((r) => ({
+        type: 'line',
+        ...r,
+        check_number: null,
+        opened_at: null,
+        noteList: notesByLine.get(noteKeyOf(r.location_id, r.business_date, r.kind, vdLineKey(r), r.reason ?? '')) ?? [],
+        photoCount: 0,
+      }))
+    return [...checkRows, ...legacyRows].sort((a, b) =>
+      a.business_date < b.business_date ? 1 : a.business_date > b.business_date ? -1 : b.amount - a.amount,
+    )
+  }, [vdChecks, empRaw, kind, query, notesByLine, photos])
   const modalNotes = noteModal
-    ? notesByLine.get(noteKeyOf(noteModal.location_id, noteModal.business_date, noteModal.kind, vdLineKey(noteModal), noteModal.reason ?? '')) ?? []
+    ? noteModal.type === 'check' && noteModal.check_guid
+      ? notesByLine.get(`guid:${noteModal.check_guid}`) ?? []
+      : notesByLine.get(noteKeyOf(noteModal.location_id, noteModal.business_date, noteModal.kind, vdLineKey(noteModal), noteModal.reason ?? '')) ?? []
     : []
-  // full-ticket snapshots for the line under review (check-level pull data)
-  const modalChecks = noteModal
-    ? vdChecks.filter(
-        (c) =>
-          c.kind === noteModal.kind &&
-          c.business_date === noteModal.business_date &&
-          c.location_id === noteModal.location_id &&
-          (c.employee_guid || c.employee_name || '') === vdLineKey(noteModal) &&
-          (c.reason ?? '') === (noteModal.reason ?? ''),
-      )
-    : []
+  // full-ticket snapshots shown in the modal: the single check, or (legacy
+  // line rows) any checks that match the aggregate identity
+  const modalChecks = !noteModal
+    ? []
+    : noteModal.type === 'check'
+      ? [noteModal]
+      : vdChecks.filter(
+          (c) =>
+            c.kind === noteModal.kind &&
+            c.business_date === noteModal.business_date &&
+            c.location_id === noteModal.location_id &&
+            (c.employee_guid || c.employee_name || '') === vdLineKey(noteModal) &&
+            (c.reason ?? '') === (noteModal.reason ?? ''),
+        )
   // photos for the modal: attached to this line's checks, plus that night's
   // unattached gallery for one-tap pinning
   const modalCheckGuids = new Set(modalChecks.map((c) => c.check_guid).filter(Boolean))
@@ -302,6 +326,7 @@ export default function VoidDiscountDetail() {
         kind: noteModal.kind,
         employeeKey: vdLineKey(noteModal),
         reason: noteModal.reason ?? '',
+        checkGuid: noteModal.type === 'check' ? noteModal.check_guid ?? null : null,
         note: noteText,
         authorId: profile?.id,
         authorName: profile?.full_name || profile?.email || null,
@@ -562,47 +587,63 @@ export default function VoidDiscountDetail() {
           target are tinted; investigate via the exception list for check-level detail.
         </div>
 
-        {/* ===== LINE DETAIL & NOTES ===== */}
+        {/* ===== CHECK DETAIL & NOTES ===== */}
         <SectionHeader
           style={{ marginTop: 30 }}
-          title={`${isVoid ? 'Void' : 'Discount'} Lines & Notes`}
-          right={<span style={{ fontSize: 12, color: colors.muted3 }}>One line per night · employee · reason — click a line to read or add notes</span>}
+          title={`${isVoid ? 'Void' : 'Discount'} Checks & Notes`}
+          right={<span style={{ fontSize: 12, color: colors.muted3 }}>One row per check — click it for the full ticket, photos, and notes</span>}
         />
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          {detailLines.length === 0 ? (
+          {detailRows.length === 0 ? (
             <div style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>
-              {loading ? 'Loading…' : `No ${isVoid ? 'void' : 'discount'} lines in this range.`}
+              {loading ? 'Loading…' : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
+              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 860 }}>
                 <thead>
                   <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
                     <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Night</th>
+                    <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Check</th>
                     {!loc && <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Location</th>}
                     <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Employee</th>
                     <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Reason' : 'Discount type'}</th>
                     <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>Amount</th>
                     <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Items' : 'Checks'}</th>
-                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Notes</th>
+                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Photos & notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {detailLines.slice(0, 80).map((r, i) => (
+                  {detailRows.slice(0, 80).map((r, i) => (
                     <tr key={i} className="row-hover" onClick={() => { setNoteModal(r); setNoteText('') }} style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }}>
-                      <td style={{ padding: '11px 18px', whiteSpace: 'nowrap' }}>{fmtRange(r.business_date, r.business_date)}</td>
+                      <td style={{ padding: '11px 18px', whiteSpace: 'nowrap' }}>
+                        {fmtRange(r.business_date, r.business_date)}
+                        {r.opened_at && (
+                          <span style={{ color: colors.muted3 }}>
+                            {' '}· {new Date(r.opened_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '11px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {r.type === 'check' ? (r.check_number ? `#${r.check_number}` : '—') : <span style={{ color: colors.muted3, fontWeight: 500 }}>night total</span>}
+                      </td>
                       {!loc && <td style={{ padding: '11px 12px' }}>{locById[r.location_id]?.name ?? ''}</td>}
                       <td style={{ padding: '11px 12px', fontWeight: 600 }}>{r.employee_name || 'Unattributed'}</td>
                       <td style={{ padding: '11px 12px', color: colors.muted1 }}>{r.reason || 'No reason recorded'}</td>
                       <td style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 700 }}>{fmt(r.amount)}</td>
                       <td style={{ padding: '11px 12px', textAlign: 'right' }}>{Math.round(r.qty)}</td>
-                      <td style={{ padding: '11px 18px' }}>
+                      <td style={{ padding: '11px 18px', whiteSpace: 'nowrap' }}>
+                        {r.photoCount > 0 && (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: colors.greenDark, background: colors.greenBg, padding: '3px 9px', borderRadius: 999, marginRight: 6 }}>
+                            📷 {r.photoCount}
+                          </span>
+                        )}
                         {r.noteList.length > 0 ? (
                           <span style={{ fontSize: 11, fontWeight: 700, color: colors.brand, background: '#E8EEF6', padding: '3px 9px', borderRadius: 999 }}>
                             {r.noteList.length} note{r.noteList.length > 1 ? 's' : ''}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 11, color: colors.muted3 }}>＋ add note</span>
+                          r.photoCount === 0 && <span style={{ fontSize: 11, color: colors.muted3 }}>＋ add note</span>
                         )}
                       </td>
                     </tr>
@@ -611,9 +652,9 @@ export default function VoidDiscountDetail() {
               </table>
             </div>
           )}
-          {detailLines.length > 80 && (
+          {detailRows.length > 80 && (
             <div style={{ padding: '10px 18px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
-              Showing the latest 80 of {detailLines.length} lines — narrow the date range or search an employee to see the rest.
+              Showing the latest 80 of {detailRows.length} checks — narrow the date range or search an employee to see the rest.
             </div>
           )}
         </div>
@@ -626,7 +667,8 @@ export default function VoidDiscountDetail() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div>
                 <div className="serif" style={{ fontSize: 19, fontWeight: 600 }}>
-                  {noteModal.kind === 'void' ? 'Void' : 'Discount'} · {noteModal.employee_name || 'Unattributed'}
+                  {noteModal.kind === 'void' ? 'Void' : 'Discount'}
+                  {noteModal.type === 'check' && noteModal.check_number ? ` · Check #${noteModal.check_number}` : ''} · {noteModal.employee_name || 'Unattributed'}
                 </div>
                 <div style={{ fontSize: 12, color: colors.muted2, marginTop: 4 }}>
                   {fmtRange(noteModal.business_date, noteModal.business_date)} · {locById[noteModal.location_id]?.name ?? ''} ·{' '}
@@ -639,9 +681,9 @@ export default function VoidDiscountDetail() {
               <span onClick={() => setNoteModal(null)} style={{ fontSize: 18, color: colors.muted3, cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</span>
             </div>
 
-            {/* ---- the tickets behind this line ---- */}
+            {/* ---- the ticket(s) behind this row ---- */}
             <div style={{ margin: '16px 0 8px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {noteModal.kind === 'void' ? 'Tickets with these voids' : 'Tickets with this discount'}
+              {noteModal.type === 'check' ? 'The ticket' : noteModal.kind === 'void' ? 'Tickets with these voids' : 'Tickets with this discount'}
             </div>
             {modalChecks.length === 0 ? (
               <div style={{ fontSize: 11.5, color: colors.muted3, lineHeight: 1.5, marginBottom: 4 }}>
