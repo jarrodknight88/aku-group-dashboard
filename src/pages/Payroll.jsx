@@ -6,6 +6,7 @@ import SectionHeader from '../components/SectionHeader.jsx'
 import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations } from '../data/live.js'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate, excludeEmployee, restoreEmployee } from '../data/payroll.js'
 import { supabase } from '../lib/supabase.js'
 import { fmtRange } from '../lib/dates.js'
@@ -55,6 +56,7 @@ function buildCsv(hourly, salaried, batchId) {
 }
 
 function ExportModal({ csv, subtitle, onClose, onDownload }) {
+  useScrollLock(true)
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(16,26,42,0.55)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '100%', maxHeight: '85vh', background: '#fff', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(10,20,40,0.35)' }}>

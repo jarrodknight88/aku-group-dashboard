@@ -12,6 +12,7 @@ import { fetchLocations, fetchDaily } from '../data/live.js'
 import { fetchInvoices, fetchInvoiceById, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, syncValetSheets, fetchInvoiceComments, addInvoiceComment, sumBy } from '../data/financials.js'
 import { fetchOrgUsers } from '../data/notifications.js'
 import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -50,6 +51,7 @@ const STATUS_STYLE = {
     attached image (inline when it renders), the Evernote link, and a
     comment thread (same threading as void/discount lines). */
 function InvoiceModal({ inv, locations, profile, users, onClose }) {
+  useScrollLock(!!inv)
   const [imgBroken, setImgBroken] = useState(false)
   const [comments, setComments] = useState(null) // null = loading
   const [draft, setDraft] = useState('')
@@ -223,6 +225,7 @@ export default function Financials() {
   const [drill, setDrill] = useState({}) // { grp, cat, vendor }
   const [acting, setActing] = useState(null)
   const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
+  useScrollLock(!!billModal)
 
   useEffect(() => {
     fetchOrgUsers().then(setOrgUsers)

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fetchLocations } from '../data/live.js'
 import { fetchNotifications, markNotificationsRead } from '../data/notifications.js'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { colors, fonts, layout } from '../theme.js'
 
 /**
@@ -32,15 +33,7 @@ export default function AppHeader({ active = 'company' }) {
   const mobile = useIsMobile()
   const [drawer, setDrawer] = useState(false)
 
-  // Lock page scroll while the drawer is open.
-  useEffect(() => {
-    if (!drawer) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [drawer])
+  useScrollLock(drawer) // page must not scroll behind the open drawer
   // Small close delay so the menu survives the cursor briefly leaving the
   // hover area (e.g. crossing between trigger and panel, or overshooting).
   const closeTimer = useRef(null)
@@ -355,7 +348,7 @@ function MobileDrawer({ active, locations, isAdmin, signOut, onClose }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(16,44,88,0.42)', animation: 'fade-in 0.18s ease' }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(16,44,88,0.42)', animation: 'fade-in 0.18s ease', touchAction: 'none' }} />
       <div
         style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 91, width: 'min(320px, 86vw)', background: '#fff', boxShadow: '-16px 0 40px rgba(16,44,88,0.25)', display: 'flex', flexDirection: 'column', animation: 'drawer-in 0.22s ease' }}
       >
@@ -365,7 +358,7 @@ function MobileDrawer({ active, locations, isAdmin, signOut, onClose }) {
             ✕
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 12 }}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 12, overscrollBehavior: 'contain' }}>
           <Link to="/" onClick={onClose} style={{ ...link(active === 'company'), marginTop: 6 }}>
             Company
           </Link>

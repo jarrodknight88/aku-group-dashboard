@@ -50,6 +50,12 @@ a {
     grid-template-columns: 1fr !important;
   }
 }
+/* Grid items default to min-width:auto, so a wide table inside a card can
+   blow the whole grid past the viewport — let them shrink and the card's
+   own overflow-x wrapper take over. */
+.grid-collapse > * {
+  min-width: 0;
+}
 
 /* Mobile nav drawer (AppHeader) — slide-in from the right + backdrop fade */
 @keyframes drawer-in {

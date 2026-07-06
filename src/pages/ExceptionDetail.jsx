@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { fetchLocations } from '../data/live.js'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { colors, fonts, layout } from '../theme.js'
 import { TIP_HOLD_RULE, TIP_HOLD_DAYS, TIP_HOLD_THRESHOLD } from '../config.js'
 
@@ -59,6 +60,7 @@ function statusView(f) {
 const fieldLabel = { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.muted3, fontWeight: 600 }
 
 function ReviewModal({ flag, locName, canAct, onApprove, onDeny, onClose }) {
+  useScrollLock(true)
   const sev = SEV[flag.severity] ?? SEV.med
   const sv = statusView(flag)
   const isHeldTip = !!flag.hold && flag.status === 'held'

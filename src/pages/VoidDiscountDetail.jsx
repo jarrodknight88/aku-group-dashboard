@@ -11,6 +11,7 @@ import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../dat
 import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdPhoto, namesProbablyMatch } from '../data/financials.js'
 import { fetchOrgUsers } from '../data/notifications.js'
 import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
+import { useScrollLock } from '../lib/useScrollLock.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
@@ -58,6 +59,7 @@ export default function VoidDiscountDetail() {
   const [photos, setPhotos] = useState([]) // GroupMe void/comp photos for the range
   const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
   const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
+  useScrollLock(!!noteModal)
   // notification deep link (?date=&check=): jump the range to that night,
   // then open the check's modal once its row arrives
   const pendingCheck = useRef(params.get('check') || null)
