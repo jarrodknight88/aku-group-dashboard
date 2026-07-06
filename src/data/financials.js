@@ -274,7 +274,7 @@ export const vdLineKey = (r) => r.employee_guid || r.employee_name || ''
 export async function fetchVdNotes(locationId, start, end) {
   let q = supabase
     .from('void_discount_notes')
-    .select('id, location_id, business_date, kind, employee_key, reason, note, author_name, created_at')
+    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, created_at')
     .gte('business_date', start)
     .lte('business_date', end)
     .order('created_at')
@@ -284,7 +284,7 @@ export async function fetchVdNotes(locationId, start, end) {
   return data ?? []
 }
 
-export async function addVdNote({ locationId, businessDate, kind, employeeKey, reason, note, authorId, authorName }) {
+export async function addVdNote({ locationId, businessDate, kind, employeeKey, reason, checkGuid, note, authorId, authorName }) {
   const { data, error } = await supabase
     .from('void_discount_notes')
     .insert({
@@ -293,11 +293,12 @@ export async function addVdNote({ locationId, businessDate, kind, employeeKey, r
       kind,
       employee_key: employeeKey ?? '',
       reason: reason ?? '',
+      check_guid: checkGuid ?? null,
       note: note.trim(),
       author_id: authorId,
       author_name: authorName ?? null,
     })
-    .select('id, location_id, business_date, kind, employee_key, reason, note, author_name, created_at')
+    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, created_at')
     .single()
   if (error) throw new Error(error.message)
   return data
