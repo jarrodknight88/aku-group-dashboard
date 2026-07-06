@@ -9,7 +9,9 @@ import { colors, fonts, layout } from '../theme.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily } from '../data/live.js'
-import { fetchInvoices, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, syncValetSheets, fetchInvoiceComments, addInvoiceComment, sumBy } from '../data/financials.js'
+import { fetchInvoices, fetchInvoiceById, fetchReviewQueue, reviewInvoice, fetchBills, fetchBillPayments, saveBillPayment, addBill, removeBill, fetchCategories, fetchPayrollMonths, fetchValetDays, saveValetDay, removeValetDay, syncValetSheets, fetchInvoiceComments, addInvoiceComment, sumBy } from '../data/financials.js'
+import { fetchOrgUsers } from '../data/notifications.js'
+import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -47,7 +49,7 @@ const STATUS_STYLE = {
 /** Everything about one expense in one place: details, flags, notes, the
     attached image (inline when it renders), the Evernote link, and a
     comment thread (same threading as void/discount lines). */
-function InvoiceModal({ inv, locations, profile, onClose }) {
+function InvoiceModal({ inv, locations, profile, users, onClose }) {
   const [imgBroken, setImgBroken] = useState(false)
   const [comments, setComments] = useState(null) // null = loading
   const [draft, setDraft] = useState('')
@@ -70,6 +72,7 @@ function InvoiceModal({ inv, locations, profile, onClose }) {
         comment: draft,
         authorId: profile?.id,
         authorName: profile?.full_name || profile?.email || null,
+        mentions: extractMentions(draft, users),
       })
       setComments((cs) => [...(cs ?? []), saved])
       setDraft('')
@@ -159,7 +162,7 @@ function InvoiceModal({ inv, locations, profile, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {comments.map((c) => (
               <div key={c.id} style={{ background: colors.panelGray, borderRadius: 10, padding: '10px 13px' }}>
-                <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{c.comment}</div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.5 }}><MentionText text={c.comment} users={users} /></div>
                 <div style={{ fontSize: 10.5, color: colors.muted3, marginTop: 5 }}>
                   {c.author_name || 'Unknown'} · {new Date(c.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                 </div>
@@ -168,13 +171,16 @@ function InvoiceModal({ inv, locations, profile, onClose }) {
           </div>
         )}
         {commentErr && <div style={{ marginTop: 8, fontSize: 12, color: colors.red, fontWeight: 600 }}>{commentErr}</div>}
-        <textarea
-          rows={2}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a comment for the team…"
-          style={{ width: '100%', marginTop: 10, padding: '10px 12px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-        />
+        <div style={{ marginTop: 10 }}>
+          <MentionInput
+            rows={2}
+            value={draft}
+            onChange={setDraft}
+            users={users}
+            placeholder="Add a comment for the team… type @ to tag someone"
+            style={{ width: '100%', padding: '10px 12px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+          />
+        </div>
         <div
           onClick={postComment}
           style={{ marginTop: 8, padding: '10px 0', textAlign: 'center', borderRadius: 9, fontSize: 13, fontWeight: 700, background: draft.trim() && !saving ? colors.brand : colors.brandTint4, color: '#fff', cursor: draft.trim() && !saving ? 'pointer' : 'default' }}
@@ -216,6 +222,31 @@ export default function Financials() {
   const [reload, setReload] = useState(0)
   const [drill, setDrill] = useState({}) // { grp, cat, vendor }
   const [acting, setActing] = useState(null)
+  const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
+
+  useEffect(() => {
+    fetchOrgUsers().then(setOrgUsers)
+  }, [])
+
+  // Notification deep link (?invoice=<id>) — open that expense's modal, then
+  // drop the param so closing the modal doesn't re-trigger.
+  const invoiceParam = searchParams.get('invoice')
+  useEffect(() => {
+    if (!invoiceParam) return
+    fetchInvoiceById(invoiceParam)
+      .then((inv) => {
+        if (inv) setInvModal(inv)
+      })
+      .catch(() => {})
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('invoice')
+        return next
+      },
+      { replace: true },
+    )
+  }, [invoiceParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const locByCode = Object.fromEntries(locations.map((l) => [l.code.toLowerCase(), l]))
   const scopeId = loc === 'all' ? null : locByCode[loc]?.id
@@ -988,7 +1019,7 @@ export default function Financials() {
       </div>
 
       {/* ===== INVOICE DETAIL MODAL ===== */}
-      <InvoiceModal inv={invModal} locations={locations} profile={profile} onClose={() => setInvModal(null)} />
+      <InvoiceModal inv={invModal} locations={locations} profile={profile} users={orgUsers} onClose={() => setInvModal(null)} />
 
       {/* ===== MONTHLY PAYMENT MODAL ===== */}
       {billModal && (
