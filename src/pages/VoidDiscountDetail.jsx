@@ -8,7 +8,9 @@ import { card, StatRow, RankRow, ModeToggle, DAY_LABELS } from '../components/ca
 import { colors, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../data/live.js'
-import { fromStr } from '../lib/dates.js'
+import { fetchVdNotes, addVdNote, vdLineKey } from '../data/financials.js'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
 
 /** §11 responsive pattern: wide tables collapse to stacked cards below 720px. */
@@ -37,6 +39,7 @@ const fmt = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 export default function VoidDiscountDetail() {
   const [params] = useSearchParams()
   const { range } = useRange()
+  const { profile } = useAuth()
   const [tabOv, setTabOv] = useState(null) // tab clicks override ?tab=
   const [mode, setMode] = useState('dollar')
   const [empSort, setEmpSort] = useState(null) // null = follow toggle; else {key, dir}
@@ -48,6 +51,10 @@ export default function VoidDiscountDetail() {
   const [vd, setVd] = useState([])
   const [serverSales, setServerSales] = useState([])
   const [serverCats, setServerCats] = useState([])
+  const [notes, setNotes] = useState([]) // void_discount_notes rows for the range
+  const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
+  const [noteText, setNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -78,15 +85,17 @@ export default function VoidDiscountDetail() {
           fetchDim('daily_void_discounts', id, range.start, range.end),
           fetchDim('daily_server_sales', id, range.start, range.end),
           fetchDim('daily_server_categories', id, range.start, range.end),
+          fetchVdNotes(id, range.start, range.end),
         ])
       })
       .then((res) => {
         if (!live || !res) return
-        const [m, v, ss, sc] = res
+        const [m, v, ss, sc, ns] = res
         setMetrics(m)
         setVd(v)
         setServerSales(ss)
         setServerCats(sc)
+        setNotes(ns)
         setLoading(false)
         setError('')
       })
@@ -196,6 +205,52 @@ export default function VoidDiscountDetail() {
         .slice(0, 5),
     [itemRaw, mode],
   )
+
+  /* ---- line detail + notes ----
+     One line per (night, employee, reason) — the finest grain the Toast pull
+     stores. Notes attach to that identity and survive re-imports. */
+  const noteKeyOf = (locId, date, k, empKey, reason) => `${locId}|${date}|${k}|${empKey}|${reason ?? ''}`
+  const notesByLine = useMemo(() => {
+    const m = new Map()
+    for (const nte of notes) {
+      const k = noteKeyOf(nte.location_id, nte.business_date, nte.kind, nte.employee_key, nte.reason)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k).push(nte)
+    }
+    return m
+  }, [notes])
+  const detailLines = useMemo(
+    () =>
+      empRaw
+        .filter((r) => !query || (r.employee_name ?? '').toLowerCase().includes(query.toLowerCase()))
+        .map((r) => ({ ...r, noteList: notesByLine.get(noteKeyOf(r.location_id, r.business_date, r.kind, vdLineKey(r), r.reason ?? '')) ?? [] }))
+        .sort((a, b) => (a.business_date < b.business_date ? 1 : a.business_date > b.business_date ? -1 : b.amount - a.amount)),
+    [empRaw, query, notesByLine],
+  )
+  const modalNotes = noteModal
+    ? notesByLine.get(noteKeyOf(noteModal.location_id, noteModal.business_date, noteModal.kind, vdLineKey(noteModal), noteModal.reason ?? '')) ?? []
+    : []
+  const saveNote = async () => {
+    if (!noteModal || !noteText.trim() || savingNote) return
+    setSavingNote(true)
+    try {
+      const saved = await addVdNote({
+        locationId: noteModal.location_id,
+        businessDate: noteModal.business_date,
+        kind: noteModal.kind,
+        employeeKey: vdLineKey(noteModal),
+        reason: noteModal.reason ?? '',
+        note: noteText,
+        authorId: profile?.id,
+        authorName: profile?.full_name || profile?.email || null,
+      })
+      setNotes((ns) => [...ns, saved])
+      setNoteText('')
+    } catch (e) {
+      setError(e.message)
+    }
+    setSavingNote(false)
+  }
 
   const empVal = (e, key) => (key === 'name' ? e.name.toLowerCase() : key === 'role' ? e.role.toLowerCase() : (e[key] ?? -1))
   const sortKey = empSort?.key ?? (mode === 'dollar' ? 'd' : 'q')
@@ -444,7 +499,115 @@ export default function VoidDiscountDetail() {
           % of own sales = {noun.toLowerCase()} dollars ÷ that employee's net sales for the period. Rows over the personal
           target are tinted; investigate via the exception list for check-level detail.
         </div>
+
+        {/* ===== LINE DETAIL & NOTES ===== */}
+        <SectionHeader
+          style={{ marginTop: 30 }}
+          title={`${isVoid ? 'Void' : 'Discount'} Lines & Notes`}
+          right={<span style={{ fontSize: 12, color: colors.muted3 }}>One line per night · employee · reason — click a line to read or add notes</span>}
+        />
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          {detailLines.length === 0 ? (
+            <div style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>
+              {loading ? 'Loading…' : `No ${isVoid ? 'void' : 'discount'} lines in this range.`}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
+                <thead>
+                  <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
+                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Night</th>
+                    {!loc && <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Location</th>}
+                    <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Employee</th>
+                    <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Reason' : 'Discount type'}</th>
+                    <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>Amount</th>
+                    <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Items' : 'Checks'}</th>
+                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailLines.slice(0, 80).map((r, i) => (
+                    <tr key={i} className="row-hover" onClick={() => { setNoteModal(r); setNoteText('') }} style={{ borderTop: `1px solid ${colors.pageBg}`, cursor: 'pointer' }}>
+                      <td style={{ padding: '11px 18px', whiteSpace: 'nowrap' }}>{fmtRange(r.business_date, r.business_date)}</td>
+                      {!loc && <td style={{ padding: '11px 12px' }}>{locById[r.location_id]?.name ?? ''}</td>}
+                      <td style={{ padding: '11px 12px', fontWeight: 600 }}>{r.employee_name || 'Unattributed'}</td>
+                      <td style={{ padding: '11px 12px', color: colors.muted1 }}>{r.reason || 'No reason recorded'}</td>
+                      <td style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 700 }}>{fmt(r.amount)}</td>
+                      <td style={{ padding: '11px 12px', textAlign: 'right' }}>{Math.round(r.qty)}</td>
+                      <td style={{ padding: '11px 18px' }}>
+                        {r.noteList.length > 0 ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: colors.brand, background: '#E8EEF6', padding: '3px 9px', borderRadius: 999 }}>
+                            {r.noteList.length} note{r.noteList.length > 1 ? 's' : ''}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: colors.muted3 }}>＋ add note</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {detailLines.length > 80 && (
+            <div style={{ padding: '10px 18px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
+              Showing the latest 80 of {detailLines.length} lines — narrow the date range or search an employee to see the rest.
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ===== LINE NOTES MODAL ===== */}
+      {noteModal && (
+        <div onClick={() => setNoteModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,44,88,0.45)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 15, width: 560, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div>
+                <div className="serif" style={{ fontSize: 19, fontWeight: 600 }}>
+                  {noteModal.kind === 'void' ? 'Void' : 'Discount'} · {noteModal.employee_name || 'Unattributed'}
+                </div>
+                <div style={{ fontSize: 12, color: colors.muted2, marginTop: 4 }}>
+                  {fmtRange(noteModal.business_date, noteModal.business_date)} · {locById[noteModal.location_id]?.name ?? ''} ·{' '}
+                  <b>{fmt(noteModal.amount)}</b> · {Math.round(noteModal.qty)} {noteModal.kind === 'void' ? 'items' : 'checks'}
+                </div>
+                <div style={{ fontSize: 12, color: '#8A6D1A', background: '#FBF3DC', padding: '4px 10px', borderRadius: 6, marginTop: 8, display: 'inline-block', fontWeight: 600 }}>
+                  {noteModal.reason || 'No reason recorded'}
+                </div>
+              </div>
+              <span onClick={() => setNoteModal(null)} style={{ fontSize: 18, color: colors.muted3, cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</span>
+            </div>
+
+            <div style={{ margin: '16px 0 10px', fontSize: 11, fontWeight: 700, color: colors.muted3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Notes</div>
+            {modalNotes.length === 0 ? (
+              <div style={{ fontSize: 12, color: colors.muted3, padding: '4px 0 10px' }}>No notes yet — add what you find out below.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                {modalNotes.map((nte) => (
+                  <div key={nte.id} style={{ background: colors.panelGray, borderRadius: 10, padding: '10px 13px' }}>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{nte.note}</div>
+                    <div style={{ fontSize: 10.5, color: colors.muted3, marginTop: 5 }}>
+                      {nte.author_name || 'Unknown'} · {new Date(nte.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
+              rows={2}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="What happened? (kitchen error confirmed, spoke to the server, photo link from GroupMe…)"
+              style={{ width: '100%', padding: '10px 12px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            <div
+              onClick={saveNote}
+              style={{ marginTop: 10, padding: '10px 0', textAlign: 'center', borderRadius: 9, fontSize: 13, fontWeight: 700, background: noteText.trim() && !savingNote ? colors.brand : colors.brandTint4, color: '#fff', cursor: noteText.trim() && !savingNote ? 'pointer' : 'default' }}
+            >
+              {savingNote ? 'Saving…' : 'Add note'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

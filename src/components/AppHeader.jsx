@@ -129,8 +129,6 @@ export default function AppHeader({ active = 'company' }) {
             {menu === 'fin' && (
               <div style={menuWrap('left')}>
                 <div style={menuBox('left')}>
-                  <Link to="/financials/submit" className="menu-item" style={item(true, colors.brand)}>＋ Submit invoice</Link>
-                  {divider}
                   <Link to="/financials" className="menu-item" style={item(true, colors.ink)}>All locations</Link>
                   {divider}
                   {locations.map((l) =>
@@ -142,6 +140,8 @@ export default function AppHeader({ active = 'company' }) {
                       <div key={l.id} style={{ ...item(false, colors.muted4), cursor: 'default' }}>{l.name} · coming soon</div>
                     ),
                   )}
+                  {divider}
+                  <Link to="/financials/submit" className="menu-item" style={item(true, colors.brand)}>＋ Submit invoice</Link>
                 </div>
               </div>
             )}
