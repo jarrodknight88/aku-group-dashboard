@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import PageTitle, { Crumbs, dataThrough } from '../components/PageTitle.jsx'
@@ -9,6 +9,8 @@ import { colors, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchDim, sumDaily, groupSum } from '../data/live.js'
 import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdPhoto, namesProbablyMatch } from '../data/financials.js'
+import { fetchOrgUsers } from '../data/notifications.js'
+import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
@@ -38,7 +40,7 @@ const fmt = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
 export default function VoidDiscountDetail() {
   const [params] = useSearchParams()
-  const { range } = useRange()
+  const { range, setPresetKey, setCustom } = useRange()
   const { profile } = useAuth()
   const [tabOv, setTabOv] = useState(null) // tab clicks override ?tab=
   const [mode, setMode] = useState('dollar')
@@ -55,6 +57,10 @@ export default function VoidDiscountDetail() {
   const [vdChecks, setVdChecks] = useState([]) // check-level detail with full ticket items
   const [photos, setPhotos] = useState([]) // GroupMe void/comp photos for the range
   const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
+  const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
+  // notification deep link (?date=&check=): jump the range to that night,
+  // then open the check's modal once its row arrives
+  const pendingCheck = useRef(params.get('check') || null)
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -112,6 +118,26 @@ export default function VoidDiscountDetail() {
       })
     return () => { live = false }
   }, [loc, range.start, range.end])
+
+  useEffect(() => {
+    fetchOrgUsers().then(setOrgUsers)
+    const d = params.get('date')
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && (range.start !== d || range.end !== d)) {
+      setCustom({ start: d, end: d })
+      setPresetKey('custom')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!pendingCheck.current || !vdChecks.length) return
+    const c = vdChecks.find((x) => x.check_guid === pendingCheck.current)
+    if (c) {
+      pendingCheck.current = null
+      setNoteModal({ type: 'check', ...c })
+      setNoteText('')
+    }
+  }, [vdChecks])
 
   const totals = useMemo(() => sumDaily(metrics), [metrics])
   const kindRows = vd.filter((r) => r.kind === kind)
@@ -336,6 +362,7 @@ export default function VoidDiscountDetail() {
         note: noteText,
         authorId: profile?.id,
         authorName: profile?.full_name || profile?.email || null,
+        mentions: extractMentions(noteText, orgUsers),
       })
       setNotes((ns) => [...ns, saved])
       setNoteText('')
@@ -777,7 +804,7 @@ export default function VoidDiscountDetail() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
                 {modalNotes.map((nte) => (
                   <div key={nte.id} style={{ background: colors.panelGray, borderRadius: 10, padding: '10px 13px' }}>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{nte.note}</div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.5 }}><MentionText text={nte.note} users={orgUsers} /></div>
                     <div style={{ fontSize: 10.5, color: colors.muted3, marginTop: 5 }}>
                       {nte.author_name || 'Unknown'} · {new Date(nte.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </div>
@@ -785,11 +812,12 @@ export default function VoidDiscountDetail() {
                 ))}
               </div>
             )}
-            <textarea
+            <MentionInput
               rows={2}
               value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder="What happened? (kitchen error confirmed, spoke to the server, photo link from GroupMe…)"
+              onChange={setNoteText}
+              users={orgUsers}
+              placeholder="What happened? Type @ to tag someone (kitchen error confirmed, spoke to the server…)"
               style={{ width: '100%', padding: '10px 12px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, fontSize: 12.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div

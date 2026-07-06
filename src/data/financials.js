@@ -28,6 +28,14 @@ export async function fetchInvoices(locationId, start, end) {
   return data ?? []
 }
 
+/** One invoice by id (notification deep links — the target can be outside
+    the current range). */
+export async function fetchInvoiceById(id) {
+  const { data, error } = await supabase.from('invoices').select(INVOICE_COLS).eq('id', id).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
 /** The review queue — every needs_review invoice, org-wide (RLS scopes it). */
 export async function fetchReviewQueue() {
   const { data, error } = await supabase
@@ -274,7 +282,7 @@ export const vdLineKey = (r) => r.employee_guid || r.employee_name || ''
 export async function fetchVdNotes(locationId, start, end) {
   let q = supabase
     .from('void_discount_notes')
-    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, created_at')
+    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, mentions, created_at')
     .gte('business_date', start)
     .lte('business_date', end)
     .order('created_at')
@@ -284,7 +292,7 @@ export async function fetchVdNotes(locationId, start, end) {
   return data ?? []
 }
 
-export async function addVdNote({ locationId, businessDate, kind, employeeKey, reason, checkGuid, note, authorId, authorName }) {
+export async function addVdNote({ locationId, businessDate, kind, employeeKey, reason, checkGuid, note, authorId, authorName, mentions }) {
   const { data, error } = await supabase
     .from('void_discount_notes')
     .insert({
@@ -297,8 +305,9 @@ export async function addVdNote({ locationId, businessDate, kind, employeeKey, r
       note: note.trim(),
       author_id: authorId,
       author_name: authorName ?? null,
+      mentions: mentions ?? [],
     })
-    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, created_at')
+    .select('id, location_id, business_date, kind, employee_key, reason, check_guid, note, author_name, mentions, created_at')
     .single()
   if (error) throw new Error(error.message)
   return data
@@ -357,18 +366,18 @@ export function namesProbablyMatch(senderName, employeeName) {
 export async function fetchInvoiceComments(invoiceId) {
   const { data, error } = await supabase
     .from('invoice_comments')
-    .select('id, comment, author_name, created_at')
+    .select('id, comment, author_name, mentions, created_at')
     .eq('invoice_id', invoiceId)
     .order('created_at')
   if (error) return []
   return data ?? []
 }
 
-export async function addInvoiceComment({ invoiceId, comment, authorId, authorName }) {
+export async function addInvoiceComment({ invoiceId, comment, authorId, authorName, mentions }) {
   const { data, error } = await supabase
     .from('invoice_comments')
-    .insert({ invoice_id: invoiceId, comment: comment.trim(), author_id: authorId, author_name: authorName ?? null })
-    .select('id, comment, author_name, created_at')
+    .insert({ invoice_id: invoiceId, comment: comment.trim(), author_id: authorId, author_name: authorName ?? null, mentions: mentions ?? [] })
+    .select('id, comment, author_name, mentions, created_at')
     .single()
   if (error) throw new Error(error.message)
   return data

@@ -2,8 +2,10 @@ name: Toast daily pull
 
 on:
   schedule:
-    # 11:00 UTC ≈ 7am ET — after the 5am business-day roll has settled (spec §6).
-    - cron: '0 11 * * *'
+    # 10:30 UTC = 6:30am EDT / 5:30am EST — after the 5am ET business-day roll
+    # (spec §6) but early enough that numbers are live before the 7am check-in.
+    # Cron is UTC (no DST), so the ET time shifts an hour across the year.
+    - cron: '30 10 * * *'
   workflow_dispatch:
     inputs:
       start_date:
