@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRange } from '../state/RangeContext.jsx'
 import { presetRange, compareRange, fromStr, toStr, PRESETS } from '../lib/dates.js'
 import { useScrollLock } from '../lib/useScrollLock.js'
+import { useIsMobile } from './mobile.jsx'
 import { colors } from '../theme.js'
 
 /* Date-range picker (enterprise pass, §11 — Company reference is canonical).
@@ -89,26 +90,54 @@ export default function DateRangePicker() {
   )
 
   // Phones get a fixed, screen-anchored panel (the absolute dropdown can
-  // land off-screen when the title row wraps) — decided when the panel opens.
-  const mobile = typeof window !== 'undefined' && window.innerWidth < 700
+  // land off-screen when the title row wraps).
+  const mobile = useIsMobile()
   useScrollLock(open && mobile)
 
   return (
-    <div style={{ position: 'relative', maxWidth: '100%' }}>
-      <div
-        onClick={() => {
-          if (!open) openPanel()
-          setOpen(!open)
-        }}
-        style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '2px 9px', padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', maxWidth: '100%' }}
-      >
-        <span style={{ whiteSpace: 'nowrap' }}>{committedLabel}</span>
-        <span style={{ color: colors.muted3, fontWeight: 500, whiteSpace: 'nowrap' }}>{fmtRangeYear(range.start, range.end)}</span>
-        <span style={{ color: colors.muted3 }}>▾</span>
-      </div>
-      <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6, textAlign: 'right' }}>
-        Compared to: <span style={{ color: colors.muted1, fontWeight: 600 }}>{fmtRangeYear(committedCompare.start, committedCompare.end)}</span>
-      </div>
+    <div style={{ position: 'relative', maxWidth: '100%', width: mobile ? '100%' : undefined }}>
+      {mobile ? (
+        /* Phones: full-width date bar — calendar glyph, preset + range, the
+           compare window rides inside the panel footer instead. */
+        <div
+          onClick={() => {
+            if (!open) openPanel()
+            setOpen(!open)
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '12px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 11, background: '#fff', cursor: 'pointer' }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={colors.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{committedLabel}</span>
+          <span style={{ fontSize: 12.5, color: colors.muted2, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            {fmtRangeYear(range.start, range.end)}
+          </span>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 10.5, color: colors.muted3, whiteSpace: 'nowrap' }}>vs {fmtRangeYear(committedCompare.start, committedCompare.end)}</span>
+          <span style={{ color: colors.muted3, fontSize: 11 }}>▾</span>
+        </div>
+      ) : (
+        <>
+          <div
+            onClick={() => {
+              if (!open) openPanel()
+              setOpen(!open)
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '2px 9px', padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', maxWidth: '100%' }}
+          >
+            <span style={{ whiteSpace: 'nowrap' }}>{committedLabel}</span>
+            <span style={{ color: colors.muted3, fontWeight: 500, whiteSpace: 'nowrap' }}>{fmtRangeYear(range.start, range.end)}</span>
+            <span style={{ color: colors.muted3 }}>▾</span>
+          </div>
+          <div style={{ fontSize: 11, color: colors.muted3, marginTop: 6, textAlign: 'right' }}>
+            Compared to: <span style={{ color: colors.muted1, fontWeight: 600 }}>{fmtRangeYear(committedCompare.start, committedCompare.end)}</span>
+          </div>
+        </>
+      )}
 
       {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 59, background: mobile ? 'rgba(16,44,88,0.35)' : 'transparent' }} />}
       {open && (

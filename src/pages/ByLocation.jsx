@@ -7,6 +7,7 @@ import { colors, fonts, layout } from '../theme.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fetchLocations, fetchDaily, fetchOrgTargets, sumDaily } from '../data/live.js'
 import { fmtMoney, fmtMoneyC, fmtInt, fmtPct, deltaPct, fmtDelta } from '../lib/format.js'
+import { useIsMobile } from '../components/mobile.jsx'
 
 /* Live location hub: real totals per venue for the selected range. Venues
    with no data yet (credentials pending) show an awaiting state instead of
@@ -46,6 +47,7 @@ function StatusPill({ status }) {
 
 export default function ByLocation() {
   const { range, compare } = useRange()
+  const isMobile = useIsMobile()
   const [locations, setLocations] = useState([])
   const [rows, setRows] = useState([])
   const [prevRows, setPrevRows] = useState([])
@@ -118,12 +120,16 @@ export default function ByLocation() {
             )
           }
           right={
+            isMobile ? (
+              <DateRangePicker />
+            ) : (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <DateRangePicker />
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 700, color: colors.brand }}>
                 + Add Location
               </div>
             </div>
+            )
           }
         />
 

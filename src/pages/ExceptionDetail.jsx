@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import PageTitle, { Crumbs } from '../components/PageTitle.jsx'
 import DateRangePicker from '../components/DateRangePicker.jsx'
@@ -9,7 +9,7 @@ import { useRange } from '../state/RangeContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { fetchLocations } from '../data/live.js'
 import { useScrollLock } from '../lib/useScrollLock.js'
-import { useIsMobile, MStatGrid, MList, MRow, MPill, MSeg } from '../components/mobile.jsx'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MSeg, MLocSelect } from '../components/mobile.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { TIP_HOLD_RULE, TIP_HOLD_DAYS, TIP_HOLD_THRESHOLD } from '../config.js'
 
@@ -131,6 +131,7 @@ function ReviewModal({ flag, locName, canAct, onApprove, onDeny, onClose }) {
 
 export default function ExceptionDetail() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const { range } = useRange()
   const { profile, session } = useAuth()
   const [locations, setLocations] = useState([])
@@ -257,6 +258,9 @@ export default function ExceptionDetail() {
             </>
           }
           right={
+            isMobile ? (
+              <DateRangePicker />
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
               <DateRangePicker />
               <div style={{ display: 'flex', gap: 10 }}>
@@ -264,6 +268,7 @@ export default function ExceptionDetail() {
                 <div style={{ ...btn, cursor: 'default', color: colors.muted3 }}>+ Manual entry</div>
               </div>
             </div>
+            )
           }
         />
 
@@ -313,12 +318,20 @@ export default function ExceptionDetail() {
 
         {/* ===== FILTER BAR ===== */}
         {isMobile ? (
-          <MSeg
-            style={{ marginBottom: 12 }}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[{ value: 'all', label: `All (${all.length})` }, { value: 'open', label: 'Open' }, { value: 'cleared', label: 'Cleared' }]}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+            {!loc && locations.filter((l) => l.status === 'active').length > 1 && (
+              <MLocSelect
+                value=""
+                onChange={(code) => { if (code) navigate(`/exceptions?loc=${code}`) }}
+                options={[{ value: '', label: 'All locations' }, ...locations.filter((l) => l.status === 'active').map((l) => ({ value: l.code.toLowerCase(), label: l.name }))]}
+              />
+            )}
+            <MSeg
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[{ value: 'all', label: `All (${all.length})` }, { value: 'open', label: 'Open' }, { value: 'cleared', label: 'Cleared' }]}
+            />
+          </div>
         ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
           {/* Location chips only org-wide — a scoped manager link hides them */}
