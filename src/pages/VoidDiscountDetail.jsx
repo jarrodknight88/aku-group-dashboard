@@ -12,6 +12,7 @@ import { fetchVdNotes, addVdNote, vdLineKey, fetchVdPhotos, pinVdPhoto, unpinVdP
 import { fetchOrgUsers } from '../data/notifications.js'
 import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
 import { useScrollLock } from '../lib/useScrollLock.js'
+import { MStatGrid, MSection, MList, MRow, MPill, MSeg } from '../components/mobile.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { PERSONAL_VOID_TARGET, PERSONAL_DISCOUNT_TARGET } from '../config.js'
@@ -428,6 +429,9 @@ export default function VoidDiscountDetail() {
           title="Void & Discount Detail"
           meta={<>The "why" behind the numbers · {loc ? NAMES[loc] : 'org-wide'} · {loading ? 'Loading…' : dataThrough(metrics)} · Toast</>}
           right={
+            isMobile ? (
+              <DateRangePicker />
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
               <DateRangePicker />
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -438,8 +442,25 @@ export default function VoidDiscountDetail() {
                 <ModeToggle mode={mode} onChange={setMode} labels={['By $', 'By Qty']} />
               </div>
             </div>
+            )
           }
         />
+        {isMobile && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <MSeg
+              style={{ flex: 1.4 }}
+              value={isVoid ? 'void' : 'discount'}
+              onChange={(v) => setTabOv(v)}
+              options={[{ value: 'void', label: 'Voids' }, { value: 'discount', label: 'Discounts' }]}
+            />
+            <MSeg
+              style={{ flex: 1 }}
+              value={mode}
+              onChange={setMode}
+              options={[{ value: 'dollar', label: 'By $' }, { value: 'qty', label: 'By Qty' }]}
+            />
+          </div>
+        )}
 
         {error && (
           <div style={{ padding: 14, background: colors.redBg, borderRadius: 9, color: colors.red, fontSize: 13, fontWeight: 600, marginBottom: 18 }}>
@@ -454,6 +475,16 @@ export default function VoidDiscountDetail() {
         )}
 
         {/* ===== SUMMARY STRIP ===== */}
+        {isMobile ? (
+          <MStatGrid
+            style={{ marginBottom: 12 }}
+            items={[
+              { label: `Total ${noun}`, value: mode === 'dollar' ? fmt(totalD) : Math.round(totalQ), hero: true, sub: <span>{mode === 'dollar' ? `${Math.round(totalQ)} ${isVoid ? 'voided items' : 'discounts applied'}` : fmt(totalD)}</span> },
+              { label: '% of Sales', value: pctVal == null ? '—' : `${pctVal.toFixed(1)}%`, valueColor: pctVal == null ? colors.ink : overTarget ? colors.red : colors.greenDark, alert: overTarget, sub: <span>target &lt; {isVoid ? 1 : 3}% · {pctVal == null ? 'awaiting data' : overTarget ? 'over' : 'within'}</span> },
+              { label: 'Over Personal Target', value: overCount, valueColor: overCount > 0 ? colors.red : colors.ink, alert: overCount > 0, sub: <span>{overCount > 0 ? `vs ${target}% target` : 'all within'} · peak {peak ? peak[0] : '—'}</span> },
+            ]}
+          />
+        ) : (
         <StatRow
           size={26}
           min={170}
@@ -497,6 +528,7 @@ export default function VoidDiscountDetail() {
             },
           ]}
         />
+        )}
 
         {/* ===== BREAKDOWN + TOP ITEMS ===== */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16, marginBottom: 24 }}>
@@ -508,7 +540,7 @@ export default function VoidDiscountDetail() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
                 {reasonRows.map((rr) => (
                   <div key={rr.label} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <span style={{ width: 210, fontSize: 12, color: '#3A4150' }}>{rr.label}</span>
+                    <span style={{ width: isMobile ? 110 : 210, fontSize: 12, color: '#3A4150', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rr.label}</span>
                     <div style={{ flex: 1, height: 10, background: colors.pageBg, borderRadius: 5 }}>
                       <div style={{ width: `${rr.pct}%`, height: '100%', background: rr.color, borderRadius: 5 }} />
                     </div>
@@ -628,6 +660,36 @@ export default function VoidDiscountDetail() {
           title={`${isVoid ? 'Void' : 'Discount'} Checks & Notes`}
           right={<span style={{ fontSize: 12, color: colors.muted3 }}>One row per check — click it for the full ticket, photos, and notes</span>}
         />
+        {isMobile ? (
+          <MList>
+            {detailRows.length === 0 && (
+              <div style={{ padding: 16, fontSize: 12, color: colors.muted3 }}>
+                {loading ? 'Loading…' : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
+              </div>
+            )}
+            {detailRows.slice(0, 60).map((r, i) => (
+              <MRow
+                key={i}
+                first={i === 0}
+                onClick={() => { setNoteModal(r); setNoteText(''); setShowAllNight(false) }}
+                title={`${r.type === 'check' ? (r.check_number ? `#${r.check_number} · ` : '') : ''}${r.employee_name || 'Unattributed'}`}
+                sub={`${fmtRange(r.business_date, r.business_date)}${r.opened_at ? ` · ${new Date(r.opened_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}${!loc ? ` · ${locById[r.location_id]?.name ?? ''}` : ''} · ${r.reason || 'no reason'}`}
+                value={fmt(r.amount)}
+                valueSub={`${Math.round(r.qty)} ${isVoid ? 'items' : 'checks'}`}
+                pill={
+                  r.photoCount > 0 ? <MPill tone="green">📷 {r.photoCount}</MPill>
+                  : r.noteList.length > 0 ? <MPill tone="brand">{r.noteList.length} note{r.noteList.length > 1 ? 's' : ''}</MPill>
+                  : null
+                }
+              />
+            ))}
+            {detailRows.length > 60 && (
+              <div style={{ padding: '10px 16px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
+                Showing the latest 60 of {detailRows.length} checks — narrow the range or search an employee.
+              </div>
+            )}
+          </MList>
+        ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {detailRows.length === 0 ? (
             <div style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>
@@ -693,6 +755,7 @@ export default function VoidDiscountDetail() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* ===== LINE NOTES MODAL ===== */}

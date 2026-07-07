@@ -12,6 +12,7 @@ import { sumValet } from '../data/financials.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr, fmtRange } from '../lib/dates.js'
 import { useRange } from '../state/RangeContext.jsx'
+import { useIsMobile, MStatGrid, MDelta, MSection, MList, MRow, MPill } from '../components/mobile.jsx'
 
 /* Live Level 1 — org rollup across every location the signed-in user can
    see. Percentages recompute from summed dollars across locations (never
@@ -232,6 +233,147 @@ function StreamsByLocationCard({ cats, locations }) {
   )
 }
 
+/** Phone layout — rebuilt for on-the-go checks, not a squeezed desktop:
+    hero number + chip grid, tappable location list (replaces the wide
+    comparison table), and depth behind collapsible sections. */
+function MobileCompany({ data, t, prev, active, targets, cb, singleDay, topList, bottomList, catPerf, mode, setMode, bottomMode, setBottomMode }) {
+  const mStat = (label, cur, prevVal, fmt, hero) => {
+    const d = deltaPct(cur, prevVal)
+    return { label, value: fmt(cur), hero, sub: <MDelta delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
+  }
+  const voidBad = t?.voidPct != null && t.voidPct >= (targets.void_pct ?? 1)
+  const discBad = t?.discountPct != null && t.discountPct >= (targets.discount_pct ?? 3)
+
+  const rankList = (rows, m) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rows.map((r, i) => (
+        <RankRow key={r.key} n={i + 1} name={r.item_name} val={m === 'dollar' ? fmtMoney(r.net_sales) : `${fmtInt(r.quantity)} sold`} />
+      ))}
+    </div>
+  )
+
+  return (
+    <>
+      <MStatGrid
+        style={{ marginBottom: 9 }}
+        items={[
+          mStat('Total Net Sales', t?.net, prev?.net, fmtMoney, true),
+          mStat('Covers', t?.covers, prev?.covers, fmtInt),
+          mStat('Avg Check', t?.avgCheck, prev?.avgCheck, fmtMoneyC),
+          mStat('Valet Revenue', sumValet(data.valet), sumValet(data.valetPrev), fmtMoney),
+          mStat('Gross Sales', t?.gross, prev?.gross, fmtMoney),
+        ]}
+      />
+      {/* protection at a glance — tap through to the drill */}
+      <MStatGrid
+        style={{ marginBottom: 12 }}
+        items={[
+          { label: 'Void % of Sales', value: fmtPct(t?.voidPct), valueColor: t?.voidPct == null ? colors.muted3 : voidBad ? colors.red : colors.greenDark, alert: voidBad, sub: <span>Target &lt; {targets.void_pct ?? 1}% · details ›</span>, to: '/void-discount?tab=void' },
+          { label: 'Discount % of Sales', value: fmtPct(t?.discountPct), valueColor: t?.discountPct == null ? colors.muted3 : discBad ? colors.red : colors.greenDark, alert: discBad, sub: <span>Target &lt; {targets.discount_pct ?? 3}% · details ›</span>, to: '/void-discount?tab=discount' },
+        ]}
+      />
+      <div style={{ marginBottom: 12 }}>
+        <ExceptionTile count={data.exceptionCount ?? 0} to="/exceptions" />
+      </div>
+
+      <MSection title="Locations" sub="tap to open" defaultOpen>
+        <MList style={{ border: 'none', borderRadius: 0, overflow: 'visible' }}>
+          {active.map((l, i) => {
+            const mine = sumDaily((data.cur ?? []).filter((r) => r.location_id === l.id))
+            const has = mine.days > 0
+            const vBad = mine.voidPct != null && mine.voidPct >= (targets.void_pct ?? 1)
+            return (
+              <MRow
+                key={l.id}
+                first={i === 0}
+                to={`/locations/${l.code.toLowerCase()}`}
+                title={l.name}
+                sub={has ? `${fmtInt(mine.covers)} covers · avg ${fmtMoneyC(mine.avgCheck)}` : 'awaiting data'}
+                value={has ? fmtMoney(mine.net) : '—'}
+                valueSub={has ? `void ${fmtPct(mine.voidPct)}` : ''}
+                pill={has && vBad ? <MPill tone="red">void over</MPill> : null}
+              />
+            )
+          })}
+        </MList>
+      </MSection>
+
+      <MSection title="Sales" sub="by hour · mix · streams" defaultOpen>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <DailyByLocationCard rows={data.cur ?? []} locations={active} singleDay={singleDay} />
+          <RevenueMixCard rows={data.cur ?? []} locations={active} totalNet={t?.net ?? 0} />
+          <StreamsByLocationCard cats={data.cats ?? []} locations={active} />
+        </div>
+      </MSection>
+
+      <MSection title="Money Saved" sub="cost targets">
+        <MStatGrid
+          items={[
+            { label: 'Food Cost %', value: fmtPct(t?.foodPct), sub: <span>{t?.foodPct == null ? 'awaiting invoices' : `target < ${targets.food_pct ?? 30}%`}</span> },
+            { label: 'Labor Cost %', value: fmtPct(t?.laborPct), valueColor: t?.laborPct != null && t.laborPct < (targets.labor_pct ?? 28) ? colors.greenDark : undefined, sub: <span>{t?.laborPct == null ? 'awaiting import' : `target < ${targets.labor_pct ?? 28}% · no tips`}</span> },
+            { label: 'Liquor Cost %', value: fmtPct(t?.liquorPct), sub: <span>{t?.liquorPct == null ? 'awaiting invoices' : `target < ${targets.liquor_pct ?? 24}%`}</span> },
+            { label: 'Chargebacks Won', value: cb.won.amt, valueColor: colors.greenDark, sub: <span>{cb.won.note} · lost {cb.lost.amt}</span> },
+          ]}
+        />
+      </MSection>
+
+      <MSection title="Top Sellers" sub="org-wide">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <ModeToggle mode={mode} onChange={setMode} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {['Food', 'Liquor', 'Hookah'].map((c) => (
+            <div key={c}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>Top {c}</div>
+              {topList(c).length === 0 ? <div style={{ color: colors.muted3, fontSize: 12 }}>No items in range</div> : rankList(topList(c), mode)}
+            </div>
+          ))}
+          {catPerf.list.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>Category Performance</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {catPerf.list.map((g, i) => (
+                  <div key={g.key}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                      <span>{g.key}</span>
+                      <span style={{ fontWeight: 700 }}>{fmtK(g.net_sales)}</span>
+                    </div>
+                    <div style={{ height: 8, background: colors.pageBg, borderRadius: 4 }}>
+                      <div style={{ width: `${(g.net_sales / Math.max(1, catPerf.list[0].net_sales)) * 100}%`, height: '100%', background: STREAM_COLORS[i % STREAM_COLORS.length], borderRadius: 4 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </MSection>
+
+      <MSection title="Bottom Sellers" sub="lowest movers first">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <ModeToggle mode={bottomMode} onChange={setBottomMode} labels={['Bottom by $', 'Bottom by Qty']} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[['Bottom Food', 'Food'], ['Bottom Liquor', 'Liquor'], ['Bottom Hookah Flavor', 'Hookah']].map(([title, c]) => (
+            <div key={c}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>{title}</div>
+              {bottomList(c).length === 0 ? (
+                <div style={{ color: colors.muted3, fontSize: 12 }}>No items in range</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {bottomList(c).map((r, i) => (
+                    <RankRow key={r.key} n={i + 1} rankColor={colors.muted3} name={r.item_name} val={bottomMode === 'dollar' ? fmtMoney(r.net_sales) : `${fmtInt(r.quantity)} sold`} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </MSection>
+    </>
+  )
+}
+
 export default function CompanyGlance() {
   const [locations, setLocations] = useState(null)
   const [mode, setMode] = useState('dollar')
@@ -239,6 +381,7 @@ export default function CompanyGlance() {
   const hoverTip = useHoverTip()
   const { range } = useRange()
   const singleDay = range.start === range.end
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -301,7 +444,25 @@ export default function CompanyGlance() {
           </div>
         )}
 
-        {!data.loading && !data.error && (
+        {!data.loading && !data.error && isMobile && (
+          <MobileCompany
+            data={data}
+            t={t}
+            prev={prev}
+            active={active}
+            targets={targets}
+            cb={cb}
+            singleDay={singleDay}
+            topList={topList}
+            bottomList={bottomList}
+            catPerf={catPerf}
+            mode={mode}
+            setMode={setMode}
+            bottomMode={bottomMode}
+            setBottomMode={setBottomMode}
+          />
+        )}
+        {!data.loading && !data.error && !isMobile && (
           <>
             {/* ===== HEADLINE STRIP ===== */}
             <StatRow

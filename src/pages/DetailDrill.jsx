@@ -11,6 +11,7 @@ import { useDashboardData } from '../data/useDashboardData.js'
 import { useRange } from '../state/RangeContext.jsx'
 import { fmtRange } from '../lib/dates.js'
 import { fmtMoney, fmtMoneyC, fmtPct, fmtInt } from '../lib/format.js'
+import { useIsMobile, MStatGrid, MSection, MList, MRow } from '../components/mobile.jsx'
 
 /* Live Level 3 — the "why" behind the numbers, for the selected range.
    Currently scoped to the first active location with data (ATL); grows a
@@ -21,6 +22,7 @@ export default function DetailDrill() {
   const { range } = useRange()
   const [locations, setLocations] = useState(null)
   const [mode, setMode] = useState('dollar')
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchLocations().then(setLocations).catch(() => setLocations([]))
@@ -99,7 +101,73 @@ export default function DetailDrill() {
           </div>
         )}
 
-        {!data.loading && !data.error && (
+        {!data.loading && !data.error && isMobile && (
+          <>
+            <MStatGrid
+              style={{ marginBottom: 12 }}
+              items={[
+                { label: 'Collected', value: fmtMoney(payTotal), hero: true, sub: <span>{fmtInt(payments.reduce((s, p) => s + p.pay_count, 0))} payments in range</span> },
+                { label: 'Voids', value: fmtMoney(t?.voids), valueColor: colors.red, sub: <span>{fmtPct(t?.voidPct)} of sales</span>, to: '/void-discount?tab=void' },
+                { label: 'Exception Flags', value: data.exceptionCount ?? 0, sub: <span>review ›</span>, to: `/exceptions?loc=${(location?.code ?? '').toLowerCase()}` },
+              ]}
+            />
+
+            <MSection title="Payment Methods" defaultOpen>
+              <MList style={{ border: 'none', borderRadius: 0, overflow: 'visible' }}>
+                {payments.length === 0 ? (
+                  <div style={{ color: colors.muted3, fontSize: 12 }}>No payments in range</div>
+                ) : (
+                  payments.map((p, i) => (
+                    <MRow
+                      key={p.key}
+                      first={i === 0}
+                      title={p.key}
+                      sub={`${fmtInt(p.pay_count)} txns · avg ${p.pay_count ? fmtMoneyC(p.amount / p.pay_count) : '—'} · tips ${fmtMoney(p.tips)}`}
+                      value={fmtMoney(p.amount)}
+                      valueSub={`${payTotal ? Math.round((p.amount / payTotal) * 100) : 0}% share`}
+                    />
+                  ))
+                )}
+              </MList>
+            </MSection>
+
+            <MSection title="Top Sellers" defaultOpen>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <ModeToggle mode={mode} onChange={setMode} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {[['Top Food', 'Food'], ['Top Liquor', 'Liquor'], ['Top Hookah', 'Hookah']].map(([title, c]) => (
+                  <div key={c}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>{title}</div>
+                    {(itemsByCat[c] ?? []).length === 0 ? (
+                      <div style={{ color: colors.muted3, fontSize: 12 }}>No items in range</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {(itemsByCat[c] ?? []).slice(0, 6).map((r, i) => (
+                          <RankRow key={r.key} n={i + 1} name={r.item_name} val={mode === 'dollar' ? fmtMoney(r.net_sales) : `${fmtInt(r.quantity)} sold`} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </MSection>
+
+            <MSection title="P&L Summary" sub={fmtRange(range.start, range.end)}>
+              <MList style={{ border: 'none', borderRadius: 0, overflow: 'visible' }}>
+                {revenueLines.map((l, i) => (
+                  <MRow key={l.key} first={i === 0} title={l.key} value={fmtMoney(l.net_sales)} valueSub={`${t?.net ? ((l.net_sales / t.net) * 100).toFixed(1) : '0.0'}% of net`} />
+                ))}
+                <MRow title="Net Sales" value={fmtMoney(t?.net)} />
+              </MList>
+              <div style={{ fontSize: 11, color: colors.muted3, marginTop: 10 }}>
+                Cost lines (food, liquor, labor, operating) complete when invoice + labor sources land — see Financials.
+              </div>
+            </MSection>
+          </>
+        )}
+
+        {!data.loading && !data.error && !isMobile && (
           <>
             {/* ===== TOP SELLERS ===== */}
             <SectionHeader title="Top Sellers" right={<ModeToggle mode={mode} onChange={setMode} />} />

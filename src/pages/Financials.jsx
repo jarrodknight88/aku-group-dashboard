@@ -13,6 +13,7 @@ import { fetchInvoices, fetchInvoiceById, fetchReviewQueue, reviewInvoice, fetch
 import { fetchOrgUsers } from '../data/notifications.js'
 import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
 import { useScrollLock } from '../lib/useScrollLock.js'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap } from '../components/mobile.jsx'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -226,6 +227,7 @@ export default function Financials() {
   const [acting, setActing] = useState(null)
   const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
   useScrollLock(!!billModal)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchOrgUsers().then(setOrgUsers)
@@ -621,6 +623,17 @@ export default function Financials() {
         )}
 
         {/* ===== SUMMARY ===== */}
+        {isMobile ? (
+          <MStatGrid
+            style={{ marginBottom: 14 }}
+            items={[
+              { label: `Revenue · ${fmtRange(range.start, range.end)}`, value: fmtK(rangeTotals.rev), hero: true, sub: <span>Toast net sales + valet</span> },
+              { label: 'Expenses', value: fmtK(rangeTotals.exp), sub: <span>invoices · bills · payroll · valet</span> },
+              { label: 'Net', value: fmtK(rangeTotals.rev - rangeTotals.exp), valueColor: rangeTotals.rev - rangeTotals.exp >= 0 ? colors.greenDark : colors.red, sub: <span>{rangeTotals.rev > 0 ? `${(((rangeTotals.rev - rangeTotals.exp) / rangeTotals.rev) * 100).toFixed(1)}% margin` : 'no revenue in range'}</span> },
+              queue.length > 0 && { label: 'Needs Review', value: queue.length, valueColor: colors.red, alert: true, hero: true, sub: <span>flagged by rules — review below</span> },
+            ]}
+          />
+        ) : (
         <StatRow
           size={26}
           min={190}
@@ -640,9 +653,33 @@ export default function Financials() {
             },
           ]}
         />
+        )}
 
         {/* ===== REVIEW QUEUE ===== */}
         <SectionHeader title="Review Queue" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Rules auto-approve normal invoices — only flagged ones land here</span>} />
+        {isMobile ? (
+          <MList style={{ marginBottom: 20 }}>
+            {queue.length === 0 && <div style={{ padding: 16, fontSize: 12, color: colors.muted3 }}>Nothing needs review.</div>}
+            {queue.map((q, i) => (
+              <div key={q.id} style={{ borderTop: i === 0 ? 'none' : `1px solid ${colors.pageBg}` }}>
+                <MRow
+                  first
+                  onClick={() => setInvModal(q)}
+                  title={q.vendors?.name ?? q.vendor_name_raw}
+                  sub={`${fmtRange(q.invoice_date, q.invoice_date)} · ${locations.find((l) => l.id === q.location_id)?.name ?? ''}${(q.flag_reasons ?? [])[0] ? ` · ${q.flag_reasons[0]}` : ''}`}
+                  value={fmt2(q.amount)}
+                  pill={<MPill tone="red">review</MPill>}
+                />
+                {canAct && (
+                  <div style={{ display: 'flex', gap: 8, padding: '0 14px 12px' }}>
+                    <span onClick={() => acting !== q.id && act(q.id, true)} style={{ flex: 1, textAlign: 'center', padding: '9px 0', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, opacity: acting === q.id ? 0.6 : 1 }}>Approve</span>
+                    <span onClick={() => acting !== q.id && act(q.id, false)} style={{ flex: 1, textAlign: 'center', padding: '9px 0', border: `1px solid ${colors.redBorder}`, color: colors.red, borderRadius: 8, fontSize: 12, fontWeight: 700, opacity: acting === q.id ? 0.6 : 1 }}>Decline</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </MList>
+        ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
           {queue.length === 0 ? (
             <div style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>Nothing needs review.</div>
@@ -697,9 +734,26 @@ export default function Financials() {
             </div>
           )}
         </div>
+        )}
 
         {/* ===== MONTHLY P&L ===== */}
         <SectionHeader title={`Monthly P&L · ${year}`} sub={loc === 'all' ? 'all locations' : locByCode[loc]?.name} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Revenue = Toast net sales + valet · Expenses = invoices + bills + valet costs + payroll from the Payroll tab</span>} />
+        {isMobile ? (
+          <MList style={{ marginBottom: 20 }}>
+            {pnl.filter((m) => m.has).map((m, i) => (
+              <MRow
+                key={m.label}
+                first={i === 0}
+                title={m.label}
+                sub={`rev ${fmtK(m.rev)} · exp ${fmtK(m.exp)}${m.payroll > 0 ? ` · payroll ${fmtK(m.payroll)}` : ''}`}
+                value={m.net < 0 ? `(${fmtMoney(-m.net)})` : fmtMoney(m.net)}
+                valueSub={m.margin == null ? '' : `${m.margin.toFixed(1)}% margin`}
+                pill={m.net < 0 ? <MPill tone="red">loss</MPill> : null}
+              />
+            ))}
+            {pnl.every((m) => !m.has) && <div style={{ padding: 16, fontSize: 12, color: colors.muted3 }}>No {year} data yet.</div>}
+          </MList>
+        ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
           <div style={{ overflowX: 'auto' }}>
             <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
@@ -733,6 +787,7 @@ export default function Financials() {
             </table>
           </div>
         </div>
+        )}
 
         {/* ===== CATEGORY SPEND DRILL ===== */}
         <SectionHeader title="Category Spend" sub={fmtRange(range.start, range.end)} right={<span style={{ fontSize: 12, color: colors.muted3 }}>Click a group, category, then vendor to drill to invoices</span>} />
@@ -785,6 +840,24 @@ export default function Financials() {
                 )
               }
             />
+            {isMobile ? (
+              <MList style={{ marginBottom: 20 }}>
+                {vendorInvoices.map((i, ix) => {
+                  const over = vendorBaseline && Number(i.amount) > vendorBaseline.band && Number(i.amount) >= 500
+                  return (
+                    <MRow
+                      key={i.id}
+                      first={ix === 0}
+                      onClick={() => setInvModal(i)}
+                      title={`${fmtRange(i.invoice_date, i.invoice_date)}${i.invoice_number ? ` · #${i.invoice_number}` : ''}`}
+                      sub={`${locations.find((l) => l.id === i.location_id)?.name ?? ''} · ${i.status.replace('_', ' ')}`}
+                      value={fmt2(i.amount)}
+                      pill={over ? <MPill tone="red">above baseline</MPill> : null}
+                    />
+                  )
+                })}
+              </MList>
+            ) : (
             <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
               <div style={{ overflowX: 'auto' }}>
                 <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
@@ -819,10 +892,12 @@ export default function Financials() {
                 </table>
               </div>
             </div>
+            )}
           </>
         )}
 
         {/* ===== RECURRING BILLS WORKSHEET ===== */}
+        <MWrap on={isMobile} title="Recurring Bills" sub={`${fmtMoney(billsYtdTotal)} entered YTD`}>
         <SectionHeader
           title={`Recurring Bills · ${year}`}
           sub={`${fmtMoney(billsYtdTotal)} entered YTD`}
@@ -909,8 +984,10 @@ export default function Financials() {
           tiles — labor comes from Toast). Costs from invoices land on the invoice date; flagged and declined invoices
           never count. The nightly rollup re-syncs everything after review decisions.
         </div>
+        </MWrap>
 
         {/* ===== VALET WORKSHEET ===== */}
+        <MWrap on={isMobile} title="Valet" sub={`net ${fmt2(valetTotals.net)} in range`}>
         <SectionHeader
           style={{ marginTop: 30 }}
           title="Valet"
@@ -1019,6 +1096,7 @@ export default function Financials() {
           line and the overview headline; staff and costs count as expenses. Click a night to correct it — but nights
           that come from the sheet get overwritten by the next sync, so fix those in the sheet itself.
         </div>
+        </MWrap>
       </div>
 
       {/* ===== INVOICE DETAIL MODAL ===== */}
