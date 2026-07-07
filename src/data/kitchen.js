@@ -22,7 +22,7 @@ export async function generateOrderGuide(locationId, targetDate) {
 export async function fetchOrderGuide(locationId, targetDate) {
   const { data: guide, error } = await supabase
     .from('order_guides')
-    .select('id, location_id, target_date, generated_at, buffer_pct, status, confirmed_at')
+    .select('id, location_id, target_date, covers_through, generated_at, buffer_pct, status, confirmed_at')
     .eq('location_id', locationId)
     .eq('target_date', targetDate)
     .maybeSingle()
