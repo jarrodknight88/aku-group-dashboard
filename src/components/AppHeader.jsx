@@ -157,9 +157,21 @@ export default function AppHeader({ active = 'company' }) {
           <Link to="/payroll" style={tab(active === 'payroll')}>
             Payroll
           </Link>
-          <Link to="/kitchen" style={tab(active === 'kitchen')}>
-            Kitchen
-          </Link>
+          <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('inv')} onMouseLeave={closeSoon}>
+            <Link to="/inventory/kitchen" style={tab(active === 'inventory')}>
+              Inventory {caret}
+            </Link>
+            {menu === 'inv' && (
+              <div style={menuWrap('left')}>
+                <div style={menuBox('left')}>
+                  <Link to="/inventory/kitchen" className="menu-item" style={item(true, colors.ink)}>Kitchen</Link>
+                  {divider}
+                  <div style={{ ...item(false, colors.muted4), cursor: 'default' }}>Bar · coming soon</div>
+                  <div style={{ ...item(false, colors.muted4), cursor: 'default' }}>Hookah · coming soon</div>
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('fin')} onMouseLeave={closeSoon}>
             <Link to="/financials" style={tab(active === 'financials')}>
               Financials {caret}
@@ -382,9 +394,12 @@ function MobileDrawer({ active, locations, isAdmin, signOut, onClose }) {
           <Link to="/payroll" onClick={onClose} style={link(active === 'payroll')}>
             Payroll
           </Link>
-          <Link to="/kitchen" onClick={onClose} style={link(active === 'kitchen')}>
+          {groupLabel('Inventory')}
+          <Link to="/inventory/kitchen" onClick={onClose} style={link(active === 'inventory', true)}>
             Kitchen
           </Link>
+          <div style={{ ...link(false, true), color: colors.muted4 }}>Bar · coming soon</div>
+          <div style={{ ...link(false, true), color: colors.muted4 }}>Hookah · coming soon</div>
           {groupLabel('Financials')}
           <Link to="/financials" onClick={onClose} style={link(active === 'financials')}>
             All locations
