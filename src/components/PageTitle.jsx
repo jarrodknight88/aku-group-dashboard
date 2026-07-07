@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { colors, fonts } from '../theme.js'
 import { fmtRange } from '../lib/dates.js'
+import { useIsMobile } from './mobile.jsx'
 
 /** "Data through Jul 2" tail for title metadata lines (latest business date in the loaded rows). */
 export function dataThrough(rows) {
@@ -30,8 +31,19 @@ export function Crumbs({ items }) {
 }
 
 /** Page title row (§11): 26px serif title, metadata line, right-side controls
-    (usually the date-range picker). */
+    (usually the date-range picker). Phones stack: title + meta, then the
+    controls full-width underneath — no more floating right-aligned widgets. */
 export default function PageTitle({ title, meta, right, style }) {
+  const mobile = useIsMobile()
+  if (mobile) {
+    return (
+      <div style={{ marginBottom: 14, ...style }}>
+        <div style={{ fontFamily: fonts.serif, fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.08 }}>{title}</div>
+        {meta && <div style={{ fontSize: 11.5, color: colors.muted3, marginTop: 4 }}>{meta}</div>}
+        {right && <div style={{ marginTop: 12 }}>{right}</div>}
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 16, ...style }}>
       <div>

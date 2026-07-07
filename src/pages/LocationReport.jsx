@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import AppHeader from '../components/AppHeader.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import PageTitle, { Crumbs, dataThrough } from '../components/PageTitle.jsx'
@@ -28,7 +28,7 @@ import { sumValet } from '../data/financials.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
 import { useRange } from '../state/RangeContext.jsx'
-import { useIsMobile, MStatGrid, MDelta, MSection } from '../components/mobile.jsx'
+import { useIsMobile, MStatGrid, MDelta, MSection, MLocSelect } from '../components/mobile.jsx'
 
 /* Live Level 2 — everything on this page derives from the Toast import
    tables for the globally selected date range. Cost tiles show awaiting
@@ -164,7 +164,7 @@ function DailySalesCard({ rows, singleDay }) {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, height: 172, marginTop: 18 }}>
           {buckets.map((b) => (
             <div key={b.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 }}>
-              {buckets.length <= 14 && <div style={{ fontSize: 10, color: colors.muted2, fontWeight: 600 }}>{fmtK(b.v)}</div>}
+              {buckets.length <= (typeof window !== 'undefined' && window.innerWidth < 700 ? 7 : 14) && <div style={{ fontSize: 10, color: colors.muted2, fontWeight: 600 }}>{fmtK(b.v)}</div>}
               <div
                 data-tip={`${b.tipDay} · ${fmtK(b.v)} net sales${b.v === max && b.v > 0 ? (hourly ? ' — peak hour' : ' — best day') : ''}`}
                 style={{ width: '100%', maxWidth: 46, height: Math.max(3, (b.v / max) * 118), background: colors.brand, borderRadius: '4px 4px 0 0' }}
@@ -385,6 +385,7 @@ function MobileLocation({ data, t, prevTotals, targets, cb, singleDay, location,
 
 export default function LocationReport() {
   const { loc } = useParams()
+  const navigate = useNavigate()
   const [locations, setLocations] = useState(null)
   const [mode, setMode] = useState('dollar') // top sellers toggle
   const [bottomMode, setBottomMode] = useState('dollar') // bottom sellers toggle
@@ -496,6 +497,20 @@ export default function LocationReport() {
             </>
           }
           right={
+            isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <DateRangePicker />
+                <MLocSelect
+                  value={(location?.code ?? '').toLowerCase()}
+                  onChange={(code) => navigate(`/locations/${code}`)}
+                  options={(locations ?? []).map((l) =>
+                    l.status === 'active'
+                      ? { value: l.code.toLowerCase(), label: l.name }
+                      : { value: l.code.toLowerCase(), label: `${l.name} · coming soon`, disabled: true },
+                  )}
+                />
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
               <DateRangePicker />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -529,6 +544,7 @@ export default function LocationReport() {
                 </Link>
               </div>
             </div>
+            )
           }
         />
         {data.loading && (

@@ -7,7 +7,7 @@ import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations } from '../data/live.js'
 import { useScrollLock } from '../lib/useScrollLock.js'
-import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap } from '../components/mobile.jsx'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap, MLocSelect } from '../components/mobile.jsx'
 import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate, excludeEmployee, restoreEmployee } from '../data/payroll.js'
 import { supabase } from '../lib/supabase.js'
 import { fmtRange } from '../lib/dates.js'
@@ -357,6 +357,31 @@ export default function Payroll() {
           title="Payroll Run"
           meta={<>Hours from Toast · tips &amp; tip-out from nightly reconciliation sheet · overtime paid at straight time</>}
           right={
+            isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: 4, border: `1px solid ${colors.borderStrong}`, borderRadius: 11, background: '#fff', fontSize: 13.5, fontWeight: 700 }}>
+                  <span onClick={() => setOffset((o) => o - 1)} style={{ padding: '8px 16px', cursor: 'pointer', color: colors.muted1 }}>◀</span>
+                  <span style={{ flex: 1, textAlign: 'center' }}>{periodLabel} <span style={{ fontSize: 10.5, color: colors.muted3, fontWeight: 500 }}>· biweekly</span></span>
+                  <span
+                    onClick={() => offset < 0 && setOffset((o) => o + 1)}
+                    style={{ padding: '8px 16px', cursor: offset < 0 ? 'pointer' : 'default', color: offset < 0 ? colors.muted1 : colors.muted4 }}
+                  >
+                    ▶
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div
+                    onClick={pullState?.running ? undefined : runPayroll}
+                    style={{ flex: 1, textAlign: 'center', padding: '11px 0', background: colors.brand, color: '#fff', borderRadius: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: pullState?.running ? 0.7 : 1 }}
+                  >
+                    {pullState?.running ? 'Pulling…' : 'Run Payroll'}
+                  </div>
+                  <div onClick={exportBatch} style={{ flex: 1, textAlign: 'center', padding: '11px 0', border: `1px solid ${colors.borderStrong}`, background: '#fff', color: colors.brand, borderRadius: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    Export to ADP
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, border: `1px solid ${colors.borderStrong}`, borderRadius: 9, background: '#fff', fontSize: 13, fontWeight: 600 }}>
@@ -381,6 +406,7 @@ export default function Payroll() {
                 Export to ADP
               </div>
             </div>
+            )
           }
         />
 
@@ -399,7 +425,15 @@ export default function Payroll() {
         {!data.loading && !data.error && (
           <>
             {/* ===== SOURCE STATUS + LOCATION FILTER ===== */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, flexWrap: 'wrap', marginBottom: 20 }}>
+              {isMobile ? (
+                <MLocSelect
+                  style={{ width: '100%' }}
+                  value={loc}
+                  onChange={setLoc}
+                  options={[{ value: 'all', label: 'All locations' }, ...active.map((l) => ({ value: l.code.toLowerCase(), label: l.name }))]}
+                />
+              ) : (
               <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${colors.border}`, padding: 4, borderRadius: 9 }}>
                 {[['all', 'All locations'], ...active.map((l) => [l.code.toLowerCase(), l.name])].map(([code, label]) => (
                   <div
@@ -411,6 +445,7 @@ export default function Payroll() {
                   </div>
                 ))}
               </div>
+              )}
               <span style={laborDays > 0 ? chip(colors.greenDark, colors.greenBg) : chip(colors.red, colors.redBg)}>
                 {laborDays > 0 ? `✓ Toast hours imported · ${laborDays} days` : '● No Toast hours — run the backfill'}
               </span>

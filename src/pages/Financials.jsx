@@ -13,7 +13,7 @@ import { fetchInvoices, fetchInvoiceById, fetchReviewQueue, reviewInvoice, fetch
 import { fetchOrgUsers } from '../data/notifications.js'
 import MentionInput, { extractMentions, MentionText } from '../components/MentionInput.jsx'
 import { useScrollLock } from '../lib/useScrollLock.js'
-import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap } from '../components/mobile.jsx'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap, MLocSelect } from '../components/mobile.jsx'
 import { fmtMoney } from '../lib/format.js'
 import { fmtRange } from '../lib/dates.js'
 
@@ -598,6 +598,22 @@ export default function Financials() {
           title="Financials"
           meta={<>Revenue from Toast · costs from approved invoices · {loading ? 'Loading…' : `${invoices.length} invoices in range`}</>}
           right={
+            isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <DateRangePicker />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <MLocSelect
+                    style={{ flex: 1 }}
+                    value={loc}
+                    onChange={(code) => { setLoc(code); setDrill({}) }}
+                    options={[{ value: 'all', label: 'All locations' }, ...active.map((l) => ({ value: l.code.toLowerCase(), label: l.name }))]}
+                  />
+                  <Link to="/financials/submit" style={{ display: 'flex', alignItems: 'center', padding: '0 16px', background: colors.brand, color: '#fff', borderRadius: 11, fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    ＋ Invoice
+                  </Link>
+                </div>
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, maxWidth: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
                 <Link to="/financials/submit" style={{ padding: '9px 16px', background: colors.brand, color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -613,6 +629,7 @@ export default function Financials() {
                 ))}
               </div>
             </div>
+            )
           }
         />
 

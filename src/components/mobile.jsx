@@ -141,6 +141,30 @@ export function MRow({ title, sub, value, valueSub, pill, onClick, to, first }) 
   )
 }
 
+/**
+ * Location dropdown for phones — replaces the desktop tab rows that force
+ * horizontal scroll once every venue is listed. Native <select> so the OS
+ * picker does the work; 16px font stops iOS from zooming the page.
+ */
+export function MLocSelect({ value, onChange, options, style }) {
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: '100%', padding: '12px 38px 12px 14px', border: `1px solid ${colors.borderStrong}`, borderRadius: 11, background: '#fff', fontSize: 16, fontWeight: 600, color: colors.ink, fontFamily: 'inherit', appearance: 'none', WebkitAppearance: 'none' }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: colors.muted3, fontSize: 11 }}>▾</span>
+    </div>
+  )
+}
+
 /** Wrap desktop sections in a collapsible on phones; pass-through on desktop. */
 export function MWrap({ on, title, sub, defaultOpen = false, children }) {
   if (!on) return children
