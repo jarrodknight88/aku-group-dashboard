@@ -7,6 +7,7 @@ import { card, labelUpper } from '../components/cards.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { fetchLocations } from '../data/live.js'
 import { useScrollLock } from '../lib/useScrollLock.js'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MWrap } from '../components/mobile.jsx'
 import { payPeriod, fetchPayrollData, buildRun, pullTipsSheet, addSalaried, saveEmployeeRate, excludeEmployee, restoreEmployee } from '../data/payroll.js'
 import { supabase } from '../lib/supabase.js'
 import { fmtRange } from '../lib/dates.js'
@@ -266,8 +267,33 @@ export default function Payroll() {
 
   const input = { width: '100%', padding: '8px 10px', border: `1px solid ${colors.borderStrong}`, borderRadius: 7, fontSize: 12, fontFamily: 'inherit' }
   const allView = loc === 'all'
+  const isMobile = useIsMobile()
 
-  const runsTable = (
+  const runsTable = isMobile ? (
+    <MList>
+      <MRow
+        first
+        onClick={exportBatch}
+        title={periodLabel}
+        sub={`batch ${batchId} · in progress`}
+        value="View"
+        pill={<MPill tone="brand">CURRENT</MPill>}
+      />
+      {(data.runs ?? []).map((r) => (
+        <MRow
+          key={r.id}
+          onClick={() => setExportView({ csv: r.csv || '(no CSV stored)', subtitle: `Archived batch ${r.batch_id} · ${fmtRange(r.period_start, r.period_end)} — exactly as exported` })}
+          title={fmtRange(r.period_start, r.period_end)}
+          sub={`batch ${r.batch_id}`}
+          value="View"
+          pill={<MPill tone="green">✓ exported</MPill>}
+        />
+      ))}
+      {(data.runs ?? []).length === 0 && (
+        <div style={{ padding: '14px 16px', color: colors.muted3, fontSize: 12 }}>No exported batches yet — each ADP export saves its CSV here.</div>
+      )}
+    </MList>
+  ) : (
     <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>
       <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 560 }}>
@@ -398,6 +424,17 @@ export default function Payroll() {
             </div>
 
             {/* ===== SUMMARY TILES ===== */}
+            {isMobile ? (
+              <MStatGrid
+                style={{ marginBottom: 14 }}
+                items={[
+                  { label: 'Total Payroll', value: fmt(sumWages + sumTips + sumSalary), hero: true, sub: <span>{hourly.length} hourly · {salaried.length} salaried · {periodLabel}</span> },
+                  { label: 'Hourly Wages', value: fmt(sumWages), sub: <span>{sumHours.toFixed(1)} hrs</span> },
+                  { label: 'Tips Owed', value: fmt(sumTips), sub: <span>{heldSum > 0 ? `${fmt(heldSum)} held` : 'net of tip-out'}</span> },
+                  { label: 'Salaries', value: fmt(sumSalary), sub: <span>{salaried.length} salaried / period</span> },
+                ]}
+              />
+            ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 28 }}>
               <div style={{ background: colors.brand, borderRadius: 13, padding: 20, color: '#fff' }}>
                 <div style={{ ...labelUpper, color: colors.brandTint3 }}>Total Payroll</div>
@@ -422,11 +459,36 @@ export default function Payroll() {
                 <div style={{ fontSize: 11, color: colors.muted3, marginTop: 4 }}>{salaried.length} salaried · per period</div>
               </div>
             </div>
+            )}
 
             {allView ? (
               <>
                 {/* ===== ALL-LOCATIONS DASHBOARD ===== */}
                 <SectionHeader title="This Pay Period by Location" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Open a location to review &amp; edit its run</span>} />
+                {isMobile ? (
+                  <MList style={{ marginBottom: 20 }}>
+                    {active.map((l, i) => {
+                      const h = run.rows.filter((r) => r.loc === l.id)
+                      const sEmp = (data.salaried ?? []).filter((x) => x.location_id === l.id)
+                      const wages = h.reduce((a, r) => a + r.wages, 0)
+                      const tips = h.reduce((a, r) => a + (r.tips ?? 0), 0)
+                      const sal = sEmp.reduce((a, x) => a + Number(x.salary), 0)
+                      const reviews = h.filter((r) => !r.matched).length
+                      return (
+                        <MRow
+                          key={l.id}
+                          first={i === 0}
+                          onClick={() => setLoc(l.code.toLowerCase())}
+                          title={l.name}
+                          sub={`${h.length} hourly · ${sEmp.length} sal · ${h.reduce((a, r) => a + r.hours, 0).toFixed(1)} hrs`}
+                          value={fmt(wages + tips + sal)}
+                          valueSub={`tips ${fmt(tips)}`}
+                          pill={h.length === 0 ? <MPill>no hours</MPill> : reviews > 0 ? <MPill tone="red">{reviews} review</MPill> : <MPill tone="green">ready</MPill>}
+                        />
+                      )
+                    })}
+                  </MList>
+                ) : (
                 <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: 28 }}>
                   <div style={{ overflowX: 'auto' }}>
                   <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
@@ -479,6 +541,7 @@ export default function Payroll() {
                   </table>
                   </div>
                 </div>
+                )}
 
                 <SectionHeader title="Previous Payrolls" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Saved after each ADP export · company-wide</span>} />
                 {runsTable}
@@ -487,6 +550,32 @@ export default function Payroll() {
               <>
                 {/* ===== HOURLY TABLE (run view) ===== */}
                 <SectionHeader title="Hourly Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Check = (hours × rate) + tips owed · click a rate to set it — it carries into every future period</span>} />
+                {isMobile ? (
+                  <MList style={{ marginBottom: unmatched.length ? 12 : 20 }}>
+                    {hourly.length === 0 && (
+                      <div style={{ padding: 16, color: colors.muted3, fontSize: 12 }}>
+                        No Toast hours for this location in {periodLabel} — run the Toast backfill for this range first.
+                      </div>
+                    )}
+                    {hourly.map((r, i) => (
+                      <MRow
+                        key={r.guid}
+                        first={i === 0}
+                        title={r.name}
+                        sub={`${r.role || '—'} · ${r.hours.toFixed(1)} hrs${r.ot > 0 ? ` (${r.ot.toFixed(1)} OT)` : ''} · ${r.rate > 0 ? `${fmt(r.rate)}/hr` : 'rate not set'}${r.held > 0 ? ` · ${fmt(r.held)} tip held` : ''}`}
+                        value={fmt(r.check)}
+                        valueSub={`wages ${fmt(r.wages)} · tips ${r.matched ? fmt(r.tips) : '—'}`}
+                        pill={r.matched ? <MPill tone="green">matched</MPill> : <MPill tone="red">review</MPill>}
+                      />
+                    ))}
+                    {hourly.length > 0 && (
+                      <MRow title="Totals" sub={`${sumHours.toFixed(1)} hrs`} value={fmt(sumWages + sumTips)} valueSub={`wages ${fmt(sumWages)} · tips ${fmt(sumTips)}`} />
+                    )}
+                    <div style={{ padding: '10px 16px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
+                      Rates and exclusions are edited on the desktop view.
+                    </div>
+                  </MList>
+                ) : (
                 <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: unmatched.length ? 12 : 28 }}>
                   <div style={{ overflowX: 'auto' }}>
                   <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 820 }}>
@@ -585,6 +674,7 @@ export default function Payroll() {
                   </table>
                   </div>
                 </div>
+                )}
                 {unmatched.length > 0 && (
                   <div style={{ padding: '10px 14px', background: '#FBF3DC', borderRadius: 9, color: '#8A6D1A', fontSize: 12, fontWeight: 600, marginBottom: 28 }}>
                     On the tips sheet but not matched to Toast hours: {unmatched.map((u) => `${u.name} (${fmt(u.amount)})`).join(' · ')} — add an
@@ -593,6 +683,7 @@ export default function Payroll() {
                 )}
 
                 {/* ===== SALARIED ===== */}
+                <MWrap on={isMobile} title="Salaried Employees" sub={`${salaried.length} · ${fmt(sumSalary)} / period`}>
                 <SectionHeader title="Salaried Employees" right={<span style={{ fontSize: 12, color: colors.muted3 }}>Added manually · not in Toast hours</span>} />
                 <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
@@ -649,6 +740,8 @@ export default function Payroll() {
                   days (chargeback window): held amounts are excluded from tips owed and notated on the row, then added to a later
                   run's check when released — also notated.
                 </div>
+
+                </MWrap>
 
                 {/* ===== EXCLUDED EMPLOYEES ===== */}
                 {excludedRows.length > 0 && (

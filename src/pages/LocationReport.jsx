@@ -28,6 +28,7 @@ import { sumValet } from '../data/financials.js'
 import { fmtMoney, fmtMoneyC, fmtK, fmtPct, fmtInt, deltaPct, fmtDelta } from '../lib/format.js'
 import { fromStr } from '../lib/dates.js'
 import { useRange } from '../state/RangeContext.jsx'
+import { useIsMobile, MStatGrid, MDelta, MSection } from '../components/mobile.jsx'
 
 /* Live Level 2 — everything on this page derives from the Toast import
    tables for the globally selected date range. Cost tiles show awaiting
@@ -262,12 +263,133 @@ function TopList({ title, rows, mode, rankColor }) {
   )
 }
 
+/** Phone layout — hero + chips, drill link, everything else collapsible. */
+function MobileLocation({ data, t, prevTotals, targets, cb, singleDay, location, itemsByCat, bottomList, mode, setMode, bottomMode, setBottomMode, empMode, setEmpMode, roleRanking, overallLeaders }) {
+  const code = (location?.code ?? '').toLowerCase()
+  const mStat = (label, cur, prevVal, fmt, hero) => {
+    const d = deltaPct(cur, prevVal)
+    return { label, value: fmt(cur), hero, sub: <MDelta delta={fmtDelta(d)} up={d == null ? true : d >= 0} /> }
+  }
+  const voidBad = t?.voidPct != null && t.voidPct >= (targets.void_pct ?? 1)
+  const discBad = t?.discountPct != null && t.discountPct >= (targets.discount_pct ?? 3)
+  return (
+    <>
+      <MStatGrid
+        style={{ marginBottom: 9 }}
+        items={[
+          mStat('Net Sales', t?.net, prevTotals?.net, fmtMoney, true),
+          mStat('Covers', t?.covers, prevTotals?.covers, fmtInt),
+          mStat('Avg Check', t?.avgCheck, prevTotals?.avgCheck, fmtMoneyC),
+          mStat('Valet Revenue', sumValet(data.valet), sumValet(data.valetPrev), fmtMoney),
+          mStat('Gross Sales', t?.gross, prevTotals?.gross, fmtMoney),
+        ]}
+      />
+      <MStatGrid
+        style={{ marginBottom: 12 }}
+        items={[
+          { label: 'Void % of Sales', value: fmtPct(t?.voidPct), valueColor: t?.voidPct == null ? colors.muted3 : voidBad ? colors.red : colors.greenDark, alert: voidBad, sub: <span>{t?.voidPct == null ? 'no sales in range' : `${fmtMoney(t.voids)} · details ›`}</span>, to: `/void-discount?tab=void&loc=${code}` },
+          { label: 'Discount % of Sales', value: fmtPct(t?.discountPct), valueColor: t?.discountPct == null ? colors.muted3 : discBad ? colors.red : colors.greenDark, alert: discBad, sub: <span>{t?.discountPct == null ? 'no sales in range' : `${fmtMoney(t.discounts)} · details ›`}</span>, to: `/void-discount?tab=discount&loc=${code}` },
+        ]}
+      />
+      <div style={{ marginBottom: 9 }}>
+        <ExceptionTile count={data.exceptionCount ?? 0} to={`/exceptions?loc=${code}`} />
+      </div>
+      <Link to="/detail-drill" style={{ display: 'block', textAlign: 'center', padding: '12px 0', background: '#fff', border: `1px solid ${colors.borderStrong}`, borderRadius: 12, color: colors.brand, fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
+        View Detail Drill →
+      </Link>
+
+      <MSection title="Sales" sub="trend · payments · streams" defaultOpen>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <DailySalesCard rows={data.cur ?? []} singleDay={singleDay} />
+          <PaymentMixCard pays={data.pays ?? []} />
+          <RevenueStreamsCard cats={data.cats ?? []} />
+        </div>
+      </MSection>
+
+      <MSection title="Money Saved" sub="cost targets">
+        <MStatGrid
+          items={[
+            { label: 'Food Cost %', value: fmtPct(t?.foodPct), sub: <span>{t?.foodPct == null ? 'awaiting invoices' : `target < ${targets.food_pct ?? 30}%`}</span> },
+            { label: 'Labor %', value: fmtPct(t?.laborPct), sub: <span>{t?.laborPct == null ? 'awaiting import' : `${fmtMoney(t.labor_cost)} wages · no tips`}</span> },
+            { label: 'Liquor Cost %', value: fmtPct(t?.liquorPct), sub: <span>{t?.liquorPct == null ? 'awaiting invoices' : `target < ${targets.liquor_pct ?? 24}%`}</span> },
+            { label: 'Chargebacks Won', value: cb.won.amt, valueColor: colors.greenDark, sub: <span>{cb.won.note} · lost {cb.lost.amt}</span> },
+          ]}
+        />
+      </MSection>
+
+      <MSection title="Top Sellers">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <ModeToggle mode={mode} onChange={setMode} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <TopList title="Top Food" rows={(itemsByCat['Food'] ?? []).slice(0, 5)} mode={mode} />
+          <TopList title="Top Liquor" rows={(itemsByCat['Liquor'] ?? []).slice(0, 5)} mode={mode} />
+          <TopList title="Top Hookah" rows={(itemsByCat['Hookah'] ?? []).slice(0, 5)} mode={mode} />
+        </div>
+      </MSection>
+
+      <MSection title="Bottom Sellers" sub="lowest movers first">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <ModeToggle mode={bottomMode} onChange={setBottomMode} labels={['Bottom by $', 'Bottom by Qty']} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <TopList title="Bottom Food" rows={bottomList('Food')} mode={bottomMode} rankColor={colors.muted3} />
+          <TopList title="Bottom Liquor" rows={bottomList('Liquor')} mode={bottomMode} rankColor={colors.muted3} />
+          <TopList title="Bottom Hookah Flavor" rows={bottomList('Hookah')} mode={bottomMode} rankColor={colors.muted3} />
+        </div>
+      </MSection>
+
+      <MSection title="Top Employees">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <ModeToggle mode={empMode} onChange={setEmpMode} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {ROLE_CARDS.map((rc) => {
+            const ranked = roleRanking(rc)
+            return (
+              <div key={rc.key}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>{rc.title}</div>
+                {ranked.length === 0 ? (
+                  <div style={{ color: colors.muted3, fontSize: 12 }}>No sales in range</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {ranked.map((e, i) => (
+                      <RankRow key={e.guid} n={i + 1} name={e.name} val={empMode === 'dollar' ? fmtMoney(e.total) : `${fmtInt(rc.qtyOf(e))} ${rc.unit}`} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {overallLeaders.length > 0 && (
+            <div style={{ background: colors.brand, borderRadius: 13, padding: 16 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', marginBottom: 11 }}>Overall</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {overallLeaders.map((o) => (
+                  <div key={o.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ flex: 1, fontSize: 12.5, color: '#fff', fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: colors.brandTint3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{o.label}</span>{' '}
+                      {o.name}
+                    </span>
+                    <span className="tnum" style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{o.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </MSection>
+    </>
+  )
+}
+
 export default function LocationReport() {
   const { loc } = useParams()
   const [locations, setLocations] = useState(null)
   const [mode, setMode] = useState('dollar') // top sellers toggle
   const [bottomMode, setBottomMode] = useState('dollar') // bottom sellers toggle
   const [empMode, setEmpMode] = useState('dollar') // top employees section toggle
+  const isMobile = useIsMobile()
   const hoverTip = useHoverTip()
   const { range } = useRange()
   const singleDay = range.start === range.end
@@ -423,7 +545,28 @@ export default function LocationReport() {
           </div>
         )}
 
-        {!data.loading && !data.error && (
+        {!data.loading && !data.error && isMobile && (
+          <MobileLocation
+            data={data}
+            t={t}
+            prevTotals={prevTotals}
+            targets={targets}
+            cb={cb}
+            singleDay={singleDay}
+            location={location}
+            itemsByCat={itemsByCat}
+            bottomList={bottomList}
+            mode={mode}
+            setMode={setMode}
+            bottomMode={bottomMode}
+            setBottomMode={setBottomMode}
+            empMode={empMode}
+            setEmpMode={setEmpMode}
+            roleRanking={roleRanking}
+            overallLeaders={overallLeaders}
+          />
+        )}
+        {!data.loading && !data.error && !isMobile && (
           <>
             {/* ===== HEADLINE STRIP ===== */}
             <StatRow

@@ -9,6 +9,7 @@ import { useRange } from '../state/RangeContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { fetchLocations } from '../data/live.js'
 import { useScrollLock } from '../lib/useScrollLock.js'
+import { useIsMobile, MStatGrid, MList, MRow, MPill, MSeg } from '../components/mobile.jsx'
 import { colors, fonts, layout } from '../theme.js'
 import { TIP_HOLD_RULE, TIP_HOLD_DAYS, TIP_HOLD_THRESHOLD } from '../config.js'
 
@@ -135,7 +136,8 @@ export default function ExceptionDetail() {
   const [locations, setLocations] = useState([])
   const [flags, setFlags] = useState(null)
   const [holds, setHolds] = useState([])
-  const [statusFilter, setStatusFilter] = useState('all') // all | open | cleared
+  const [statusFilter, setStatusFilter] = useState('all')
+  const isMobile = useIsMobile() // all | open | cleared
   const [selected, setSelected] = useState(null)
   const [reload, setReload] = useState(0)
 
@@ -266,6 +268,16 @@ export default function ExceptionDetail() {
         />
 
         {/* ===== SUMMARY STRIP ===== */}
+        {isMobile ? (
+          <MStatGrid
+            style={{ marginBottom: 12 }}
+            items={[
+              { label: 'Open / Unreviewed', value: openCount + heldCount, hero: true, valueColor: openCount + heldCount > 0 ? colors.red : colors.greenDark, sub: <span>{openCount + heldCount > 0 ? 'needs attention' : 'all reviewed'} · {money(atRisk)} at risk</span> },
+              { label: 'Total Flags', value: all.length, sub: <span>this period</span> },
+              { label: 'Cleared', value: resolvedCount, valueColor: colors.greenDark, sub: <span>approved + denied + released</span> },
+            ]}
+          />
+        ) : (
         <StatRow
           size={26}
           min={170}
@@ -277,6 +289,7 @@ export default function ExceptionDetail() {
             { label: 'Cleared', value: resolvedCount, valueColor: colors.greenDark, sub: <span style={{ fontSize: 11, color: colors.muted3 }}>Approved + denied + released</span> },
           ]}
         />
+        )}
 
         {/* ===== RULE BREAKDOWN ===== */}
         <div style={{ ...card, marginBottom: 24 }}>
@@ -287,7 +300,7 @@ export default function ExceptionDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               {ruleRows.map((rr) => (
                 <div key={rr.rule} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <span style={{ width: 230, fontSize: 12, color: '#3A4150' }}>{rr.rule}</span>
+                  <span style={{ width: isMobile ? 120 : 230, fontSize: 12, color: '#3A4150', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rr.rule}</span>
                   <div style={{ flex: 1, height: 10, background: colors.pageBg, borderRadius: 5 }}>
                     <div style={{ width: `${rr.pct}%`, height: '100%', background: rr.color, borderRadius: 5 }} />
                   </div>
@@ -299,6 +312,14 @@ export default function ExceptionDetail() {
         </div>
 
         {/* ===== FILTER BAR ===== */}
+        {isMobile ? (
+          <MSeg
+            style={{ marginBottom: 12 }}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[{ value: 'all', label: `All (${all.length})` }, { value: 'open', label: 'Open' }, { value: 'cleared', label: 'Cleared' }]}
+          />
+        ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
           {/* Location chips only org-wide — a scoped manager link hides them */}
           {!loc && (
@@ -318,8 +339,35 @@ export default function ExceptionDetail() {
             Showing <span style={{ color: '#3A4150', fontWeight: 600 }}>{filtered.length}</span> flagged transactions
           </div>
         </div>
+        )}
 
         {/* ===== EXCEPTION TABLE ===== */}
+        {isMobile ? (
+          <MList>
+            {flags === null && <div style={{ padding: 16, color: colors.muted3, fontSize: 12 }}>Loading…</div>}
+            {flags !== null && filtered.length === 0 && (
+              <div style={{ padding: 16, color: colors.muted3, fontSize: 12 }}>
+                No flags in this range — the large-tip auto-hold rule runs nightly at import.
+              </div>
+            )}
+            {filtered.map((f, i) => {
+              const sev = SEV[f.severity] ?? SEV.med
+              const sv = statusView(f)
+              return (
+                <MRow
+                  key={f.id}
+                  first={i === 0}
+                  onClick={() => setSelected(f.id)}
+                  title={`${f.rule_tripped}${f.check_number ? ` · #${f.check_number}` : ''}`}
+                  sub={`${fmtWhen(f.occurred_at)} · ${locById[f.location_id]?.name ?? '—'}${f.server_name ? ` · ${f.server_name}` : ''}`}
+                  value={money(f.amount)}
+                  valueSub={sv.text}
+                  pill={<MPill tone={sev.label === 'High' ? 'red' : 'gray'}>{sev.label}</MPill>}
+                />
+              )
+            })}
+          </MList>
+        ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
@@ -370,6 +418,7 @@ export default function ExceptionDetail() {
             </table>
           </div>
         </div>
+        )}
       </div>
 
       {sel && (
