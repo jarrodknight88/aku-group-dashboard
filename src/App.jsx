@@ -56,6 +56,7 @@ export default function App() {
         <Route path="/void-discount" element={<RequireAuth><VoidDiscountDetail /></RequireAuth>} />
         <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
         <Route path="/inventory/kitchen" element={<RequireAuth><KitchenOrderGuide /></RequireAuth>} />
+        <Route path="/inventory/bar" element={<RequireAuth><KitchenOrderGuide department="bar" /></RequireAuth>} />
         <Route path="/kitchen" element={<Navigate to="/inventory/kitchen" replace />} />
         <Route path="/financials" element={<RequireAuth><Financials /></RequireAuth>} />
         <Route path="/financials/submit" element={<RequireAuth><InvoiceIntake /></RequireAuth>} />

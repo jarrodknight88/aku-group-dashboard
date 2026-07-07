@@ -165,8 +165,8 @@ export default function AppHeader({ active = 'company' }) {
               <div style={menuWrap('left')}>
                 <div style={menuBox('left')}>
                   <Link to="/inventory/kitchen" className="menu-item" style={item(true, colors.ink)}>Kitchen</Link>
+                  <Link to="/inventory/bar" className="menu-item" style={item(true, colors.ink)}>Bar</Link>
                   {divider}
-                  <div style={{ ...item(false, colors.muted4), cursor: 'default' }}>Bar · coming soon</div>
                   <div style={{ ...item(false, colors.muted4), cursor: 'default' }}>Hookah · coming soon</div>
                 </div>
               </div>
@@ -398,7 +398,9 @@ function MobileDrawer({ active, locations, isAdmin, signOut, onClose }) {
           <Link to="/inventory/kitchen" onClick={onClose} style={link(active === 'inventory', true)}>
             Kitchen
           </Link>
-          <div style={{ ...link(false, true), color: colors.muted4 }}>Bar · coming soon</div>
+          <Link to="/inventory/bar" onClick={onClose} style={link(false, true)}>
+            Bar
+          </Link>
           <div style={{ ...link(false, true), color: colors.muted4 }}>Hookah · coming soon</div>
           {groupLabel('Financials')}
           <Link to="/financials" onClick={onClose} style={link(active === 'financials')}>

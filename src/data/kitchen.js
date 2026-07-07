@@ -10,20 +10,22 @@ const LINE_COLS =
   'id, ingredient_id, forecast_need, buffer_pct, suggested_packs, adjusted_packs, is_estimate, note, ' +
   'ingredients(name, pack_label, pack_qty, pack_unit, vendor, is_verified)'
 
-export async function generateOrderGuide(locationId, targetDate) {
+export async function generateOrderGuide(locationId, targetDate, department = 'kitchen') {
   const { data, error } = await supabase.rpc('generate_order_guide', {
     p_location_id: locationId,
     p_target: targetDate,
+    p_department: department,
   })
   if (error) throw new Error(error.message)
   return data // guide id
 }
 
-export async function fetchOrderGuide(locationId, targetDate) {
+export async function fetchOrderGuide(locationId, targetDate, department = 'kitchen') {
   const { data: guide, error } = await supabase
     .from('order_guides')
     .select('id, location_id, target_date, covers_through, generated_at, buffer_pct, status, confirmed_at')
     .eq('location_id', locationId)
+    .eq('department', department)
     .eq('target_date', targetDate)
     .maybeSingle()
   if (error) throw new Error(error.message)
