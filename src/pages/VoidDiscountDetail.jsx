@@ -59,6 +59,8 @@ export default function VoidDiscountDetail() {
   const [vdChecks, setVdChecks] = useState([]) // check-level detail with full ticket items
   const [photos, setPhotos] = useState([]) // GroupMe void/comp photos for the range
   const [noteModal, setNoteModal] = useState(null) // a vd line row, or null
+  const [checkQuery, setCheckQuery] = useState('') // Checks & Notes section search
+  const [checkSort, setCheckSort] = useState({ key: 'date', dir: 'desc' }) // and its sort
   const [orgUsers, setOrgUsers] = useState([]) // roster for @-mentions
   useScrollLock(!!noteModal)
   // notification deep link (?date=&check=): jump the range to that night,
@@ -256,9 +258,8 @@ export default function VoidDiscountDetail() {
     return m
   }, [notes])
   const detailRows = useMemo(() => {
-    const match = (name) => !query || (name ?? '').toLowerCase().includes(query.toLowerCase())
     const checkRows = vdChecks
-      .filter((c) => c.kind === kind && match(c.employee_name))
+      .filter((c) => c.kind === kind)
       .map((c) => ({
         type: 'check',
         ...c,
@@ -268,7 +269,7 @@ export default function VoidDiscountDetail() {
     // nights that predate check-level capture keep the aggregated rows
     const covered = new Set(vdChecks.filter((c) => c.kind === kind).map((c) => `${c.location_id}|${c.business_date}`))
     const legacyRows = empRaw
-      .filter((r) => !covered.has(`${r.location_id}|${r.business_date}`) && match(r.employee_name))
+      .filter((r) => !covered.has(`${r.location_id}|${r.business_date}`))
       .map((r) => ({
         type: 'line',
         ...r,
@@ -277,10 +278,33 @@ export default function VoidDiscountDetail() {
         noteList: notesByLine.get(noteKeyOf(r.location_id, r.business_date, r.kind, vdLineKey(r), r.reason ?? '')) ?? [],
         photoCount: 0,
       }))
-    return [...checkRows, ...legacyRows].sort((a, b) =>
-      a.business_date < b.business_date ? 1 : a.business_date > b.business_date ? -1 : b.amount - a.amount,
-    )
-  }, [vdChecks, empRaw, kind, query, notesByLine, photos])
+    // section search: employee, check #, reason/type, location, note text
+    const q = checkQuery.trim().toLowerCase()
+    const hit = (r) =>
+      !q ||
+      (r.employee_name ?? '').toLowerCase().includes(q) ||
+      String(r.check_number ?? '').includes(q.replace(/^#/, '')) ||
+      (r.reason ?? '').toLowerCase().includes(q) ||
+      (locById[r.location_id]?.name ?? '').toLowerCase().includes(q) ||
+      r.noteList.some((n) => (n.note ?? '').toLowerCase().includes(q))
+    const dir = checkSort.dir === 'asc' ? 1 : -1
+    const timeOf = (r) => (r.opened_at ? new Date(r.opened_at).getTime() : new Date(r.business_date + 'T12:00:00').getTime())
+    const val = (r) => {
+      switch (checkSort.key) {
+        case 'amount': return r.amount
+        case 'employee': return (r.employee_name ?? '').toLowerCase()
+        case 'reason': return (r.reason ?? '').toLowerCase()
+        case 'activity': return r.photoCount * 100 + r.noteList.length
+        default: return timeOf(r) // 'date'
+      }
+    }
+    return [...checkRows, ...legacyRows].filter(hit).sort((a, b) => {
+      const va = val(a)
+      const vb = val(b)
+      const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb
+      return c !== 0 ? c * dir : timeOf(b) - timeOf(a)
+    })
+  }, [vdChecks, empRaw, kind, checkQuery, checkSort, notesByLine, photos, locById])
   const modalNotes = noteModal
     ? noteModal.type === 'check' && noteModal.check_guid
       ? notesByLine.get(`guid:${noteModal.check_guid}`) ?? []
@@ -394,6 +418,21 @@ export default function VoidDiscountDetail() {
     >
       {children}
       <span style={{ color: colors.brand }}>{sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
+
+  const CheckTh = ({ k, right, wide, children }) => (
+    <th
+      onClick={() =>
+        setCheckSort((cs) => ({
+          key: k,
+          dir: cs.key === k ? (cs.dir === 'asc' ? 'desc' : 'asc') : k === 'employee' || k === 'reason' ? 'asc' : 'desc',
+        }))
+      }
+      style={{ textAlign: right ? 'right' : 'left', padding: wide ? '11px 18px' : '11px 12px', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      {children}
+      <span style={{ color: colors.brand }}>{checkSort.key === k ? (checkSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
     </th>
   )
 
@@ -658,13 +697,54 @@ export default function VoidDiscountDetail() {
         <SectionHeader
           style={{ marginTop: 30 }}
           title={`${isVoid ? 'Void' : 'Discount'} Checks & Notes`}
-          right={<span style={{ fontSize: 12, color: colors.muted3 }}>One row per check — click it for the full ticket, photos, and notes</span>}
+          right={
+            isMobile ? null : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
+                <input
+                  value={checkQuery}
+                  onChange={(e) => setCheckQuery(e.target.value)}
+                  placeholder="Search check #, employee, reason, note…"
+                  style={{ padding: '7px 11px', border: `1px solid ${colors.borderStrong}`, borderRadius: 8, fontSize: 12, fontFamily: 'inherit', width: 240, maxWidth: '100%' }}
+                />
+                <span style={{ fontSize: 12, color: colors.muted3 }}>Click a row for the full ticket · click headers to sort</span>
+              </div>
+            )
+          }
         />
+        {isMobile && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <input
+              value={checkQuery}
+              onChange={(e) => setCheckQuery(e.target.value)}
+              placeholder="Search check #, employee, reason, note…"
+              style={{ flex: 1.6, minWidth: 0, padding: '11px 13px', border: `1px solid ${colors.borderStrong}`, borderRadius: 11, fontSize: 16, fontFamily: 'inherit' }}
+            />
+            <div style={{ position: 'relative', flex: 1 }}>
+              <select
+                value={`${checkSort.key}:${checkSort.dir}`}
+                onChange={(e) => {
+                  const [key, dir] = e.target.value.split(':')
+                  setCheckSort({ key, dir })
+                }}
+                style={{ width: '100%', height: '100%', padding: '11px 26px 11px 12px', border: `1px solid ${colors.borderStrong}`, borderRadius: 11, background: '#fff', fontSize: 13, fontWeight: 600, color: colors.ink, fontFamily: 'inherit', appearance: 'none', WebkitAppearance: 'none' }}
+              >
+                <option value="date:desc">Newest first</option>
+                <option value="date:asc">Oldest first</option>
+                <option value="amount:desc">Amount · high → low</option>
+                <option value="amount:asc">Amount · low → high</option>
+                <option value="employee:asc">Employee · A → Z</option>
+                <option value="reason:asc">{isVoid ? 'Reason' : 'Type'} · A → Z</option>
+                <option value="activity:desc">Photos & notes first</option>
+              </select>
+              <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: colors.muted3, fontSize: 10 }}>▾</span>
+            </div>
+          </div>
+        )}
         {isMobile ? (
           <MList>
             {detailRows.length === 0 && (
               <div style={{ padding: 16, fontSize: 12, color: colors.muted3 }}>
-                {loading ? 'Loading…' : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
+                {loading ? 'Loading…' : checkQuery ? `Nothing matches "${checkQuery}" in this range.` : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
               </div>
             )}
             {detailRows.slice(0, 60).map((r, i) => (
@@ -685,7 +765,7 @@ export default function VoidDiscountDetail() {
             ))}
             {detailRows.length > 60 && (
               <div style={{ padding: '10px 16px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
-                Showing the latest 60 of {detailRows.length} checks — narrow the range or search an employee.
+                Showing 60 of {detailRows.length} checks — search or narrow the range to see the rest.
               </div>
             )}
           </MList>
@@ -693,21 +773,21 @@ export default function VoidDiscountDetail() {
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {detailRows.length === 0 ? (
             <div style={{ padding: 18, fontSize: 12, color: colors.muted3 }}>
-              {loading ? 'Loading…' : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
+              {loading ? 'Loading…' : checkQuery ? `Nothing matches "${checkQuery}" in this range.` : `No ${isVoid ? 'voids' : 'discounts'} in this range.`}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table className="tnum" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 860 }}>
                 <thead>
                   <tr style={{ background: colors.panelGray, color: colors.muted2 }}>
-                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Night</th>
+                    <CheckTh k="date" wide>Night</CheckTh>
                     <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Check</th>
                     {!loc && <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Location</th>}
-                    <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>Employee</th>
-                    <th style={{ textAlign: 'left', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Reason' : 'Discount type'}</th>
-                    <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>Amount</th>
+                    <CheckTh k="employee">Employee</CheckTh>
+                    <CheckTh k="reason">{isVoid ? 'Reason' : 'Discount type'}</CheckTh>
+                    <CheckTh k="amount" right>Amount</CheckTh>
                     <th style={{ textAlign: 'right', padding: '11px 12px', fontWeight: 600 }}>{isVoid ? 'Items' : 'Checks'}</th>
-                    <th style={{ textAlign: 'left', padding: '11px 18px', fontWeight: 600 }}>Photos & notes</th>
+                    <CheckTh k="activity" wide>Photos & notes</CheckTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -751,7 +831,7 @@ export default function VoidDiscountDetail() {
           )}
           {detailRows.length > 80 && (
             <div style={{ padding: '10px 18px', fontSize: 11, color: colors.muted3, borderTop: `1px solid ${colors.pageBg}` }}>
-              Showing the latest 80 of {detailRows.length} checks — narrow the date range or search an employee to see the rest.
+              Showing 80 of {detailRows.length} checks — search or narrow the date range to see the rest.
             </div>
           )}
         </div>
