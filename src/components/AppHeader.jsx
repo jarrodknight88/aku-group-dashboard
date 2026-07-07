@@ -157,6 +157,9 @@ export default function AppHeader({ active = 'company' }) {
           <Link to="/payroll" style={tab(active === 'payroll')}>
             Payroll
           </Link>
+          <Link to="/kitchen" style={tab(active === 'kitchen')}>
+            Kitchen
+          </Link>
           <div style={{ position: 'relative' }} onMouseEnter={() => openMenu('fin')} onMouseLeave={closeSoon}>
             <Link to="/financials" style={tab(active === 'financials')}>
               Financials {caret}
@@ -378,6 +381,9 @@ function MobileDrawer({ active, locations, isAdmin, signOut, onClose }) {
           {divider}
           <Link to="/payroll" onClick={onClose} style={link(active === 'payroll')}>
             Payroll
+          </Link>
+          <Link to="/kitchen" onClick={onClose} style={link(active === 'kitchen')}>
+            Kitchen
           </Link>
           {groupLabel('Financials')}
           <Link to="/financials" onClick={onClose} style={link(active === 'financials')}>

@@ -9,6 +9,7 @@ import DetailDrill from './pages/DetailDrill.jsx'
 import ExceptionDetail from './pages/ExceptionDetail.jsx'
 import VoidDiscountDetail from './pages/VoidDiscountDetail.jsx'
 import Payroll from './pages/Payroll.jsx'
+import KitchenOrderGuide from './pages/KitchenOrderGuide.jsx'
 import Financials from './pages/Financials.jsx'
 import InvoiceIntake from './pages/InvoiceIntake.jsx'
 import MobileIntake from './pages/MobileIntake.jsx'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/exceptions" element={<RequireAuth><ExceptionDetail /></RequireAuth>} />
         <Route path="/void-discount" element={<RequireAuth><VoidDiscountDetail /></RequireAuth>} />
         <Route path="/payroll" element={<RequireAuth><Payroll /></RequireAuth>} />
+        <Route path="/kitchen" element={<RequireAuth><KitchenOrderGuide /></RequireAuth>} />
         <Route path="/financials" element={<RequireAuth><Financials /></RequireAuth>} />
         <Route path="/financials/submit" element={<RequireAuth><InvoiceIntake /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
